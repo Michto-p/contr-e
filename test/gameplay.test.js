@@ -278,7 +278,9 @@ test('une horde marche sur le village ; repoussée à plusieurs, elle recule', a
   const m0 = room().state.monstres.get(ids[0]);
   const d0 = Math.hypot(m0.x - vc.x, m0.y - vc.y);
   assert.ok(await until(() => Math.hypot(m0.x - vc.x, m0.y - vc.y) < d0 - 0.5), 'la horde avance');
-  // Jade les abat un à un (on les affaiblit et on les amène devant elle).
+  // Jade les abat un à un (on les affaiblit et on les amène devant elle, hors du village :
+  // un monstre de horde qui entre au village le pille aussitôt).
+  place(j.p(), zone);
   j.p().dir = 'droite';
   for (const id of ids) {
     const m = room().state.monstres.get(id);

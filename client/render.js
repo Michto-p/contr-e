@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, HOUSE_LOTS, ROOM_W, ROOM_H, ROOM_FURNITURE } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, ROOM_W, ROOM_H, ROOM_FURNITURE, FAUBOURG_HOUSES, lotCount, lotTile } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
 import { drawSky } from './ciel.js';
 
@@ -164,20 +164,36 @@ function roofOf(name) {
   for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
   return ['#3b6d8f', '#4f7d4a', '#7d4f8a', '#a4473a', '#b8863a', '#3a8f86'][h % 6];
 }
-function drawLots(ctx, zx, zy, maisons) {
-  HOUSE_LOTS.forEach(([tx, ty], i) => {
-    const x = (zx * ZONE_TILES + tx) * TILE;
-    const y = (zy * ZONE_TILES + ty) * TILE;
+// Un faubourg : des ruelles pavées et les maisons des habitants, par-dessus le pré.
+function drawFaubourg(ctx, zx, zy) {
+  const x0 = zx * ZONE_PX;
+  const y0 = zy * ZONE_PX;
+  px(ctx, '#cdb994', x0 + 7 * TILE, y0, 2 * TILE, ZONE_PX);
+  px(ctx, '#cdb994', x0, y0 + 7.5 * TILE, ZONE_PX, 1.5 * TILE);
+  for (let i = 0; i < ZONE_TILES; i++) {
+    px(ctx, '#b9a57f', x0 + 7 * TILE + ((i % 2) * 8), y0 + i * TILE, 1, TILE);
+    px(ctx, '#b9a57f', x0 + i * TILE, y0 + 8 * TILE + ((i % 2) * 6), TILE, 1);
+  }
+  FAUBOURG_HOUSES.forEach(([tx, ty], i) => drawHouse(ctx, x0 + tx * TILE, y0 + ty * TILE, ['#b5523b', '#8f5a3a', '#a4473a', '#7d6a4a'][(i + zx) % 4]));
+}
+
+// Tous les terrains (cœur du village puis faubourgs) qui sont à l'écran.
+function drawLots(ctx, geo, maisons, bounds) {
+  for (let i = 0; i < lotCount(geo.faubourgs); i++) {
+    const t = lotTile(i, geo);
+    if (!t || t[0] < bounds.x0 - 1 || t[0] > bounds.x1 + 1 || t[1] < bounds.y0 - 1 || t[1] > bounds.y1 + 1) continue;
+    const x = t[0] * TILE;
+    const y = t[1] * TILE;
     const owner = maisons?.get(String(i));
     if (owner) {
       drawHouse(ctx, x, y, roofOf(owner));
       px(ctx, '#ffd84a', x + 13, y - 1, 1, 5); px(ctx, roofOf(owner), x + 14, y - 1, 3, 2); // fanion du propriétaire
-      return;
+      continue;
     }
     px(ctx, 'rgba(120, 90, 50, 0.35)', x + 1, y + 3, 14, 12);
     for (let k = 0; k < 4; k++) { px(ctx, '#8a6a3a', x + 1 + k * 4, y + 2, 1, 3); px(ctx, '#8a6a3a', x + 1 + k * 4, y + 14, 1, 3); }
     px(ctx, '#8a6a3a', x + 1, y + 3, 14, 1); px(ctx, '#8a6a3a', x + 1, y + 15, 14, 1);
-  });
+  }
 }
 
 function drawWater(ctx, gx, gy, ox, oy, terrain) {
@@ -797,13 +813,14 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     }
   }
 
-  // Terrains et maisons des joueurs au village.
-  {
-    const vz = monde.village;
-    const vx = vz % W;
-    const vy = Math.floor(vz / W);
-    if (vx >= zx0 && vx <= zx1 && vy >= zy0 && vy <= zy1) drawLots(ctx, vx, vy, state.maisons);
+  // Faubourgs, puis terrains et maisons des joueurs (au village et dans les faubourgs).
+  const geo = { villageId: monde.village, width: W, faubourgs: [...(state.faubourgs ?? [])] };
+  for (const id of geo.faubourgs) {
+    const fx = id % W;
+    const fy = Math.floor(id / W);
+    if (fx >= zx0 && fx <= zx1 && fy >= zy0 && fy <= zy1) drawFaubourg(ctx, fx, fy);
   }
+  drawLots(ctx, geo, state.maisons, { x0: cx - halfW, x1: cx + halfW, y0: cy - halfH, y1: cy + halfH });
 
   // Zones de quête : un fanion au centre de la zone.
   for (const zi of questZones) {
@@ -871,11 +888,10 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
   // Le nom du propriétaire au-dessus de chaque maison du village.
   ctx.font = `${Math.max(9, Math.round(3.2 * scale))}px system-ui, sans-serif`;
   state.maisons?.forEach((owner, lot) => {
-    const [tx, ty] = HOUSE_LOTS[Number(lot)] ?? [];
+    const [tx, ty] = lotTile(Number(lot), { villageId: monde.village, width: W, faubourgs: [...(state.faubourgs ?? [])] }) ?? [];
     if (tx == null) return;
-    const vz = monde.village;
-    const sx = Math.round(width / 2 + ((vz % W) * ZONE_TILES + tx + 0.5 - cx) * unit);
-    const sy = Math.round(height / 2 + (Math.floor(vz / W) * ZONE_TILES + ty - cy) * unit - 2 * scale);
+    const sx = Math.round(width / 2 + (tx + 0.5 - cx) * unit);
+    const sy = Math.round(height / 2 + (ty - cy) * unit - 2 * scale);
     if (sx < -50 || sy < -20 || sx > width + 50 || sy > height + 20) return;
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(20, 16, 12, 0.8)';

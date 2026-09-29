@@ -224,3 +224,22 @@ test('un personnage de joueur avec une maison fonde une famille ; ses enfants po
   assert.ok(kids.length >= 1, `${kids.length} enfant(s)`);
   for (const k of kids) assert.equal(k.famille, 'Alix');
 });
+
+test('le village s\'agrandit : un faubourg sûr naît quand son cœur est plein, avec de nouveaux terrains', async () => {
+  const { lotCount, lotTile, HOUSE_LOTS } = await import('../shared/monde.js');
+  const w = createWorld(42, { width: 16, height: 16 });
+  w.village.population.houses = 13; // plus que le cœur du village n'en contient
+  const { state, events } = simulate(w, createRng(3), { days: 2 });
+  const grew = events.find((e) => e.type === 'village_grows');
+  assert.ok(grew, 'un faubourg');
+  const f = state.zones[grew.zone];
+  assert.ok(f.faubourg && !f.isField && f.monsterPressure <= 10);
+  assert.match(f.label, /^le faubourg/);
+  assert.deepEqual(state.village.faubourgs, [f.id]);
+  // Six terrains de plus, dans le faubourg.
+  const geo = { villageId: state.villageId, width: state.width, faubourgs: state.village.faubourgs };
+  assert.equal(lotCount(geo.faubourgs), HOUSE_LOTS.length + 6);
+  const [tx, ty] = lotTile(HOUSE_LOTS.length, geo);
+  assert.equal(Math.floor(tx / 16), f.x);
+  assert.equal(Math.floor(ty / 16), f.y);
+});

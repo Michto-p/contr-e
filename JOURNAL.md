@@ -215,3 +215,7 @@
 ## Hiérarchie du village
 - Fait : renommée (0–100) gagnée par les hauts faits (habitants : invention, défrichage, passage, défense, trouvaille ; joueurs : quêtes, hordes repoussées, égarés ramenés, avant-postes, maison). Chaque jour, le plus respecté (renommée, savoir, savoir-faire, âge, talent) prend la tête du village (+0,05 à tous les métiers) ; le plus habile de chaque métier (au moins 45) devient maître d'atelier (+0,1 à son métier, il garde sa place sauf s'il est nettement dépassé) ; les moins de 22 ans qui exercent sont ses apprentis (+2 d'apprentissage par an). Events `new_chief`, `new_master`.
 - Décision : pas de nouveau système, tout vit dans la population. Problème repéré : le test de famille dépendait du hasard (village plein, conjoint trop âgé) ; il contrôle désormais ces conditions.
+
+## Le village s'agrandit
+- Fait : quand les maisons d'habitants dépassent ce que contient le cœur du village (11, puis 6 par faubourg) ou que les joueurs ont pris presque tous les terrains, un pré voisin en diagonale devient un faubourg (event `village_grows`) : pression des monstres plafonnée à 10, ni champ ni lieu de travail, ruelles et maisons dessinées, 6 terrains de plus pour les joueurs (géométrie partagée `lotTile`). 4 faubourgs au plus.
+- Problème repéré et corrigé : le test de la horde était instable (les monstres amenés près d'un joueur resté au village pillaient parfois le village avant d'être frappés).

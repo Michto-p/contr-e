@@ -16,6 +16,31 @@ export const INN_DOOR = [11.5, 6.4];
 export const HOUSE_LOTS = [[4, 3], [7, 4], [14, 4], [3, 7], [11, 8], [5, 9], [14, 9], [8, 12], [6, 14], [12, 14]];
 export const houseDoor = (lot) => [HOUSE_LOTS[lot][0] + 0.5, HOUSE_LOTS[lot][1] + 1.3];
 
+// Quand le village s'agrandit, chaque faubourg a ses maisons d'habitants et 6 terrains de plus.
+export const FAUBOURG_HOUSES = [[2, 2], [7, 1], [12, 2], [2, 12], [12, 12], [7, 13]];
+export const FAUBOURG_LOTS = [[4, 6], [8, 5], [12, 6], [4, 9], [8, 9], [11, 10]];
+export const lotCount = (faubourgs = []) => HOUSE_LOTS.length + faubourgs.length * FAUBOURG_LOTS.length;
+// Tuile (en coordonnées du monde) d'un terrain : les premiers au cœur du village, puis par faubourg.
+// `geo` : { villageId, width, faubourgs }.
+export function lotTile(lot, geo) {
+  let zone;
+  let rel;
+  if (lot < HOUSE_LOTS.length) {
+    zone = geo.villageId;
+    rel = HOUSE_LOTS[lot];
+  } else {
+    const k = Math.floor((lot - HOUSE_LOTS.length) / FAUBOURG_LOTS.length);
+    zone = geo.faubourgs?.[k];
+    rel = FAUBOURG_LOTS[(lot - HOUSE_LOTS.length) % FAUBOURG_LOTS.length];
+    if (zone == null) return null;
+  }
+  return [(zone % geo.width) * ZONE_TILES + rel[0], Math.floor(zone / geo.width) * ZONE_TILES + rel[1]];
+}
+export function lotDoor(lot, geo) {
+  const t = lotTile(lot, geo);
+  return t ? [t[0] + 0.5, t[1] + 1.3] : null;
+}
+
 // L'intérieur d'une maison : une pièce de ROOM_W × ROOM_H tuiles, en coordonnées locales.
 // Le mobilier a une place par défaut (la disposition pourra se personnaliser plus tard).
 export const ROOM_W = 10;

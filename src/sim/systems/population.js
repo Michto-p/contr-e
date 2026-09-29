@@ -295,6 +295,32 @@ function build(pop, state, ctx, events) {
     pop.houses += 1;
     events.push(ctx.event('house_built', null, { houses: pop.houses }));
   }
+  extend(pop, state, ctx, events);
+}
+
+// Le village s'agrandit : quand son cœur est plein de maisons, un pré voisin (en diagonale, entre
+// deux champs) devient un faubourg, sûr comme le village, avec ses maisons et ses terrains.
+// Il grandit aussi quand les joueurs ont pris presque tous les terrains à bâtir.
+export const VILLAGE_ROOM = 11; // maisons d'habitants dans le cœur du village
+export const FAUBOURG_ROOM = 6; // maisons d'habitants, et terrains de joueurs, par faubourg
+export const VILLAGE_LOTS = 10; // terrains de joueurs dans le cœur du village
+export const MAX_FAUBOURGS = 4;
+function extend(pop, state, ctx, events) {
+  const faubourgs = state.village.faubourgs ??= [];
+  if (faubourgs.length >= MAX_FAUBOURGS) return;
+  const crowded = pop.houses > VILLAGE_ROOM + faubourgs.length * FAUBOURG_ROOM;
+  const lotsFull = (state.village.playerHouses ?? 0) >= VILLAGE_LOTS + faubourgs.length * FAUBOURG_ROOM - 1;
+  if (!crowded && !lotsFull) return;
+  const v = state.zones[state.villageId];
+  const site = neighbors(state, v)
+    .filter((z) => z.x !== v.x && z.y !== v.y && !z.isField && !z.closed && !z.faubourg)
+    .sort((a, b) => a.monsterPressure - b.monsterPressure || a.id - b.id)[0];
+  if (!site) return;
+  site.faubourg = true;
+  site.monsterPressure = Math.min(site.monsterPressure, 10);
+  site.label = zoneLabel(site);
+  faubourgs.push(site.id);
+  events.push(ctx.event('village_grows', site, { label: site.label }));
 }
 
 // ---------- Voyageurs égarés ----------
@@ -502,7 +528,7 @@ function clearing(pop, state, rng, ctx, events) {
   const agro = workers(pop, 'agriculteur').find((w) => w.talent === 'agronome' || w.skills.culture >= 70);
   const eleveur = workers(pop, 'eleveur').find((w) => w.skills.elevage >= 40);
   if (!agro || !eleveur || !rng.chance(0.2)) return;
-  const candidates = state.zones.filter((z) => !z.isField && !z.isVillage && !z.closed && z.biome === 'plaine'
+  const candidates = state.zones.filter((z) => !z.isField && !z.isVillage && !z.faubourg && !z.closed && z.biome === 'plaine'
     && z.dist <= 2 && z.monsterPressure < 30 && z.structures.length === 0
     && neighbors(state, z).some((n) => n.isField && (n.x === z.x || n.y === z.y)));
   if (!candidates.length) return;
@@ -629,7 +655,7 @@ function workLimit(p, z) {
 }
 
 function workplaces(state, job) {
-  const open = state.zones.filter((z) => !z.isVillage && !z.closed);
+  const open = state.zones.filter((z) => !z.isVillage && !z.faubourg && !z.closed);
   switch (job) {
     case 'agriculteur': return open.filter((z) => z.isField);
     case 'bucheron_mineur': return open.filter((z) => !z.isField && z.dist <= 4 && (z.biome === 'foret' || (z.resources.minerai ?? 0) > 0));

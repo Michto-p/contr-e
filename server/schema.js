@@ -115,6 +115,7 @@ export const Zone = schema({
   w: t.uint8(), // usure du chemin
   c: t.boolean(), // fermée (neige)
   s: t.string(), // structures exposées : "type|état|chantier;…"
+  f: t.boolean(), // faubourg du village
 }, 'Zone');
 
 export const Metier = schema({
@@ -142,6 +143,7 @@ export const EtatContree = schema({
   butins: t.map(Butin),
   projectiles: t.map(Projectile),
   maisons: t.map('string'), // terrain -> joueur qui y a bâti sa maison
+  faubourgs: t.array('int16'), // zones devenues faubourgs, dans l'ordre (terrains 10, 11…)
   pnj: t.map(Pnj),
   zones: t.array(Zone),
   metiers: t.map(Metier),

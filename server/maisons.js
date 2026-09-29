@@ -2,7 +2,7 @@
 // bâtit sa maison sur un terrain libre du village (avec ce qu'il a rapporté et le bois du village).
 // La maison a un coffre, commun à tous les personnages du joueur, et c'est là qu'il reprend ses
 // esprits quand il tombe. Une maison au village est protégée : elle ne s'abîme jamais.
-import { ZONE_TILES, INN_DOOR, HOUSE_LOTS, houseDoor, ROOM_W, ROOM_H, ROOM_FURNITURE } from '../shared/monde.js';
+import { ZONE_TILES, INN_DOOR, ROOM_W, ROOM_H, ROOM_FURNITURE, lotCount, lotDoor } from '../shared/monde.js';
 import { clamp } from '../src/sim/world.js';
 import { bagCount, addItem } from './objets.js';
 import { pushEvent, announce } from './evenements.js';
@@ -11,6 +11,10 @@ import { setFoyer } from '../src/sim/systems/population.js';
 export const HOUSE_COST = { cuir: 4, minerai: 4 };
 export const HOUSE_WOOD = 10;
 const REACH = 1.6;
+
+// Géométrie des terrains : le cœur du village, puis les faubourgs dans l'ordre où ils sont nés.
+export const geoOf = (room) => ({ villageId: room.sim.villageId, width: room.sim.width, faubourgs: room.sim.village.faubourgs ?? [] });
+const usedLots = (room) => new Set(Object.values(room.players).map((a) => a.maison).filter((m) => m != null));
 
 function villageCorner(room) {
   const v = room.sim.zones[room.sim.villageId];
@@ -34,6 +38,7 @@ export function initHouses(room) {
 }
 
 export function syncHouses(room) {
+  room.sim.village.playerHouses = usedLots(room).size; // la simulation agrandit le village quand les terrains manquent
   for (const [joueur, account] of Object.entries(room.players)) {
     if (account.maison != null) setFoyer(room.sim, joueur); // avec une maison, on peut fonder une famille
     if (account.maison != null && room.state.maisons.get(String(account.maison)) !== joueur) room.state.maisons.set(String(account.maison), joueur);
@@ -41,17 +46,18 @@ export function syncHouses(room) {
 }
 
 export function freeLot(room) {
-  const used = new Set(Object.values(room.players).map((a) => a.maison).filter((m) => m != null));
-  const i = HOUSE_LOTS.findIndex((_, k) => !used.has(k));
-  return i < 0 ? null : i;
+  const used = usedLots(room);
+  for (let k = 0; k < lotCount(geoOf(room).faubourgs); k++) if (!used.has(k)) return k;
+  return null;
 }
 
 // Où l'on apparaît (et où l'on revient à bout de forces) : devant sa maison, sinon à l'auberge.
 export function spawnPoint(room, joueur) {
   const c = villageCorner(room);
   const lot = room.players[joueur]?.maison;
-  const [dx, dy] = lot != null ? houseDoor(lot) : INN_DOOR;
-  return { x: c.x + dx, y: c.y + dy };
+  const door = lot != null ? lotDoor(lot, geoOf(room)) : null;
+  if (door) return { x: door[0], y: door[1] };
+  return { x: c.x + INN_DOOR[0], y: c.y + INN_DOOR[1] };
 }
 
 // Action de la touche E près d'une maison : entrer chez soi (coffre), ou bâtir sur un terrain libre.
@@ -61,16 +67,17 @@ export function houseActionAt(room, p) {
   if (Math.hypot(c.x + INN_DOOR[0] - p.x, c.y + INN_DOOR[1] - 0.6 - p.y) <= REACH && p.fatigue >= 10) return { kind: 'dormir', label: 'dormir à l\'auberge' };
   const account = room.players[p.joueur];
   if (!account) return null;
+  const geo = geoOf(room);
   if (account.maison != null) {
-    const [dx, dy] = houseDoor(account.maison);
-    if (Math.hypot(c.x + dx - p.x, c.y + dy - p.y) <= REACH) return { kind: 'entrer', label: 'entrer chez vous' };
+    const door = lotDoor(account.maison, geo);
+    if (door && Math.hypot(door[0] - p.x, door[1] - p.y) <= REACH) return { kind: 'entrer', label: 'entrer chez vous' };
     return null;
   }
-  const used = new Set(Object.values(room.players).map((a) => a.maison).filter((m) => m != null));
-  for (let lot = 0; lot < HOUSE_LOTS.length; lot++) {
+  const used = usedLots(room);
+  for (let lot = 0; lot < lotCount(geo.faubourgs); lot++) {
     if (used.has(lot)) continue;
-    const [dx, dy] = houseDoor(lot);
-    if (Math.hypot(c.x + dx - p.x, c.y + dy - p.y) <= REACH) {
+    const [dx, dy] = lotDoor(lot, geo);
+    if (Math.hypot(dx - p.x, dy - p.y) <= REACH) {
       return { kind: 'maison', lot, label: `bâtir votre maison ici (${HOUSE_COST.cuir} cuir, ${HOUSE_COST.minerai} minerai, ${HOUSE_WOOD} bois du village)` };
     }
   }
@@ -80,7 +87,7 @@ export function houseActionAt(room, p) {
 export function buildHouse(room, p, lot, tell) {
   const account = room.players[p.joueur];
   if (!account || account.maison != null) return;
-  if (freeLot(room) == null || Object.values(room.players).some((a) => a.maison === lot)) return tell('Ce terrain est déjà pris.');
+  if (usedLots(room).has(lot)) return tell('Ce terrain est déjà pris.');
   for (const [item, n] of Object.entries(HOUSE_COST)) if (bagCount(p, item) < n) return tell(`Il vous faut ${HOUSE_COST.cuir} cuir et ${HOUSE_COST.minerai} minerai (les monstres en lâchent).`);
   const wood = room.sim.village.jobs.bucheron_mineur.stock;
   if ((wood.bois ?? 0) < HOUSE_WOOD) return tell(`Il faut ${HOUSE_WOOD} bois dans la réserve du village : allez en couper en forêt.`);
@@ -136,11 +143,10 @@ export function enterHouse(room, p) {
 
 export function leaveHouse(room, p) {
   if (p.interieur < 0) return;
-  const c = villageCorner(room);
-  const [dx, dy] = houseDoor(p.interieur);
+  const [dx, dy] = lotDoor(p.interieur, geoOf(room));
   p.interieur = -1;
-  p.x = c.x + dx;
-  p.y = c.y + dy + 0.4;
+  p.x = dx;
+  p.y = dy + 0.4;
   p.dir = 'bas';
 }
 

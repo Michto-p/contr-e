@@ -141,6 +141,10 @@ elle apparaît pour de bon (monstres cerclés de rouge, points rouges sur la min
 sur le village. Repoussée à temps, à plusieurs et avec les gardes, sa zone recule nettement ;
 sinon, elle pille une partie du pain en atteignant le village, puis se disperse.
 
+**Le village s'agrandit.** Quand son cœur est plein (maisons d'habitants, ou terrains presque tous
+pris par les joueurs), un pré voisin devient un **faubourg** : sûr comme le village, avec ses ruelles,
+ses maisons et 6 nouveaux terrains à bâtir (4 faubourgs au plus).
+
 **La hiérarchie du village.** Chacun gagne de la **renommée** par ses hauts faits (inventions,
 défrichages, défense, et pour les joueurs : quêtes, hordes repoussées, égarés ramenés…). Chaque jour,
 l'adulte le plus respecté **prend la tête du village** (couronne de feuilles d'or ; un petit bonus pour

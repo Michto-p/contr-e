@@ -18,6 +18,8 @@ const hasIntactWatchtower = (zone) => standing(zone, 'tour de guet');
 export function monsters(state, rng, ctx) {
   const village = state.zones[state.villageId];
   village.monsterPressure = 0;
+  // Les faubourgs sont presque aussi sûrs que le village.
+  for (const id of state.village.faubourgs ?? []) state.zones[id].monsterPressure = Math.min(state.zones[id].monsterPressure, 10);
   if (!ctx.dayEnd) return [];
 
   const events = [];
@@ -26,7 +28,7 @@ export function monsters(state, rng, ctx) {
   const spill = new Map();
 
   for (const z of state.zones) {
-    if (z.isVillage || z.closed) continue;
+    if (z.isVillage || z.faubourg || z.closed) continue;
     const fighters = [...new Set(z.today.fighters ?? [])];
 
     // Combat : chaque heure de combat fait reculer les monstres ; à plusieurs, c'est bien plus efficace.

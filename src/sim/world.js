@@ -71,6 +71,7 @@ const BIOME_NOUN = {
 
 export function zoneLabel(zone) {
   if (zone.isVillage) return 'le village';
+  if (zone.faubourg) return `le faubourg ${deRegion(zone.region)}`;
   if (zone.isField) return `les champs ${deRegion(zone.region)}`;
   return `${BIOME_NOUN[zone.biome]} ${deRegion(zone.region)}`;
 }

@@ -213,6 +213,10 @@ const RENDERERS = {
     priority: () => 3,
     text: (evs) => `${joinFr(evs.map((e) => `${e.data.name} (${JOB_AT[e.data.job] ?? e.data.job})`))} ${evs.length > 1 ? 'deviennent maîtres' : 'devient maître'} d'atelier : les apprentis apprendront plus vite.`,
   },
+  village_grows: {
+    priority: () => 8,
+    text: (evs) => `Le village s'agrandit : ${evs[0].data.label} sort de terre, avec ses maisons et des terrains à bâtir.`,
+  },
   house_player: {
     priority: () => 6,
     text: (evs) => `${cap(joinFr(evs.map((e) => e.data.who)))} ${evs.length > 1 ? 'ont bâti leur maison' : 'a bâti sa maison'} au village : fini les nuits à l'auberge.`,

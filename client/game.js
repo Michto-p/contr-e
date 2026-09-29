@@ -494,8 +494,8 @@ function renderHud() {
   const info = monde.zones[zi];
   const z = s.zones[zi];
   if (!info || !z) return;
-  const home = s.joueurs.get(game.room.sessionId)?.interieur >= 0; // chez soi, à l'abri
-  const label = home ? 'Chez vous' : info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
+  const home = s.joueurs.get(game.room.sessionId)?.interieur >= 0 || z.f; // chez soi ou dans un faubourg : à l'abri
+  const label = home && !z.f ? 'Chez vous' : z.f ? 'Le faubourg' : info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
   $('ou').textContent = label;
   $('danger-mot').textContent = home || info.village ? 'Zone sûre' : `Monstres : ${PRESSION(z.p)}`;
   $('jauge').style.width = `${home || info.village ? 0 : z.p}%`;

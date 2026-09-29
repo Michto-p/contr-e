@@ -188,6 +188,11 @@ export function makeContreeRoom(config) {
       s.saison = this.sim.season.name ?? SEASONS[seasonIndex(this.sim)].name;
       s.meteo = this.sim.season.weather ?? '';
       for (let i = 0; i < this.sim.zones.length; i++) this.syncZone(i);
+      const fb = this.sim.village.faubourgs ?? [];
+      if (fb.length !== this.state.faubourgs.length) {
+        this.state.faubourgs.splice(0, this.state.faubourgs.length);
+        for (const id of fb) this.state.faubourgs.push(id);
+      }
       s.bois = this.sim.village.jobs.bucheron_mineur.stock.bois ?? 0;
       for (const [name, job] of Object.entries(this.sim.village.jobs)) {
         let m = s.metiers.get(name);
@@ -248,6 +253,7 @@ export function makeContreeRoom(config) {
       if (sz.p !== z.monsterPressure) sz.p = z.monsterPressure;
       if (sz.w !== z.pathWear) sz.w = z.pathWear;
       if (sz.c !== z.closed) sz.c = z.closed;
+      if (sz.f !== Boolean(z.faubourg)) sz.f = Boolean(z.faubourg);
       const st = structuresSummary(z);
       if (sz.s !== st) sz.s = st;
     }

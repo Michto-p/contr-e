@@ -704,7 +704,7 @@ export function actionAt(room, p) {
   const zone = sim.zones[zoneOfPos(room, p.x, p.y)];
   const lost = room.pnj ? lostNear(room, p) : null;
   if (lost) return { kind: 'egare', zone, key: lost[0], label: `secourir ${lost[1].prenom}` };
-  if (zone.isVillage && room.players) {
+  if ((zone.isVillage || zone.faubourg) && room.players) {
     const house = houseActionAt(room, p);
     if (house) return { ...house, zone };
   }
