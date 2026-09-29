@@ -112,6 +112,7 @@ const QUEST_TEXT = {
   patrouille: (e) => `une patrouille dans ${e.data.label}`,
   escorte: (e) => `une escorte pour les mineurs dans ${e.data.label}`,
   reparer: (e) => `des bras pour réparer ${theStructure(e.data.structure)} ${deLabel(e.data.label)}`,
+  construire: (e) => `des bâtisseurs pour élever une tour de guet dans ${e.data.label}`,
   aide: (e) => `un coup de main pour ${JOB_THE[e.data.job]}`,
 };
 
@@ -133,6 +134,25 @@ const QUEST_DONE = {
 };
 
 const RENDERERS = {
+  construction_started: {
+    key: (e) => e.data.label,
+    priority: () => 5,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont posé' : 'a posé'} les premières pierres d'une tour de guet dans ${evs[0].data.label}.`,
+  },
+  structure_built: {
+    key: (e) => e.data.label,
+    priority: () => 8,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont achevé' : 'a achevé'} une tour de guet dans ${evs[0].data.label} : les monstres y proliféreront moins vite. Exposée aux intempéries et aux hordes, elle demandera de l'entretien.`,
+  },
+  structure_raided: {
+    key: (e) => e.data.label,
+    priority: () => 7,
+    text: (evs) => {
+      const e = evs[0];
+      const what = e.data.building ? 'le chantier de la tour de guet' : joinFr(e.data.structures.map(theStructure));
+      return `La horde a saccagé ${what} ${deLabel(e.data.label)}. ${FIX.reparer}`;
+    },
+  },
   quest_done: {
     key: (e) => (e.data.kind === 'patrouille' ? 'patrouille' : `${e.data.kind}|${e.data.label}|${e.data.job}`),
     priority: (e) => (e.data.kind === 'aide' ? 4 : 6),
@@ -356,7 +376,9 @@ function dedupe(events) {
   const fought = new Set(events.filter((e) => COMBAT.has(e.type)).map(key));
   const guarded = new Set(events.filter((e) => e.type === 'quest_done' && e.zone != null).map(key));
   const lostPaths = new Set(events.filter((e) => e.type === 'path_lost').map((e) => `${e.day}|${e.data.label}`));
+  const built = new Set(events.filter((e) => e.type === 'structure_built').map(key));
   return events.filter((e) => {
+    if (e.type === 'construction_started' && built.has(key(e))) return false;
     if (e.type === 'path_fading' && lostPaths.has(`${e.day}|${e.data.label}`)) return false;
     if ((e.type === 'hunt' || e.type === 'exploration') && fought.has(key(e))) return false;
     if (COMBAT.has(e.type) && e.type !== 'retreat' && guarded.has(key(e))) return false;

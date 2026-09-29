@@ -4,7 +4,9 @@
 //  - absent : se connecte au jour 1 puis revient au jour 7 (puis tous les 7 jours).
 import { clamp, neighbors, zoneAt } from './world.js';
 import { SOLO_LIMIT } from './systems/monsters.js';
-import { questUrgency } from './systems/village.js';
+import { questUrgency, TOWER } from './systems/village.js';
+
+const TOWER_DONE = 75; // état d'une tour à la fin du chantier (environ 7 heures de travail)
 
 const NAMES = ['Maël', 'Iris', 'Noé', 'Lou', 'Sacha', 'Alix', 'Camille', 'Eden', 'Robin', 'Yaël', 'Charlie', 'Morgan', 'Swann', 'Élie', 'Ange', 'Nour'];
 
@@ -65,7 +67,9 @@ function planDay(state, rng, online) {
     if (takers.length === 0) break;
     const zone = q.zone != null ? state.zones[q.zone] : null;
     const danger = zone && (q.kind === 'patrouille' ? worstNeighbor(state, zone) : zone).monsterPressure >= SOLO_LIMIT;
-    const team = takers.splice(0, danger ? 2 : 1);
+    // Bâtir se fait à deux : seul, on ne lance pas le chantier.
+    if (q.kind === 'construire' && takers.length < 2) continue;
+    const team = takers.splice(0, danger || q.kind === 'construire' ? 2 : 1);
     for (const p of team) plans.set(p.name, { kind: q.kind, quest: q.id, zone: q.zone ?? null, job: q.job ?? null, team: team.map((t) => t.name) });
   }
   // Ceux qui restent vont chasser autour des champs, chacun du côté le plus menacé encore libre.
@@ -124,7 +128,7 @@ function actHour(state, rng, ctx, p, hourIndex, events) {
     case 'reparer': {
       zone.today.visits += 1;
       const wanted = state.village.quests.find((q) => q.id === plan.quest)?.structure ?? plan.structure;
-      const damaged = zone.structures.filter((st) => !st.protected && st.condition < 100);
+      const damaged = zone.structures.filter((st) => !st.protected && !st.building && st.condition < 100);
       const s = damaged.find((st) => st.type === wanted) ?? damaged[0];
       if (!s) break;
       const wood = state.village.jobs.bucheron_mineur.stock;
@@ -134,6 +138,30 @@ function actHour(state, rng, ctx, p, hourIndex, events) {
       s.maintainedDay = ctx.day;
       if (s.condition >= 50) s.warned = null;
       plan.structure = s.type;
+      break;
+    }
+    case 'construire': {
+      zone.today.visits += 1;
+      let s = zone.structures.find((st) => st.type === TOWER);
+      if (s && !s.building && s.condition > 0) break; // déjà debout : un équipier vient de la finir
+      if (!s) {
+        s = { type: TOWER, condition: 0, building: true, warned: null };
+        zone.structures.push(s);
+        events.push(ctx.event('construction_started', zone, { who: plan.team, label: zone.label, structure: TOWER }));
+      } else if (!s.building) {
+        s.building = true; // une tour en ruine se rebâtit
+        s.condition = 0;
+      }
+      const wood = state.village.jobs.bucheron_mineur.stock;
+      const used = Math.min(wood.bois ?? 0, 4);
+      wood.bois -= used;
+      s.condition = clamp(s.condition + (used >= 4 ? 12 : 4));
+      s.maintainedDay = ctx.day;
+      if (s.condition >= TOWER_DONE) {
+        s.building = false;
+        state.village.quests = state.village.quests.filter((q) => q.id !== plan.quest);
+        events.push(ctx.event('structure_built', zone, { who: plan.team, label: zone.label, structure: TOWER }));
+      }
       break;
     }
     case 'aide': {
@@ -171,6 +199,8 @@ function finishSession(state, ctx, p, events) {
     events.push(ctx.event('hunt', zone, { who: [p.name], label: zone.label }));
     return;
   }
+  // Un chantier se poursuit d'une soirée à l'autre ; son achèvement est déjà raconté.
+  if (plan.kind === 'construire') return;
   // Quête terminée par le dernier membre de l'équipe qui finit sa session.
   if (quest) {
     state.village.quests = state.village.quests.filter((q) => q.id !== quest.id);

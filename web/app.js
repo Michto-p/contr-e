@@ -24,7 +24,7 @@ const BANDS = [
 // Ce que chaque type d'event dit de l'activité d'un joueur dans une zone.
 const ACTION = {
   zone_cleared: 'nettoyage', monsters_pushed: 'combat', retreat: 'retraite', hunt: 'chasse',
-  exploration: 'exploration', discovery: 'découverte',
+  exploration: 'exploration', discovery: 'découverte', construction_started: 'construction', structure_built: 'construction',
 };
 const QUEST_ACTION = { patrouille: 'garde', escorte: 'escorte', reparer: 'réparation' };
 
@@ -40,7 +40,7 @@ function snapshot(state) {
     weather: state.season.weather,
     zones: state.zones.map((z) => ({
       p: z.monsterPressure, w: z.pathWear, v: z.vegetation, c: z.closed,
-      s: z.structures.filter((s) => !s.protected).map((s) => ({ t: s.type, c: s.condition })),
+      s: z.structures.filter((s) => !s.protected).map((s) => ({ t: s.type, c: s.condition, b: !!s.building })),
     })),
     jobs: Object.fromEntries(Object.entries(state.village.jobs).map(([k, j]) => [k, { level: j.level, sat: j.satisfaction, stock: { ...j.stock } }])),
   };

@@ -12,7 +12,7 @@ export const SOLO_LIMIT = 80; // au-delà, un joueur seul ne fait presque rien
 const FIELD_ALERT = 50;
 
 function hasIntactWatchtower(zone) {
-  return zone.structures.some((s) => s.type === 'tour de guet' && s.condition >= 50);
+  return zone.structures.some((s) => s.type === 'tour de guet' && !s.building && s.condition >= 50);
 }
 
 export function monsters(state, rng, ctx) {
@@ -78,6 +78,12 @@ export function monsters(state, rng, ctx) {
       z.monsterPressure = clamp(z.monsterPressure - 30);
       spill.set(target.id, (spill.get(target.id) ?? 0) + rng.int(20, 30));
       events.push(ctx.event('horde', z, { label: z.label, target: target.label, dist: target.dist, fix: 'groupe' }));
+      // Ce qui est construit dehors est exposé : la horde malmène les structures sur son passage.
+      const hit = target.structures.filter((st) => !st.protected && st.condition > 0);
+      for (const st of hit) st.condition = clamp(st.condition - rng.int(20, 35));
+      if (hit.length) {
+        events.push(ctx.event('structure_raided', target, { label: target.label, structures: hit.map((st) => st.type), building: hit.some((st) => st.building), fix: 'reparer' }));
+      }
     }
   }
 

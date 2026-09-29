@@ -13,7 +13,8 @@ export const BIOME = {
 };
 
 // Paliers d'état d'une structure : couleur de statut + libellé (jamais la couleur seule).
-export function structureStatus(condition) {
+export function structureStatus(condition, building = false) {
+  if (building) return { label: 'en chantier', color: 'var(--card)', building: true };
   if (condition < 1) return { label: 'en ruine', color: 'var(--critical)', ruin: true };
   if (condition < 25) return { label: 'menace de s\'effondrer', color: 'var(--critical)' };
   if (condition < 50) return { label: 'abîmée', color: 'var(--warning)' };
@@ -74,7 +75,7 @@ function zoneRows(zone, snap, acts) {
     rows.push({ key: 'Végétation', value: snap.v });
     rows.push({ key: 'Terrain', value: zone.isField ? 'champs' : BIOME[zone.biome].name });
   }
-  for (const s of snap.s) rows.push({ key: s.t, value: `${structureStatus(s.c).label} (${s.c})` });
+  for (const s of snap.s) rows.push({ key: s.t, value: `${structureStatus(s.c, s.b).label} (${s.c})` });
   if (zone.exclusives.length) rows.push({ note: `Gisement rare : ${zone.exclusives.join(', ')}` });
   if (snap.c) rows.push({ note: 'Fermée par la neige jusqu\'au printemps.' });
   if (acts.length) rows.push({ note: `Joueurs ce jour-là : ${acts.map((a) => `${a.who} (${a.what})`).join(', ')}` });
@@ -113,11 +114,13 @@ export function drawMap(svgRoot, world, snap, activity, layer) {
 
     // Structures exposées : un losange coloré selon l'état (une croix si ruine).
     if (z.s.length) {
-      const worst = Math.min(...z.s.map((s) => s.c));
-      const st = structureStatus(worst);
+      const built = z.s.filter((s) => !s.b);
+      const st = built.length ? structureStatus(Math.min(...built.map((s) => s.c))) : structureStatus(0, true);
       const cx = x + CELL - 9;
       const cy = y + 9;
-      svg('path', { d: `M${cx} ${cy - 6} L${cx + 6} ${cy} L${cx} ${cy + 6} L${cx - 6} ${cy} Z`, fill: st.ruin ? cssVar('--card') : st.color, stroke: cssVar('--ring'), 'stroke-width': 1.5 }, g);
+      // Chantier : losange creux cerclé d'encre ; ruine : croix ; sinon losange plein de la couleur d'état.
+      const hollow = st.ruin || st.building;
+      svg('path', { d: `M${cx} ${cy - 6} L${cx + 6} ${cy} L${cx} ${cy + 6} L${cx - 6} ${cy} Z`, fill: hollow ? cssVar('--card') : st.color, stroke: st.building ? cssVar('--fg') : cssVar('--ring'), 'stroke-width': 1.5 }, g);
       if (st.ruin) {
         svg('path', { d: `M${cx - 3} ${cy - 3} L${cx + 3} ${cy + 3} M${cx + 3} ${cy - 3} L${cx - 3} ${cy + 3}`, stroke: st.color, 'stroke-width': 1.8, 'stroke-linecap': 'round' }, g);
       }
@@ -167,6 +170,9 @@ export function drawMapLegend(container, layer) {
     icon(item, (s) => svg('path', { d: 'M8 2 L14 8 L8 14 L2 8 Z', fill: color }, s));
     item.appendChild(document.createTextNode(label));
   }
+  const site = el('span', { class: 'item' }, container);
+  icon(site, (s) => svg('path', { d: 'M8 2 L14 8 L8 14 L2 8 Z', fill: cssVar('--card'), stroke: cssVar('--fg'), 'stroke-width': 1.5 }, s));
+  site.appendChild(document.createTextNode('chantier'));
   const players = el('span', { class: 'item' }, container);
   icon(players, (s) => svg('circle', { cx: 8, cy: 8, r: 4.5, fill: cssVar('--fg') }, s));
   players.appendChild(document.createTextNode('joueurs présents'));

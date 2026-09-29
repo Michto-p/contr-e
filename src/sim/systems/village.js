@@ -22,6 +22,15 @@ export function fieldThreat(state, field) {
   return max;
 }
 
+// Le « front » d'un champ : la terre sauvage voisine d'où vient la plus forte menace.
+export function frontOf(state, field) {
+  const wild = neighbors(state, field).filter((n) => !n.isVillage && !n.isField);
+  return wild.sort((a, b) => b.monsterPressure - a.monsterPressure || a.id - b.id)[0] ?? null;
+}
+
+export const TOWER = 'tour de guet';
+export const TOWER_WOOD = 15; // bois minimum en réserve pour lancer un chantier
+
 export function mineZone(state) {
   const mines = state.zones.filter((z) => z.resources.minerai > 0).sort((a, b) => a.dist - b.dist || a.id - b.id);
   return mines[0];
@@ -51,6 +60,11 @@ export function questUrgency(state, q) {
       return s ? 60 - s.condition : 0;
     }
     case 'aide': return 90 - state.village.jobs[q.job].satisfaction;
+    case 'construire': {
+      // Finir un chantier commencé est plus pressant que d'en ouvrir un.
+      const started = zone.structures.some((st) => st.type === TOWER && st.building);
+      return zone.monsterPressure + (started ? 5 : -10);
+    }
     default: return 0;
   }
 }
@@ -72,7 +86,21 @@ function generateQuests(state, ctx) {
   }
   for (const z of state.zones) {
     for (const s of z.structures) {
-      if (!s.protected && s.condition < 50 && !z.closed) wanted.push({ kind: 'reparer', zone: z.id, label: z.label, structure: s.type });
+      if (!s.protected && !s.building && s.condition < 50 && !z.closed) wanted.push({ kind: 'reparer', zone: z.id, label: z.label, structure: s.type });
+    }
+  }
+  // Une tour de guet devant le champ le plus menacé. Un chantier commencé passe avant tout nouveau.
+  const chantier = state.zones.find((z) => !z.closed && z.structures.some((st) => st.type === TOWER && st.building));
+  if (chantier) {
+    wanted.push({ kind: 'construire', zone: chantier.id, label: chantier.label, structure: TOWER });
+  } else if ((v.jobs.bucheron_mineur.stock.bois ?? 0) >= TOWER_WOOD) {
+    const threatened = state.zones.filter((z) => z.isField && fieldThreat(state, z) >= QUEST_THREAT)
+      .sort((a, b) => fieldThreat(state, b) - fieldThreat(state, a));
+    for (const f of threatened) {
+      const front = frontOf(state, f);
+      if (!front || front.closed || front.structures.some((st) => st.type === TOWER && st.condition > 0)) continue;
+      wanted.push({ kind: 'construire', zone: front.id, label: front.label, structure: TOWER });
+      break;
     }
   }
   // Toujours au moins un coup de main à donner au métier le moins bien loti.

@@ -56,7 +56,7 @@ export function nature(state, rng, ctx) {
 
     // Structures exposées : se dégradent sans entretien, plus vite quand les monstres rôdent.
     for (const s of z.structures) {
-      if (s.protected) continue;
+      if (s.protected || s.building) continue; // un chantier n'est pas encore une structure
       if (s.maintainedDay === ctx.day) continue;
       const storm = state.season?.weather === 'orage';
       const loss = rng.int(1, 3) + (z.monsterPressure >= 70 ? 2 : 0) + (storm ? rng.int(2, 5) : 0);
