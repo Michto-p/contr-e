@@ -3,7 +3,8 @@
 // puis se recale en douceur sur la position envoyée par le serveur.
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
-import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky } from './ambiance.js';
+import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
+import { talk } from './dialogues.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('jeu');
@@ -105,7 +106,7 @@ function showMessage(title, lines, text) {
   $('message-texte').textContent = text;
   $('message').hidden = false;
 }
-$('message-ok').addEventListener('click', () => { $('message').hidden = true; });
+$('message-ok').addEventListener('click', () => { $('message').hidden = true; $('message-ok').textContent = 'Reprendre'; });
 
 let infoTimer = null;
 function info(text) {
@@ -215,9 +216,27 @@ function eat() {
   game.room.send('manger');
 }
 
+function talkTo(h) {
+  const s = game.room.state;
+  const d = talk(h, {
+    habitants: [...(s.habitants ?? [])], quetes: [...(s.quetes ?? [])], pain: s.pain, saison: s.saison, rares: game.monde?.rares,
+  });
+  showMessage(d.titre, [], '');
+  const ul = $('message-lignes');
+  ul.hidden = false;
+  for (const l of d.lignes) {
+    const item = document.createElement('li');
+    item.textContent = `« ${l} »`;
+    ul.appendChild(item);
+  }
+  $('message-ok').textContent = 'Au revoir';
+}
+
 let lastInteractSent = 0;
 function interact() {
   if (!game.room) return;
+  // Près d'un habitant, E sert à lui parler.
+  if (game.nearVillager) { talkTo(game.nearVillager); return; }
   const now = performance.now();
   if (now - lastInteractSent < 300) return;
   lastInteractSent = now;
@@ -268,12 +287,15 @@ function renderHud() {
     coeurs.append(plein, vide);
     coeurs.setAttribute('aria-label', `${me.pv} points de vie sur ${me.pvMax}`);
     const action = $('action');
-    action.hidden = !me.action;
-    if (me.action) {
+    const near = game.nearVillager;
+    const label = near ? `parler à ${near.prenom}` : me.action;
+    action.hidden = !label;
+    if (label && action.dataset.label !== label) {
+      action.dataset.label = label;
       action.replaceChildren();
       const k = document.createElement('kbd');
       k.textContent = 'E';
-      action.append(k, document.createTextNode(` ${me.action}`));
+      action.append(k, document.createTextNode(` ${label}`));
     }
     $('aterre').hidden = !me.aTerre;
   }
@@ -335,6 +357,31 @@ function renderSide() {
     m.append(a, b);
   }
 
+  const vi = $('village-info');
+  vi.replaceChildren();
+  const habitants = [...(s.habitants ?? [])];
+  const familles = {};
+  for (const h of habitants) familles[h.famille] = (familles[h.famille] ?? 0) + 1;
+  const p1 = document.createElement('p');
+  p1.textContent = `${habitants.length} habitants, dont ${habitants.filter((h) => !h.metier).length} enfants et ${habitants.filter((h) => h.metier === 'ancien').length} anciens.`;
+  const p2 = document.createElement('p');
+  p2.className = 'famille';
+  p2.textContent = `Familles : ${Object.entries(familles).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} (${n})`).join(', ')}.`;
+  vi.append(p1, p2);
+  const talents = habitants.filter((h) => h.talent);
+  if (talents.length) {
+    const p3 = document.createElement('p');
+    p3.textContent = `Talents : ${talents.map((h) => `${h.prenom} (${h.talent})`).join(', ')}.`;
+    vi.appendChild(p3);
+  }
+  const plans = [...(s.plans ?? [])];
+  const p4 = document.createElement('p');
+  const offr = [...(s.offrandes?.entries() ?? [])].filter(([, n]) => n > 0).map(([r, n]) => `${r} × ${n}`);
+  p4.textContent = plans.length
+    ? `Plans inventés ici : ${plans.map((p) => p.nom).join(', ')}.`
+    : `Aucun plan inventé pour l'instant${offr.length ? ` ; à la forge : ${offr.join(', ')}` : ' : rapportez au village les ressources rares trouvées au loin'}.`;
+  vi.appendChild(p4);
+
   const on = $('enligne');
   on.replaceChildren();
   s.joueurs?.forEach((p) => li(on, p.nom));
@@ -357,16 +404,16 @@ function renderSide() {
 
 // ---------- Sac et forge ----------
 
-const SLOT_NOM = { epee: ['', 'épée de fer', 'lame d\'acier', 'lame de légende'], armure: ['', 'tunique', 'cuirasse de cuir', 'cotte renforcée'], bottes: ['sandales', 'bottes de marche'] };
+const SLOT_NOM = { epee: ['', 'épée de fer', 'lame d\'acier', 'lame de légende', 'lame forgée d\'après un plan'], armure: ['', 'tunique', 'cuirasse de cuir', 'cotte renforcée'], bottes: ['sandales', 'bottes de marche'] };
 
 function renderBag() {
   const room = game.room;
   const me = room?.state.joueurs.get(room.sessionId);
   if (!me || !game.monde) return;
-  $('equip').textContent = `Équipement : ${SLOT_NOM.epee[me.epee]} (${me.epee} dégât${me.epee > 1 ? 's' : ''}), ${SLOT_NOM.armure[me.armure]} (${me.pvMax} PV), ${SLOT_NOM.bottes[me.bottes]}.`;
+  $('equip').textContent = `Équipement : ${SLOT_NOM.epee[me.epee]} (${me.epee} dégât${me.epee > 1 ? 's' : ''}), ${SLOT_NOM.armure[me.armure]} (${me.pvMax} PV), ${SLOT_NOM.bottes[me.bottes]}${me.talisman ? ', un talisman' : ''}.`;
   const box = $('objets');
   const items = [...me.sac.entries()].filter(([, n]) => n > 0);
-  const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}|${room.state.outils}|${inVillage(me)}`;
+  const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}${me.talisman}|${room.state.outils}|${inVillage(me)}|${room.state.plans?.length}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.replaceChildren();
@@ -377,6 +424,15 @@ function renderBag() {
     const rare = game.monde.rares.includes(item);
     el.textContent = `${rare ? '◆ ' : ''}${item} × ${n}`;
     if (rare) el.style.color = rareColor(item);
+    if (rare && inVillage(me)) {
+      // Rapporter une trouvaille au village : le forgeron pourra peut-être en tirer un plan.
+      const give = document.createElement('button');
+      give.type = 'button';
+      give.className = 'offrir';
+      give.textContent = 'Offrir au village';
+      give.addEventListener('click', () => room.send('offrir', { rare: item }));
+      el.appendChild(give);
+    }
     box.appendChild(el);
   }
   const here = inVillage(me);
@@ -386,21 +442,28 @@ function renderBag() {
   const list = $('recettes');
   list.replaceChildren();
   const rares = game.monde.rares.reduce((sum, r) => sum + (me.sac.get(r) ?? 0), 0);
-  for (const r of game.monde.recettes) {
+  const plans = [...(room.state.plans ?? [])].map((p) => ({
+    id: p.id, nom: `${p.nom} (plan de ${p.auteur})`, effet: p.effet, slot: p.slot, niveau: p.niveau, prerequis: p.prerequis,
+    requis: Object.fromEntries(p.requis.split(',').filter(Boolean).map((x) => { const [k, n] = x.split(':'); return [k, Number(n)]; })),
+    rares: 0, materiau: p.materiau,
+  }));
+  for (const r of [...game.monde.recettes, ...plans]) {
     const row = document.createElement('div');
     row.className = 'recette';
     const nom = document.createElement('span');
     nom.className = 'nom';
     nom.textContent = r.nom;
     const cost = Object.entries(r.requis).map(([k, n]) => `${n} ${k}`);
+    if (r.materiau) cost.push(`1 ${r.materiau}`);
     if (r.rares) cost.push(`${r.rares} ressource${r.rares > 1 ? 's' : ''} rare${r.rares > 1 ? 's' : ''}`);
     const detail = document.createElement('span');
     detail.className = 'detail';
     detail.textContent = `${r.effet} — ${cost.join(', ')}`;
     const btn = document.createElement('button');
     btn.type = 'button';
-    const owned = me[r.slot] >= r.niveau;
-    const missing = me[r.slot] < r.niveau - 1 || Object.entries(r.requis).some(([k, n]) => (me.sac.get(k) ?? 0) < n) || rares < r.rares;
+    const owned = (me[r.slot] ?? 0) >= r.niveau;
+    const missing = (me[r.slot] ?? 0) < (r.prerequis ?? r.niveau - 1) || Object.entries(r.requis).some(([k, n]) => (me.sac.get(k) ?? 0) < n) || rares < r.rares
+      || (r.materiau && (me.sac.get(r.materiau) ?? 0) < 1);
     btn.textContent = owned ? 'Équipé' : 'Forger';
     btn.disabled = owned || missing || !here || room.state.outils < 1;
     btn.addEventListener('click', () => room.send('fabriquer', { recette: r.id }));
@@ -518,7 +581,10 @@ function frame(t) {
   const cx = Math.max(halfW, Math.min(worldW - halfW, game.me.x));
   const cy = Math.max(halfH, Math.min(worldH - halfH, game.me.y));
 
-  if (game.ambiance) updateAmbiance(game.ambiance, dt, game.me, t, room.state);
+  if (game.ambiance) {
+    updateAmbiance(game.ambiance, dt, game.me, t, room.state);
+    game.nearVillager = nearestVillager(game.ambiance, game.me);
+  }
   drawWorld(ctx, {
     monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, questZones,
     under: game.ambiance ? (c) => drawAmbianceGround(c, game.ambiance, t) : null,

@@ -78,6 +78,10 @@
   #cote .fermer { float: right; }
   .metiers { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px; }
   .metiers .pips { letter-spacing: 2px; color: var(--accent); }
+  .village-info { font-size: 13px; color: var(--ink-2); }
+  .village-info p { margin: 4px 0; }
+  .village-info .famille { color: var(--ink); }
+  #sac .offrir { margin-left: 6px; font-size: 12px; padding: 2px 8px; }
 
   /* Écrans d'accueil et messages */
   .voile { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(12, 10, 8, 0.6); padding: 16px; }
@@ -140,6 +144,8 @@
   <ul id="quetes"></ul>
   <h3>Les métiers</h3>
   <div class="metiers" id="metiers"></div>
+  <h3>Les habitants</h3>
+  <div id="village-info" class="village-info"></div>
   <h3>En ligne</h3>
   <ul id="enligne"></ul>
   <div id="chroniques"></div>

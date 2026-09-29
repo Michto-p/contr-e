@@ -183,3 +183,37 @@ test('un gisement rare s\'exploite dans une zone dégagée', async () => {
   assert.ok(room().world.events.some((e) => e.type === 'discovery' && e.data.who.includes('Fanny')));
   await f.r.leave();
 });
+
+test('rapporter une ressource rare au village, puis forger d\'après un plan inventé', async () => {
+  clearMonsters();
+  const g = await join('Gaspard');
+  const sim = room().sim;
+  const pop = sim.village.population;
+  const rare = sim.signature.exclusives[0];
+  place(g.p(), village());
+  g.p().sac.set(rare, 3);
+  g.r.send('offrir', { rare });
+  assert.ok(await until(() => (pop.rares[rare] ?? 0) >= 1), 'offrande reçue');
+  assert.equal(g.p().sac.get(rare), 2);
+  assert.ok(room().world.events.some((e) => e.type === 'offering' && e.data.who.includes('Gaspard')));
+  assert.ok(await until(() => g.r.state.offrandes?.get(rare) >= 1), 'offrande visible des clients');
+
+  // Le forgeron invente un talisman avec ce matériau : la recette apparaît à la forge.
+  pop.plans.push({ id: 99, type: 'talisman', nom: `Talisman de ${rare}`, effet: '+4 points de vie', materiau: rare, auteur: 'Irène Vasseur', contree: sim.name, jour: sim.day });
+  room().syncVillage();
+  assert.ok(await until(() => g.r.state.plans?.length >= 1), 'plan synchronisé');
+  g.p().sac.set('cuir', 2);
+  const pvMax = g.p().pvMax;
+  g.r.send('fabriquer', { recette: 'plan99' });
+  assert.ok(await until(() => g.p().talisman === 1), 'talisman forgé');
+  assert.equal(g.p().pvMax, pvMax + 4);
+  await g.r.leave();
+});
+
+test('les habitants du village sont visibles des clients', async () => {
+  const h = await join('Hélio');
+  assert.ok(await until(() => (h.r.state.habitants?.length ?? 0) >= 10));
+  const one = [...h.r.state.habitants][0];
+  assert.ok(one.prenom && one.famille && one.traits.includes(','));
+  await h.r.leave();
+});

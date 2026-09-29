@@ -64,9 +64,18 @@ Réglages du serveur (variables d'environnement) :
   contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
   lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.
 - **E** sur un gisement rare (le bandeau l'indique) : l'extraire, une fois la zone dégagée.
-- **C** : chronique, quêtes du village, métiers, joueurs en ligne.
+- **E** près d'un habitant : lui parler. Chacun a son nom, son âge, son métier, sa famille, son
+  caractère et parfois un talent ; il parle de sa vie et de ce qui inquiète le village.
+- Dans le sac (**F**), au village : **offrir** une ressource rare. Un forgeron savant peut en tirer
+  un **plan** (une lame à 4 dégâts, un talisman +4 PV) que tout le monde pourra ensuite forger.
+- **C** : chronique, quêtes du village, métiers, habitants et familles, joueurs en ligne.
 - Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
   🌀 rouler, 🍞 manger, 🎒 sac.
+
+Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
+les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent
+le métier familial avec parfois un talent (forestier qui replante et ouvre des passages, agronome
+qui défriche un nouveau champ avec l'éleveur, inventeur…). Un jour de jeu vaut une année de leur vie.
 
 Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
 escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y

@@ -6,14 +6,14 @@ import { Room } from '@colyseus/core';
 import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js';
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
-import { EtatContree, Joueur, Zone, Metier, Quete } from './schema.js';
+import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
   initGameplay, updateGameplay, playerAttack, playerInteract, updateActions, questPercent,
   PLAYER_PV, KILLS_PER_HOUR_CAP,
 } from './gameplay.js';
 import {
-  initObjets, updateObjets, playerDash, playerEat, playerCraft, isDashing, savePlayer, restorePlayer, RECETTES,
+  initObjets, updateObjets, playerDash, playerEat, playerCraft, playerOffer, isDashing, savePlayer, restorePlayer, RECETTES, planRecipe,
 } from './objets.js';
 
 const ATTACK_COOLDOWN_MS = 400;
@@ -70,6 +70,7 @@ export function makeContreeRoom(config) {
       this.onMessage('attaque', (client) => this.attack(client));
       this.onMessage('interagir', (client) => playerInteract(this, client.sessionId));
       this.onMessage('manger', (client) => playerEat(this, client.sessionId));
+      this.onMessage('offrir', (client, m) => { playerOffer(this, client.sessionId, String(m?.rare ?? '')); this.syncVillage(); });
       this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
       this.onMessage('roulade', (client) => {
         const p = this.state.joueurs.get(client.sessionId);
@@ -162,6 +163,36 @@ export function makeContreeRoom(config) {
         if (m.satisfaction !== job.satisfaction) m.satisfaction = job.satisfaction;
       }
       this.syncQuests();
+      this.syncVillage();
+    }
+
+    // Habitants, plans inventés et offrandes : ils ne changent qu'une fois par jour ou à une offrande.
+    syncVillage() {
+      const pop = this.sim.village.population;
+      if (!pop) return;
+      const byId = new Map(pop.people.map((q) => [q.id, q]));
+      const people = pop.people.filter((q) => q.alive).map((q) => ({
+        id: q.id, prenom: q.prenom, famille: q.famille, age: Math.min(255, q.age), metier: q.metier ?? '',
+        talent: q.talent ?? '', traits: q.traits.join(', '),
+        parents: q.parents.map((id) => byId.get(id)?.prenom).filter(Boolean).join(' et '),
+        partenaire: q.partner ? byId.get(q.partner)?.prenom ?? '' : '',
+      }));
+      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}`).join('|');
+      if (key(people) !== key([...this.state.habitants])) {
+        this.state.habitants.splice(0, this.state.habitants.length);
+        for (const h of people) this.state.habitants.push(Object.assign(new Habitant(), h));
+      }
+      if (this.state.plans.length !== pop.plans.length) {
+        this.state.plans.splice(0, this.state.plans.length);
+        for (const plan of pop.plans) {
+          const r = planRecipe(plan);
+          this.state.plans.push(Object.assign(new Plan(), {
+            id: r.id, nom: r.nom, effet: r.effet, slot: r.slot, niveau: r.niveau, prerequis: r.prerequis,
+            requis: Object.entries(r.requis).map(([k, n]) => `${k}:${n}`).join(','), materiau: r.materiau, auteur: r.auteur ?? '',
+          }));
+        }
+      }
+      for (const [rare, n] of Object.entries(pop.rares)) if (this.state.offrandes.get(rare) !== n) this.state.offrandes.set(rare, n);
     }
 
     syncZone(i) {
@@ -227,6 +258,7 @@ export function makeContreeRoom(config) {
       p.touche = 0;
       p.action = '';
       p.roulade = 0;
+      p.talisman = 0;
       restorePlayer(this, p);
       this.state.joueurs.set(client.sessionId, p);
       this.inputs.set(client.sessionId, { x: 0, y: 0 });

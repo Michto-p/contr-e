@@ -18,9 +18,35 @@ export const Joueur = schema({
   epee: t.uint8(), // niveau de l'épée (dégâts)
   armure: t.uint8(), // niveau de l'armure (points de vie max)
   bottes: t.uint8(), // 0 ou 1 (vitesse)
+  talisman: t.uint8(), // 0 ou 1 (+4 PV), forgé d'après un plan inventé au village
   roulade: t.uint16(), // compteur : chaque roulade l'incrémente
   sac: t.map('uint16'), // objet -> quantité (minerai, cuir, ressources rares)
 }, 'Joueur');
+
+export const Habitant = schema({
+  id: t.uint16(),
+  prenom: t.string(),
+  famille: t.string(),
+  age: t.uint8(),
+  metier: t.string(), // '' pour un enfant
+  talent: t.string(),
+  traits: t.string(), // « curieux, bavard »
+  parents: t.string(), // prénoms des parents
+  partenaire: t.string(),
+}, 'Habitant');
+
+// Un plan inventé par le forgeron : une recette de plus à la forge.
+export const Plan = schema({
+  id: t.string(),
+  nom: t.string(),
+  effet: t.string(),
+  slot: t.string(),
+  niveau: t.uint8(),
+  prerequis: t.uint8(),
+  requis: t.string(), // « minerai:3,cuir:1 »
+  materiau: t.string(),
+  auteur: t.string(),
+}, 'Plan');
 
 export const Butin = schema({
   sorte: t.string(), // 'minerai' | 'cuir' | nom d'une ressource rare
@@ -77,4 +103,7 @@ export const EtatContree = schema({
   zones: t.array(Zone),
   metiers: t.map(Metier),
   quetes: t.array(Quete),
+  habitants: t.array(Habitant),
+  plans: t.array(Plan),
+  offrandes: t.map('uint16'), // ressources rares confiées au village, pas encore utilisées
 }, 'EtatContree');

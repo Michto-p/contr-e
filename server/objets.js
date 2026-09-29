@@ -16,7 +16,8 @@ export const DASH_COOLDOWN_MS = 1200;
 export const EXTRACT_MAX_PRESSURE = 40; // un gisement ne s'exploite que dans une zone dégagée
 
 export const PV_BY_ARMOR = [0, 10, 14, 18];
-export const DAMAGE_BY_SWORD = [0, 1, 2, 3];
+export const DAMAGE_BY_SWORD = [0, 1, 2, 3, 4];
+export const TALISMAN_PV = 4;
 
 // Recettes de la forge. `rares` : nombre de ressources rares (n'importe lesquelles de la contrée).
 export const RECETTES = [
@@ -26,6 +27,18 @@ export const RECETTES = [
   { id: 'armure3', nom: 'Cotte renforcée', effet: 'armure niveau 3 : 18 points de vie', slot: 'armure', niveau: 3, requis: { cuir: 3, minerai: 2 }, rares: 2 },
   { id: 'bottes', nom: 'Bottes de marche', effet: 'on se déplace plus vite', slot: 'bottes', niveau: 1, requis: { cuir: 3 }, rares: 0 },
 ];
+
+// Recette tirée d'un plan inventé au village (voir src/sim/systems/population.js).
+export function planRecipe(plan) {
+  if (plan.type === 'lame') {
+    return { id: `plan${plan.id}`, nom: plan.nom, effet: plan.effet, slot: 'epee', niveau: 4, prerequis: 2, requis: { minerai: 3 }, materiau: plan.materiau, rares: 0, auteur: plan.auteur };
+  }
+  return { id: `plan${plan.id}`, nom: plan.nom, effet: plan.effet, slot: 'talisman', niveau: 1, prerequis: 0, requis: { cuir: 2 }, materiau: plan.materiau, rares: 0, auteur: plan.auteur };
+}
+
+export function allRecipes(room) {
+  return [...RECETTES, ...(room.sim.village.population?.plans ?? []).map(planRecipe)];
+}
 
 // Ce que lâche chaque sorte de monstre : [objet, chance].
 const DROPS = {
@@ -158,22 +171,23 @@ export function extractRare(room, sid, zone, rare) {
 // ---------- Forge ----------
 
 export function applyGear(p) {
-  p.pvMax = PV_BY_ARMOR[p.armure] ?? 10;
+  p.pvMax = (PV_BY_ARMOR[p.armure] ?? 10) + (p.talisman ? TALISMAN_PV : 0);
   if (p.pv > p.pvMax) p.pv = p.pvMax;
 }
 
 export function canCraft(room, p, recette) {
-  const current = p[recette.slot];
+  const current = p[recette.slot] ?? 0;
   if (current >= recette.niveau) return 'déjà équipé';
-  if (current < recette.niveau - 1) return 'il faut d\'abord le niveau précédent';
+  if (current < (recette.prerequis ?? recette.niveau - 1)) return 'il faut d\'abord le niveau précédent';
   for (const [item, n] of Object.entries(recette.requis)) if (bagCount(p, item) < n) return `il manque du ${item}`;
+  if (recette.materiau && bagCount(p, recette.materiau) < 1) return `il faut du ${recette.materiau}`;
   if (raresIn(room, p) < recette.rares) return 'il manque des ressources rares';
   return null;
 }
 
 export function playerCraft(room, sid, recetteId) {
   const p = room.state.joueurs.get(sid);
-  const recette = RECETTES.find((r) => r.id === recetteId);
+  const recette = allRecipes(room).find((r) => r.id === recetteId);
   if (!p || !recette || p.aTerre) return;
   if (zoneIndexAt(p.x, p.y, room.sim.width, room.sim.height) !== room.sim.villageId) {
     return tell(room, sid, 'La forge est au village.');
@@ -185,6 +199,7 @@ export function playerCraft(room, sid, recetteId) {
   forge.stock.outils -= 1;
   room.state.outils = forge.stock.outils;
   for (const [item, n] of Object.entries(recette.requis)) removeItem(p, item, n);
+  if (recette.materiau) removeItem(p, recette.materiau, 1);
   let rares = recette.rares;
   for (const r of room.sim.signature.exclusives) {
     const take = Math.min(rares, bagCount(p, r));
@@ -203,7 +218,7 @@ export function playerCraft(room, sid, recetteId) {
 
 export function savePlayer(room, p) {
   const entry = room.registry[p.nom] ?? { lastDay: room.sim.day };
-  entry.gear = { epee: p.epee, armure: p.armure, bottes: p.bottes };
+  entry.gear = { epee: p.epee, armure: p.armure, bottes: p.bottes, talisman: p.talisman };
   entry.sac = Object.fromEntries(p.sac.entries());
   room.registry[p.nom] = entry;
 }
@@ -213,6 +228,7 @@ export function restorePlayer(room, p) {
   p.epee = entry?.gear?.epee ?? 1;
   p.armure = entry?.gear?.armure ?? 1;
   p.bottes = entry?.gear?.bottes ?? 0;
+  p.talisman = entry?.gear?.talisman ?? 0;
   for (const [item, n] of Object.entries(entry?.sac ?? {})) p.sac.set(item, n);
   applyGear(p);
   p.pv = p.pvMax;
@@ -224,4 +240,21 @@ export function updateObjets(room, t = Date.now()) {
   if (room.state.pain !== pain) room.state.pain = pain;
   const outils = room.sim.village.jobs.forgeron.stock.outils ?? 0;
   if (room.state.outils !== outils) room.state.outils = outils;
+}
+
+// ---------- Offrandes : rapporter au village ce qu'on trouve au loin ----------
+
+export function playerOffer(room, sid, rare) {
+  const p = room.state.joueurs.get(sid);
+  const pop = room.sim.village.population;
+  if (!p || p.aTerre || !pop) return;
+  if (!room.sim.signature.exclusives.includes(rare) || bagCount(p, rare) < 1) return;
+  if (zoneIndexAt(p.x, p.y, room.sim.width, room.sim.height) !== room.sim.villageId) {
+    return tell(room, sid, 'C\'est au village qu\'on confie ses trouvailles.');
+  }
+  removeItem(p, rare, 1);
+  pop.rares[rare] = (pop.rares[rare] ?? 0) + 1;
+  savePlayer(room, p);
+  announce(room, pushEvent(room, 'offering', null, { who: [p.nom], materiau: rare }));
+  return tell(room, sid, 'Le forgeron examine votre trouvaille avec curiosité.');
 }
