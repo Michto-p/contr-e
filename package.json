@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server/index.js",
     "sim": "node scripts/run-sim.js",
-    "test": "node --test"
+    "test": "node --test",
+    "relancer": "bash scripts/relancer.sh"
   },
   "dependencies": {
     "@colyseus/core": "^0.18.17",

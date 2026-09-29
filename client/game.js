@@ -387,6 +387,7 @@ function renderSide() {
     : `Aucun plan inventé pour l'instant${offr.length ? ` ; à la forge : ${offr.join(', ')}` : ' : rapportez au village les ressources rares trouvées au loin'}.`;
   vi.appendChild(p4);
 
+  $('version').textContent = game.monde?.version ? `Version du jeu : ${game.monde.version}` : '';
   const on = $('enligne');
   on.replaceChildren();
   s.joueurs?.forEach((p) => li(on, p.nom));

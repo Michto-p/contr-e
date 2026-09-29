@@ -136,3 +136,7 @@
 - Fait : `shared/genealogie.js` construit l'arbre (fondateurs, puis enfants et petits-enfants, conjoints rappelés à côté, disparus en gris), utilisé par le jeu (touche G, message `genealogie` qui renvoie aussi les défunts) et par la page de simulation (encadré « Les familles au jour N », colonne Habitants dans le tableau, choix « 1 an / 1 saison par jour »). Le lien de couple est rendu symétrique pour qu'un veuf ou une veuve ne réapparaisse pas comme famille à part.
 - Fait : les sorties sont synchronisées (`sortie`, `blesse`). Dans le jeu, l'habitant marche jusqu'à la zone visée (épée pour l'audacieux) puis rentre le soir ; un blessé porte un bandage. On peut lui parler n'importe où. Serveur : `RYTHME_VIE` (années par jour), appliqué aussi à une contrée existante.
 - Vérifié dans Chromium : arbre de la page de simulation (sur 40 jours : 25 habitants, 10 disparus, trois générations), panneau des familles et sorties dans le jeu, sans erreur.
+
+## Mettre à jour le serveur du Codespace
+- Fait : `npm run relancer` (scripts/relancer.sh) récupère le dernier code, réinstalle, arrête proprement l'ancien serveur (SIGINT : la contrée est sauvegardée) puis relance `codespace.sh`. La version (commit court + date) est affichée dans le panneau Chronique et au démarrage du serveur.
+- Problème repéré : `codespace.sh` ne relançait pas un serveur déjà en marche, d'où l'ancienne version servie après un `git pull`.

@@ -42,7 +42,7 @@ function structuresSummary(zone) {
 export function makeContreeRoom(config) {
   const {
     heureMs = 30_000, bots = 'mixte', graine = 42, fichier = 'data/contree.json',
-    rattrapageMaxJours = 7, rythmeVie = null, now = () => Date.now(), log = () => {},
+    rattrapageMaxJours = 7, rythmeVie = null, now = () => Date.now(), log = () => {}, version = '',
   } = config;
 
   return class ContreeRoom extends Room {
@@ -245,6 +245,7 @@ export function makeContreeRoom(config) {
         zones: this.sim.zones.map((z) => ({ biome: z.biome, label: z.label, village: z.isVillage, champ: z.isField })),
         recettes: RECETTES,
         anneesParJour: this.sim.village.population?.yearsPerDay ?? 1,
+        version,
         rares: this.sim.signature.exclusives,
       };
     }

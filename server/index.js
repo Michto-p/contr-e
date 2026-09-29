@@ -6,7 +6,17 @@ import { createRequire } from 'node:module';
 import express from 'express';
 import { Server, matchMaker } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
+import { execSync } from 'node:child_process';
 import { makeContreeRoom } from './contree-room.js';
+
+// Version du code (commit git), affichée dans le jeu pour vérifier qu'on joue bien à la dernière.
+function codeVersion() {
+  try {
+    return execSync('git log -1 --format="%h %cs"', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'inconnue';
+  }
+}
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -23,7 +33,7 @@ export async function createGameServer({ port = 2567, ...config } = {}) {
       app.use(express.static(join(ROOT, 'client')));
     },
   });
-  server.define('contree', makeContreeRoom(config));
+  server.define('contree', makeContreeRoom({ version: codeVersion(), ...config }));
   await server.listen(port);
   // La contrée est créée au démarrage : elle vit avant même l'arrivée du premier joueur.
   const listing = await matchMaker.createRoom('contree', {});
@@ -54,5 +64,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     rythmeVie: env.RYTHME_VIE ? Number(env.RYTHME_VIE) : null,
     log: (msg) => console.log(`[contrée] ${msg}`),
   });
+  console.log(`[contrée] Version du code : ${codeVersion()}`);
   console.log(`[contrée] Serveur prêt sur http://localhost:${game.port} (1 heure de jeu = ${Number(env.HEURE_MS ?? 30_000) / 1000} s)`);
 }

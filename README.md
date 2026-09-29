@@ -17,6 +17,11 @@ vivre quand personne n'est connecté. Au retour, chacun lit la **chronique** de 
    `https://<nom-du-codespace>-2567.app.github.dev`.
 3. Ouvrez cette adresse, choisissez un nom, et envoyez-la à vos amis.
 
+**Mettre le jeu à jour** (après de nouveaux changements sur la branche) : dans le terminal du
+Codespace, tapez `npm run relancer`. La commande récupère le dernier code, arrête l'ancien serveur
+(la contrée est sauvegardée) et démarre le nouveau. La version du jeu est affichée dans le panneau
+Chronique (touche C) ; rechargez la page du jeu (Ctrl+Maj+R) après la relance.
+
 Si le port n'a pas pu être rendu public automatiquement : onglet **PORTS** > clic droit sur `2567` >
 **Port Visibility** > **Public**.
 
