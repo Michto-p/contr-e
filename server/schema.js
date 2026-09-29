@@ -70,6 +70,7 @@ export const Monstre = schema({
   pvMax: t.uint8(),
   coup: t.uint16(), // compteur : chaque attaque du monstre
   touche: t.uint16(), // compteur : chaque coup reçu
+  horde: t.boolean(), // membre d'une horde en marche vers le village
 }, 'Monstre');
 
 // Un habitant présent sur la carte du jeu : garde en patrouille ou voyageur égaré.

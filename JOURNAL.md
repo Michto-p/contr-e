@@ -173,3 +173,11 @@
 ## Sentiers visibles
 - Fait : l'usure des chemins de la simulation se voit maintenant comme un vrai sentier qui serpente d'une zone à la voisine en direction du village : herbe foulée tant qu'il est peu emprunté, chemin de terre continu au-delà (seuil de la simulation : 40), qui s'élargit quand il est très fréquenté, avec des pierres de gué sur les ruisseaux.
 - Décision : le tracé est tiré de la graine (même dessin pour tous) et calculé une fois par zone ; seul l'état (usure) change d'une image à l'autre.
+
+## Hordes en jeu
+- Fait : quand la simulation lance une horde et que des joueurs sont connectés, six monstres (brutes, rôdeurs, gluants, cerclés de rouge et visibles sur la mini-carte) partent de la zone touchée et marchent sur le village, hors de tout territoire. Abattus tous (par les joueurs ou les gardes) : event `horde_repelled` et la zone perd 15 de pression. Chaque monstre qui atteint le village pille 3 pains puis disparaît : event `horde_raid` (perte partielle, avec sa réparation).
+- Décision : sans joueur connecté, la horde reste ce qu'elle était (la simulation seule) ; les victoires des gardes comptent, et leur prénom apparaît dans la chronique. Problème repéré et corrigé : deux zones peuvent porter le même nom sur la grande carte, la horde garde donc l'identifiant de sa zone.
+
+## Sons
+- Fait : `client/sons.js` synthétise les sons avec Web Audio, sans fichier : épée, monstre touché, blessure, roulade, butin ramassé, pain mangé, cloche du village au lever du jour, cor d'une horde, fanfare quand elle est repoussée, et une pluie de fond selon la météo. Touche M pour couper le son (retenu dans le navigateur).
+- Décision : le son ne démarre qu'après une première touche ou un premier clic (règle des navigateurs).

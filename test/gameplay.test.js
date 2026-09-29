@@ -8,7 +8,7 @@ import { Client } from '@colyseus/sdk';
 import { createGameServer } from '../server/index.js';
 import { Monstre } from '../server/schema.js';
 import { ZONE_TILES, OUTPOST_SPOT } from '../shared/monde.js';
-import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, OUTPOST_STEP_WOOD, monsterCountFor, monsterTarget, isNightHour, kindFor, nearOutpost } from '../server/gameplay.js';
+import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, OUTPOST_STEP_WOOD, monsterCountFor, monsterTarget, isNightHour, kindFor, nearOutpost, startHorde, HORDE_SIZE } from '../server/gameplay.js';
 
 const dir = mkdtempSync(pathJoin(tmpdir(), 'contree-'));
 let game;
@@ -260,4 +260,37 @@ test('la nuit, un monstre de plus par zone infestée ; une zone calme reste calm
   const calme = { monsterPressure: 5, structures: [] };
   assert.equal(monsterTarget(calme, true), 0);
   assert.ok(isNightHour(23) && isNightHour(2) && !isNightHour(12) && !isNightHour(5));
+});
+
+test('une horde marche sur le village ; repoussée à plusieurs, elle recule', async () => {
+  clearMonsters();
+  const j = await join('Jade');
+  const sim = room().sim;
+  const zone = sim.zones.find((z) => z.dist === 2 && !z.closed && !z.isField);
+  zone.monsterPressure = 80;
+  const horde = startHorde(room(), 'les marais lointains', zone.id);
+  assert.ok(await until(() => j.inbox.annonce.some((l) => /horde/.test(l))), 'annonce reçue');
+  const ids = [...room().play.monsters].filter(([, d]) => d.horde === horde.id).map(([id]) => id);
+  assert.equal(ids.length, HORDE_SIZE);
+  // Elle avance vers le village.
+  const v = sim.zones[sim.villageId];
+  const vc = { x: (v.x + 0.5) * ZONE_TILES, y: (v.y + 0.5) * ZONE_TILES };
+  const m0 = room().state.monstres.get(ids[0]);
+  const d0 = Math.hypot(m0.x - vc.x, m0.y - vc.y);
+  assert.ok(await until(() => Math.hypot(m0.x - vc.x, m0.y - vc.y) < d0 - 0.5), 'la horde avance');
+  // Jade les abat un à un (on les affaiblit et on les amène devant elle).
+  j.p().dir = 'droite';
+  for (const id of ids) {
+    const m = room().state.monstres.get(id);
+    if (!m) continue;
+    m.pv = 1;
+    m.x = j.p().x + 1;
+    m.y = j.p().y;
+    j.r.send('attaque');
+    assert.ok(await until(() => !room().state.monstres.has(id)), `monstre ${id}`);
+    await sleep(420);
+  }
+  assert.ok(await until(() => room().world.events.some((e) => e.type === 'horde_repelled' && e.data.who.includes('Jade'))), 'horde repoussée');
+  assert.ok(zone.monsterPressure <= 65, `pression ${zone.monsterPressure}`);
+  await j.r.leave();
 });

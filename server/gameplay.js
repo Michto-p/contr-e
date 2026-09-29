@@ -105,10 +105,105 @@ export function initGameplay(room) {
     questProgress: new Map(), // id de quête -> { points, who: Set }
     repairers: new Map(), // "zone|type" -> Set de noms
     projectiles: new Map(), // id -> { vx, vy, until, degats }
+    hordes: new Map(), // id -> horde en marche (voir startHorde)
   };
 }
 
 export { pushEvent };
+
+// ---------- Hordes ----------
+
+// Quand la simulation annonce une horde et que des joueurs sont là, elle se matérialise : une bande
+// de monstres part de la zone touchée et marche sur le village. Repoussée à temps, elle recule ;
+// sinon elle pille une partie des réserves (jamais tout) et se disperse.
+export const HORDE_SIZE = 6;
+const HORDE_MARCH = 0.9; // tuiles par seconde : le temps d'accourir
+const HORDE_KINDS = ['brute', 'brute', 'rodeur', 'rodeur', 'gluant', 'gluant'];
+const HORDE_LOOT = 3; // pains pillés par monstre qui atteint le village
+
+export function startHorde(room, fromLabel, targetId, t = Date.now()) {
+  const { play, sim } = room;
+  const z = sim.zones[targetId];
+  if (!z || z.isVillage) return null;
+  const hid = play.nextHorde = (play.nextHorde ?? 0) + 1;
+  const horde = { id: hid, zone: targetId, label: z.label, from: fromLabel, alive: 0, raided: 0, who: new Set() };
+  play.hordes.set(hid, horde);
+  for (let i = 0; i < HORDE_SIZE; i++) {
+    const kind = KINDS.find((k) => k.sorte === HORDE_KINDS[i % HORDE_KINDS.length]);
+    const pos = randomPointIn(room, targetId);
+    const id = `m${play.nextId++}`;
+    const m = new Monstre();
+    Object.assign(m, { sorte: kind.sorte, x: pos.x, y: pos.y, pv: kind.pv, pvMax: kind.pv, coup: 0, touche: 0, horde: true });
+    room.state.monstres.set(id, m);
+    play.monsters.set(id, { zone: targetId, kind, goal: pos, nextGoal: 0, lastHit: 0, horde: hid });
+    horde.alive += 1;
+  }
+  room.broadcast('annonce', `Une horde venue ${deLabelFr(fromLabel)} marche sur le village depuis ${z.label} ! Repoussez-la ensemble.`);
+  return horde;
+}
+
+const deLabelFr = (label) => (label.startsWith('les ') ? `des ${label.slice(4)}` : label.startsWith('le ') ? `du ${label.slice(3)}` : `de ${label}`);
+
+function marchHorde(room, id, m, data, target, best, dt, t) {
+  let goal;
+  let speed = data.kind.vitesse;
+  if (target && best <= REACH) {
+    goal = null;
+    if (t - data.lastHit >= data.kind.cadence) {
+      data.lastHit = t;
+      m.coup = (m.coup + 1) % 65536;
+      if (target[0]) hurtPlayer(room, target[0], target[1], data.kind.degats, t);
+      else { target[1].pv = Math.max(0, target[1].pv - data.kind.degats); target[1].touche = (target[1].touche + 1) % 65536; }
+    }
+  } else if (target) {
+    goal = target[1];
+  } else {
+    const v = room.sim.zones[room.sim.villageId];
+    goal = { x: (v.x + 0.5) * ZONE_TILES, y: (v.y + 0.5) * ZONE_TILES };
+    speed = HORDE_MARCH;
+  }
+  if (goal) {
+    const next = stepPosition(m.x, m.y, { x: goal.x - m.x, y: goal.y - m.y }, dt * (speed / 5));
+    m.x = next.x;
+    m.y = next.y;
+  }
+  data.zone = zoneOfPos(room, m.x, m.y);
+  if (data.zone === room.sim.villageId) raidVillage(room, id, data);
+}
+
+function raidVillage(room, id, data) {
+  const horde = room.play.hordes.get(data.horde);
+  room.state.monstres.delete(id);
+  room.play.monsters.delete(id);
+  const pain = room.sim.village.jobs.boulanger.stock;
+  pain.pain = clamp((pain.pain ?? 0) - HORDE_LOOT);
+  if (!horde) return;
+  horde.alive -= 1;
+  horde.raided += 1;
+  if (horde.alive <= 0) endHorde(room, horde);
+}
+
+function hordeMemberDown(room, data, who) {
+  const horde = room.play.hordes.get(data.horde);
+  if (!horde) return;
+  horde.alive -= 1;
+  if (who) horde.who.add(who);
+  if (horde.alive <= 0) endHorde(room, horde);
+}
+
+function endHorde(room, horde) {
+  room.play.hordes.delete(horde.id);
+  const target = room.sim.zones[horde.zone];
+  let e;
+  if (horde.raided === 0) {
+    // Repoussée : la zone d'où elle venait se calme nettement.
+    if (target) { target.monsterPressure = clamp(target.monsterPressure - 15); room.syncZone(target.id); }
+    e = pushEvent(room, 'horde_repelled', target?.id ?? null, { who: [...horde.who], label: horde.label });
+  } else {
+    e = pushEvent(room, 'horde_raid', null, { raided: horde.raided, who: [...horde.who], label: horde.label, fix: 'groupe' });
+  }
+  announce(room, e);
+}
 
 const zoneOfPos = (room, x, y) => zoneIndexAt(x, y, room.sim.width, room.sim.height);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -164,6 +259,7 @@ function spawnMonsters(room, t) {
   }
   const counts = new Map();
   for (const [id, m] of play.monsters) {
+    if (m.horde) continue; // une horde marche, qu'on la voie ou non
     if (!kept.has(m.zone)) { // plus personne autour : le monstre retourne dans la pression de sa zone
       play.monsters.delete(id);
       room.state.monstres.delete(id);
@@ -226,6 +322,7 @@ function moveMonsters(room, dt, t) {
     }
     let goal;
     let speed = data.kind.vitesse;
+    if (data.horde) { marchHorde(room, id, m, data, target, best, dt, t); continue; }
     if (target && spitter) {
       // Le cracheur recule s'il est serré de près, s'approche s'il est trop loin, et tire.
       const p = target[1];
@@ -384,9 +481,10 @@ export function playerAttack(room, sid, t = Date.now()) {
 }
 
 // Un monstre vaincu par un garde : la zone recule comme pour un joueur, mais sans butin.
-export function defeatMonster(room, id, t) {
+export function defeatMonster(room, id, t, who = null) {
   const data = room.play.monsters.get(id);
   if (!data) return;
+  if (data.horde) hordeMemberDown(room, data, who);
   room.state.monstres.delete(id);
   room.play.monsters.delete(id);
   room.play.spawnAt.set(data.zone, t + RESPAWN_AFTER_KILL_MS);
@@ -397,6 +495,7 @@ export function defeatMonster(room, id, t) {
 
 function killMonster(room, sid, p, id, data, t) {
   const m = room.state.monstres.get(id);
+  if (data.horde) hordeMemberDown(room, data, p.nom);
   dropLoot(room, data.kind.sorte, data.zone, m.x, m.y, t);
   room.state.monstres.delete(id);
   room.play.monsters.delete(id);

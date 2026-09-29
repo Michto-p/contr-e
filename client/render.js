@@ -285,6 +285,11 @@ export function drawMonster(ctx, m, t, hitAge, lungeAge) {
   const lunge = lungeAge < 180 ? Math.sin((lungeAge / 180) * Math.PI) * 3 : 0;
   const y = m.dy * TILE + bob - lunge;
   const flash = hitAge < 140;
+  if (m.horde) {
+    // Membre d'une horde : une lueur rouge au sol qui pulse.
+    ctx.fillStyle = `rgba(220, 40, 30, ${0.25 + Math.sin(t / 150) * 0.1})`;
+    ctx.beginPath(); ctx.ellipse(x, m.dy * TILE + 6, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+  }
   if (m.sorte === 'brute') {
     px(ctx, 'rgba(0,0,0,0.3)', x - 9, m.dy * TILE + 7, 18, 3);
     ctx.fillStyle = flash ? '#ffffff' : '#7a2a2a';
@@ -733,6 +738,12 @@ export function drawMinimap(ctx, { monde, state, players, pnjs = [], questZones 
   ctx.strokeStyle = '#ffd84a';
   ctx.lineWidth = 1.5;
   for (const zi of questZones) ctx.strokeRect((zi % W) * cell + 1, Math.floor(zi / W) * cell + 1, cell - 2, cell - 2);
+  // Les hordes en marche : des points rouges.
+  state.monstres?.forEach((m) => {
+    if (!m.horde) return;
+    ctx.fillStyle = '#ff4a3a';
+    ctx.fillRect((m.x / ZONE_TILES) * cell - 1.5, (m.y / ZONE_TILES) * cell - 1.5, 3, 3);
+  });
   // Le voyageur égaré : un point pâle qui clignote.
   for (const g of pnjs) {
     if (g.sorte !== 'egare' || Math.floor(Date.now() / 500) % 2) continue;

@@ -473,6 +473,20 @@ const RENDERERS = {
       ? `Une horde s'est formée dans ${e.data.label} et se rapproche du village.`
       : `Une horde a quitté ${e.data.label} et s'abat sur ${e.data.target}, un pas de plus vers le village.`)).join(' '),
   },
+  horde_repelled: {
+    key: (e) => e.data.label,
+    priority: () => 9,
+    text: (evs) => {
+      const e = evs[0];
+      const by = e.data.who.length ? `${cap(joinFr(e.data.who))} ${e.data.who.length > 1 ? 'ont' : 'a'} repoussé` : 'On a repoussé';
+      return `${by} la horde qui marchait sur le village depuis ${e.data.label} : les bêtes ont reflué.`;
+    },
+  },
+  horde_raid: {
+    key: (e) => e.data.label,
+    priority: () => 8,
+    text: (evs) => `La horde partie ${deLabel(evs[0].data.label)} a atteint le village et pillé une partie du pain avant de se disperser. ${FIX.groupe}`,
+  },
   fields_threatened: {
     priority: () => 9,
     text: (evs, debug) => `Des bêtes rôdent autour ${dePlaces(labels(evs))}. ${FIX.patrouiller}${debug ? dbg(evs, ['pressure']) : ''}`,

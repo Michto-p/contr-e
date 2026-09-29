@@ -78,7 +78,7 @@ export function monsters(state, rng, ctx) {
     if (target) {
       z.monsterPressure = clamp(z.monsterPressure - 30);
       spill.set(target.id, (spill.get(target.id) ?? 0) + rng.int(20, 30));
-      events.push(ctx.event('horde', z, { label: z.label, target: target.label, dist: target.dist, fix: 'groupe' }));
+      events.push(ctx.event('horde', z, { label: z.label, target: target.label, targetId: target.id, dist: target.dist, fix: 'groupe' }));
       // Ce qui est construit dehors est exposé : la horde malmène les structures sur son passage.
       const hit = target.structures.filter((st) => !st.protected && st.condition > 0);
       for (const st of hit) st.condition = clamp(st.condition - rng.int(20, 35));

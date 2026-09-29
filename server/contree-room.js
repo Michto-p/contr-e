@@ -10,7 +10,7 @@ import { initPnj, updatePnj } from './pnj.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
-  initGameplay, updateGameplay, playerAttack, playerInteract, updateActions, questPercent,
+  initGameplay, updateGameplay, startHorde, playerAttack, playerInteract, updateActions, questPercent,
   PLAYER_PV, KILLS_PER_HOUR_CAP,
 } from './gameplay.js';
 import {
@@ -148,7 +148,11 @@ export function makeContreeRoom(config) {
     }
 
     advance() {
-      advanceWorld(this.world);
+      const events = advanceWorld(this.world);
+      // Une horde annoncée par la simulation se matérialise si des joueurs sont là pour la voir.
+      if (this.clients.length) {
+        for (const e of events) if (e.type === 'horde' && e.data.targetId != null) startHorde(this, e.data.label, e.data.targetId);
+      }
     }
 
     dayChronicle(day) {

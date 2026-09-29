@@ -177,7 +177,7 @@ function updateGuard(room, key, g, data, dt, t) {
         g.coup = (g.coup + 1) % 65536;
         m.pv = Math.max(0, m.pv - (data.talent ? 2 : 1));
         m.touche = (m.touche + 1) % 65536;
-        if (m.pv === 0) defeatMonster(room, id, t);
+        if (m.pv === 0) defeatMonster(room, id, t, g.prenom);
       }
     }
     return;

@@ -87,6 +87,7 @@ Réglages du serveur (variables d'environnement) :
   un **plan** (une lame à 4 dégâts, un talisman +4 PV) que tout le monde pourra ensuite forger.
 - **G** : l'arbre des familles du village, avec les disparus (en gris) et les conjoints (♥).
 - **C** : chronique, quêtes du village, métiers, habitants et familles, joueurs en ligne.
+- **M** : couper ou remettre le son (épée, coups, butin, cloche du matin, cor des hordes, pluie).
 - Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
   🌀 rouler, 🍞 manger, 🎒 sac.
 
@@ -95,7 +96,13 @@ biomes, collines et montagnes en terrasses, ruisseaux (qui se passent à gué), 
 la nuit tombe : les fenêtres du village et les feux des avant-postes s'allument, les habitants
 rentrent chez eux, chacun porte sa lanterne. De 21 h à 5 h, les monstres s'enhardissent : un de plus
 par zone infestée, et ils vous repèrent de plus loin. Le village et les avant-postes restent sûrs. La météo du monde se voit : averses, orages, neige,
-brume, vent.
+brume, vent. Les sentiers se voient aussi : herbe foulée quand on passe peu, chemin de terre quand
+on passe souvent, qui s'efface si on le délaisse.
+
+**Hordes** : quand une zone déborde, la simulation lance une horde. Si des joueurs sont connectés,
+elle apparaît pour de bon (monstres cerclés de rouge, points rouges sur la mini-carte) et marche
+sur le village. Repoussée à temps, à plusieurs et avec les gardes, sa zone recule nettement ;
+sinon, elle pille une partie du pain en atteignant le village, puis se disperse.
 
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
 les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent
