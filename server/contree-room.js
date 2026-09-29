@@ -4,6 +4,7 @@
 // y freine les monstres, et combattre les fait reculer.
 import { Room } from '@colyseus/core';
 import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js';
+import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, zoneIndexAt, stepPosition } from '../shared/monde.js';
 import { EtatContree, Joueur, Zone, Metier } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
@@ -126,7 +127,7 @@ export function makeContreeRoom(config) {
       const s = this.state;
       s.jour = this.sim.day;
       s.heure = this.sim.tick % 24;
-      s.saison = this.sim.season.name ?? '';
+      s.saison = this.sim.season.name ?? SEASONS[seasonIndex(this.sim)].name;
       s.meteo = this.sim.season.weather ?? '';
       this.sim.zones.forEach((z, i) => {
         const sz = s.zones[i];

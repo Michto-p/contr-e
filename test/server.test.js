@@ -97,3 +97,11 @@ test('deux joueurs du même nom sont distingués', async () => {
   await a.room.leave();
   await b.room.leave();
 });
+
+test('le serveur sert la page du jeu et ses fichiers', async () => {
+  for (const [path, needle] of [['/', '<canvas'], ['/game.js', 'Colyseus.Client'], ['/render.js', 'drawWorld'], ['/shared/monde.js', 'ZONE_TILES'], ['/vendor/colyseus.js', 'Colyseus']]) {
+    const res = await fetch(`${url}${path}`);
+    assert.equal(res.status, 200, path);
+    assert.ok((await res.text()).includes(needle), path);
+  }
+});

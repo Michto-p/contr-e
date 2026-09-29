@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Contrées vivantes</title>
+<style>
+  :root {
+    --ink: #fdf6e3; --ink-2: #d9cfb8; --panel: rgba(28, 24, 20, 0.86); --line: rgba(253, 246, 227, 0.18);
+    --accent: #e0a458; --danger: #e5635c; --ok: #7cc36a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #1c1814; color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  canvas#jeu { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; image-rendering: pixelated; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(3px); }
+  .hud { position: fixed; top: 10px; left: 10px; padding: 8px 12px; max-width: min(360px, calc(100vw - 150px)); pointer-events: none; }
+  .hud .quand { font-weight: 700; }
+  .hud .ou { color: var(--ink-2); }
+  .hud .danger { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; }
+  .hud .jauge { flex: 1; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .hud .jauge i { display: block; height: 100%; background: var(--danger); border-radius: 3px; }
+  .hud .structs { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+  #minimap { position: fixed; top: 10px; right: 10px; width: 132px; height: 132px; padding: 6px; image-rendering: pixelated; }
+  .aide { position: fixed; left: 10px; bottom: 10px; padding: 6px 10px; font-size: 13px; color: var(--ink-2); pointer-events: none; }
+  .aide kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 0 5px; font: inherit; color: var(--ink); }
+  .boutons { position: fixed; right: 10px; top: 154px; display: flex; flex-direction: column; gap: 6px; }
+  button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primaire { background: var(--accent); color: #1c1814; border: none; font-weight: 700; padding: 10px 16px; }
+  #attaque { position: fixed; right: 18px; bottom: 18px; width: 76px; height: 76px; border-radius: 50%; font-size: 26px; display: none; }
+  @media (pointer: coarse) { #attaque { display: block; } .aide { display: none; } }
+
+  /* Panneau chronique */
+  #cote { position: fixed; top: 10px; right: 154px; bottom: 10px; width: min(380px, calc(100vw - 20px)); padding: 12px 14px; overflow-y: auto; display: none; }
+  #cote.ouvert { display: block; }
+  @media (max-width: 700px) { #cote { right: 10px; top: 150px; } }
+  #cote h2 { font-family: Georgia, "Times New Roman", serif; font-size: 1.15em; margin: 0 0 6px; }
+  #cote h3 { font-size: 0.95em; margin: 14px 0 4px; color: var(--accent); }
+  #cote ul { margin: 0; padding-left: 1.1em; font-family: Georgia, "Times New Roman", serif; }
+  #cote li { margin: 3px 0; }
+  #cote .fermer { float: right; }
+  .metiers { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px; }
+  .metiers .pips { letter-spacing: 2px; color: var(--accent); }
+
+  /* Écrans d'accueil et messages */
+  .voile { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(12, 10, 8, 0.6); padding: 16px; }
+  .voile[hidden] { display: none; }
+  .carte { max-width: 520px; width: 100%; padding: 20px 22px; }
+  .carte h1 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 6px; font-size: 1.7em; }
+  .carte h2 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 10px; font-size: 1.25em; }
+  .carte p { color: var(--ink-2); margin: 0 0 12px; }
+  .carte ul { font-family: Georgia, "Times New Roman", serif; padding-left: 1.1em; max-height: 50vh; overflow-y: auto; }
+  .carte li { margin: 4px 0; }
+  .carte form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .carte input { flex: 1 1 200px; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--ink); }
+  .erreur { color: var(--danger) !important; }
+  #toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 14px; max-width: min(560px, calc(100vw - 24px)); font-family: Georgia, "Times New Roman", serif; }
+  #toast[hidden] { display: none; }
+</style>
+</head>
+<body>
+<canvas id="jeu" aria-label="Le monde de la contrée"></canvas>
+
+<div class="hud panel" id="hud" hidden>
+  <div class="quand" id="quand">—</div>
+  <div class="ou" id="ou">—</div>
+  <div class="danger"><span id="danger-mot">Monstres</span><span class="jauge"><i id="jauge" style="width:0%"></i></span></div>
+  <div class="structs" id="structs"></div>
+</div>
+<canvas id="minimap" class="panel" width="120" height="120" hidden aria-label="Carte de la contrée"></canvas>
+<div class="boutons" id="boutons" hidden>
+  <button type="button" id="btn-chronique" title="Chronique (C)">📜 Chronique</button>
+</div>
+<div class="aide panel" id="aide" hidden>
+  <kbd>←↑↓→</kbd> ou <kbd>Z Q S D</kbd> se déplacer · <kbd>Espace</kbd> combattre · <kbd>C</kbd> chronique
+</div>
+<button type="button" id="attaque" aria-label="Combattre">⚔</button>
+
+<aside id="cote" class="panel" aria-label="Chronique et village">
+  <button type="button" class="fermer" id="fermer-cote" aria-label="Fermer">✕</button>
+  <h2 id="cote-titre">Chronique</h2>
+  <h3>Au village, on cherche</h3>
+  <ul id="quetes"></ul>
+  <h3>Les métiers</h3>
+  <div class="metiers" id="metiers"></div>
+  <h3>En ligne</h3>
+  <ul id="enligne"></ul>
+  <div id="chroniques"></div>
+</aside>
+
+<div class="voile" id="accueil">
+  <div class="carte panel">
+    <h1>Contrées vivantes</h1>
+    <p>Un petit monde qui vit même quand vous n'êtes pas là. Entrez, protégez les champs, et lisez ce qui s'est passé pendant votre absence.</p>
+    <form id="entrer">
+      <input id="nom" name="nom" maxlength="16" placeholder="Votre nom" autocomplete="nickname" required>
+      <button class="primaire" type="submit">Entrer</button>
+    </form>
+    <p id="accueil-msg" style="margin-top:10px"></p>
+  </div>
+</div>
+
+<div class="voile" id="message" hidden>
+  <div class="carte panel">
+    <h2 id="message-titre"></h2>
+    <ul id="message-lignes"></ul>
+    <p id="message-texte"></p>
+    <button class="primaire" type="button" id="message-ok">Reprendre</button>
+  </div>
+</div>
+<div id="toast" class="panel" hidden></div>
+
+<script src="vendor/colyseus.js"></script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
