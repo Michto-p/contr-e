@@ -562,7 +562,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
 }
 
 // Mini-carte : une case par zone, teinte selon la pression des monstres.
-export function drawMinimap(ctx, { monde, state, players, questZones = new Set() }) {
+export function drawMinimap(ctx, { monde, state, players, pnjs = [], questZones = new Set() }) {
   const W = monde.largeur;
   const cell = ctx.canvas.width / W;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -583,6 +583,12 @@ export function drawMinimap(ctx, { monde, state, players, questZones = new Set()
   ctx.strokeStyle = '#ffd84a';
   ctx.lineWidth = 1.5;
   for (const zi of questZones) ctx.strokeRect((zi % W) * cell + 1, Math.floor(zi / W) * cell + 1, cell - 2, cell - 2);
+  // Le voyageur égaré : un point pâle qui clignote.
+  for (const g of pnjs) {
+    if (g.sorte !== 'egare' || Math.floor(Date.now() / 500) % 2) continue;
+    ctx.fillStyle = '#fff6c9';
+    ctx.fillRect((g.dx / ZONE_TILES) * cell - 2, (g.dy / ZONE_TILES) * cell - 2, 4, 4);
+  }
   for (const p of players) {
     ctx.fillStyle = p.moi ? '#ffe28a' : '#ffffff';
     ctx.beginPath();

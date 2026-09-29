@@ -153,3 +153,7 @@
 ## Les gardes
 - Fait : nouveau métier d'habitant `garde` (compétence `armes`, talent « maître d'armes »), choisi à seize ans surtout par les audacieux ; le village en compte un dès le départ. Chaque matin ils patrouillent (lieux de travail et abords des champs d'abord) : la zone compte comme combattue et les habitants y travaillent plus loin. En jeu (`server/pnj.js`), ils apparaissent sur la carte, marchent jusqu'à leur zone, combattent vraiment les monstres (qui les attaquent aussi) et rentrent le soir.
 - Décision : pas de nouveau système, le métier vit dans la population ; les victoires des gardes font reculer la zone mais ne donnent pas de butin (il reste aux joueurs). Les anciennes sauvegardes reçoivent la compétence `armes` au chargement.
+
+## Voyageurs égarés
+- Fait : de temps en temps (au plus un à la fois), un voyageur s'égare dans une zone lointaine. En jeu, il attend sur la carte ; E le fait suivre le joueur, et arrivé au village il s'installe avec le métier où son savoir compte le plus (event `wanderer_rescued`, annoncé à tous). Sans joueurs, un habitant curieux peut aller le chercher ; au bout de 6 jours sans secours, il reprend sa route (`wanderer_gone`).
+- Décision : les monstres ne s'en prennent pas à l'égaré (plus simple) ; le danger, c'est pour celui qui le guide. Si le guide tombe ou part, l'égaré attend sur place.

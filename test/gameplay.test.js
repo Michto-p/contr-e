@@ -221,3 +221,35 @@ test('un garde en patrouille apparaît sur la carte, combat les monstres et rent
   assert.ok(await until(() => !room().state.pnj.has(key)), 'rentré');
   await h.r.leave();
 });
+
+test('un voyageur égaré, secouru avec E, suit son sauveteur et s\'installe au village', async () => {
+  clearMonsters();
+  const i = await join('Iris');
+  const sim = room().sim;
+  const pop = sim.village.population;
+  const zone = sim.zones.find((z) => z.dist === 2 && !z.closed && !z.isField);
+  const before = pop.people.filter((p) => p.alive).length;
+  pop.lost = { id: 99, prenom: 'Séraphin', famille: 'Vasseur', age: 30, skills: { culture: 70, cuisine: 10, forge: 10, bois: 10, elevage: 10, savoir: 20, armes: 10 }, traits: ['curieux', 'patient'], zone: zone.id, since: sim.day };
+  assert.ok(await until(() => room().state.pnj.has('e99')), 'égaré sur la carte');
+  const e = room().state.pnj.get('e99');
+  i.p().x = e.x + 0.5;
+  i.p().y = e.y;
+  assert.ok(await until(() => i.p().action === 'secourir Séraphin'), i.p().action);
+  i.r.send('interagir');
+  assert.ok(await until(() => e.suit === 'Iris'), 'il suit Iris');
+  // Iris rentre au village : il la suit.
+  const v = sim.zones[sim.villageId];
+  i.p().x = (v.x + 0.5) * ZONE_TILES;
+  i.p().y = (v.y + 0.5) * ZONE_TILES;
+  e.x = (v.x + 0.5) * ZONE_TILES - 2; // on lui épargne la marche
+  e.y = (v.y + 0.5) * ZONE_TILES;
+  assert.ok(await until(() => !room().state.pnj.has('e99')), 'arrivé');
+  assert.equal(room().sim.village.population.lost, null);
+  const alive = room().sim.village.population.people.filter((p) => p.alive);
+  assert.equal(alive.length, before + 1);
+  const newcomer = alive.find((p) => p.prenom === 'Séraphin');
+  assert.equal(newcomer.metier, 'agriculteur'); // son savoir le plus fort
+  assert.ok(room().world.events.some((x) => x.type === 'wanderer_rescued' && x.data.who.includes('Iris')));
+  assert.ok(await until(() => i.inbox.annonce.some((l) => /Séraphin/.test(l))), i.inbox.annonce.join(' / '));
+  await i.r.leave();
+});

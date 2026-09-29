@@ -184,3 +184,12 @@ test('un avant-poste abaisse le plafond de monstres de sa zone', async () => {
   z.structures.push({ type: 'avant-poste', condition: 80 });
   assert.ok(capacity(z) < before);
 });
+
+test('des voyageurs s\'égarent : un habitant curieux les ramène, ou ils reprennent leur route', () => {
+  const { events } = simulate(createWorld(42), createRng(42), { days: 60 });
+  const seen = events.filter((e) => e.type === 'wanderer_seen');
+  const outcome = events.filter((e) => e.type === 'wanderer_rescued' || e.type === 'wanderer_gone');
+  assert.ok(seen.length >= 2, `${seen.length} égarés`);
+  assert.ok(outcome.length >= seen.length - 1); // le dernier peut encore attendre
+  for (const e of seen) assert.equal(e.data.fix, 'ramener');
+});

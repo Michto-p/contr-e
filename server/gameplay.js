@@ -8,6 +8,7 @@ import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
+import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
 
 export const PLAYER_PV = 10;
@@ -475,6 +476,8 @@ function outpostSite(zone) {
 export function actionAt(room, p) {
   const { sim } = room;
   const zone = sim.zones[zoneOfPos(room, p.x, p.y)];
+  const lost = room.pnj ? lostNear(room, p) : null;
+  if (lost) return { kind: 'egare', zone, key: lost[0], label: `secourir ${lost[1].prenom}` };
   const quests = sim.village.quests;
   const build = quests.find((q) => q.kind === 'construire' && q.zone === zone.id);
   if (build) return { kind: 'construire', zone, quest: build, label: `bâtir la tour de guet (${BUILD_WOOD} bois)` };
@@ -509,6 +512,12 @@ export function playerInteract(room, sid, t = Date.now()) {
   const stock = wood(room);
 
   if (a.kind === 'rare') return extractRare(room, sid, a.zone, a.rare);
+
+  if (a.kind === 'egare') {
+    const e = room.state.pnj.get(a.key);
+    followPlayer(room, a.key, sid, p);
+    return tell(`${e.prenom} vous suit. Direction le village, à l'abri des monstres !`);
+  }
 
   if (a.kind === 'bois') {
     if ((stock.bois ?? 0) >= 100) return tell('La réserve de bois du village est pleine.');

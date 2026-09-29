@@ -183,6 +183,22 @@ const RENDERERS = {
     priority: () => 4,
     text: (evs) => `D'un naturel audacieux, ${who(evs)} ${plural(evs) ? 'ont' : 'a'} prêté main-forte contre les monstres ${deLabel(evs[0].data.label)}.`,
   },
+  wanderer_seen: {
+    priority: () => 7,
+    text: (evs) => `On a aperçu une silhouette égarée dans ${evs[0].data.label} : ${evs[0].data.prenom} a perdu sa route. Il faudrait aller à sa rencontre et l'escorter jusqu'au village.`,
+  },
+  wanderer_rescued: {
+    priority: () => 8,
+    text: (evs) => {
+      const e = evs[0];
+      const talent = e.data.talent && TALENT_TEXT[e.data.talent] ? ` Un savoir-faire précieux : ${e.data.prenom} ${TALENT_TEXT[e.data.talent]}.` : '';
+      return `Grâce à ${joinFr(e.data.who)}, ${e.data.name} a trouvé le chemin du village et s'y installe, ${JOB_AT[e.data.job] ?? 'parmi nous'}.${talent}`;
+    },
+  },
+  wanderer_gone: {
+    priority: () => 5,
+    text: (evs) => `Personne n'est allé chercher ${evs[0].data.prenom} dans ${evs[0].data.label} : sa route l'a mené ailleurs. D'autres voyageurs passeront.`,
+  },
   guard_patrol: {
     priority: () => 3,
     text: (evs) => {

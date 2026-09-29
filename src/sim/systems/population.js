@@ -280,6 +280,62 @@ function build(pop, state, ctx, events) {
   }
 }
 
+// ---------- Voyageurs égarés ----------
+
+// De temps en temps, quelqu'un s'égare dans les terres lointaines. Si on va le chercher (un joueur,
+// ou un habitant curieux), il s'installe au village avec son savoir-faire ; sinon, au bout de
+// quelques jours, il reprend sa route. D'autres passeront.
+const LOST_DAYS = 6;
+const LOST_CHANCE = 0.15;
+
+function wanderers(pop, state, rng, ctx, events) {
+  if (pop.lost) {
+    if (ctx.day - pop.lost.since >= LOST_DAYS) {
+      events.push(ctx.event('wanderer_gone', pop.lost.zone, { prenom: pop.lost.prenom, label: state.zones[pop.lost.zone].label }));
+      pop.lost = null;
+    }
+    return;
+  }
+  if (!rng.chance(LOST_CHANCE)) return;
+  const far = state.zones.filter((z) => !z.closed && !z.isField && z.dist >= 3 && z.dist <= 5);
+  if (!far.length) return;
+  const z = rng.pick(far);
+  // Venu d'ailleurs, il sait déjà bien faire quelque chose.
+  const skills = newSkills(rng, null);
+  const strong = rng.pick(SKILLS);
+  skills[strong] = rng.int(60, 80);
+  pop.lost = {
+    id: pop.nextLostId = (pop.nextLostId ?? 0) + 1, prenom: freeName(rng, pop), famille: rng.pick(FAMILLES),
+    age: rng.int(18, 40), skills, traits: twoTraits(rng), zone: z.id, since: ctx.day,
+  };
+  events.push(ctx.event('wanderer_seen', z, { prenom: pop.lost.prenom, label: z.label, fix: 'ramener' }));
+}
+
+// L'égaré arrive au village et s'installe : il prend le métier où son savoir est le plus utile.
+function welcome(pop, state, rng, who, ctx, events) {
+  const l = pop.lost;
+  if (!l) return null;
+  const p = makePerson(pop, rng, { prenom: l.prenom, famille: l.famille, age: l.age, skills: l.skills, traits: l.traits });
+  const jobs = Object.keys(JOB_SKILL).sort((a, b) => (p.skills[JOB_SKILL[b]] - workers(pop, b).length * 8) - (p.skills[JOB_SKILL[a]] - workers(pop, a).length * 8));
+  p.metier = jobs[0];
+  p.talent = talentFor(p);
+  pop.lost = null;
+  const e = ctx.event('wanderer_rescued', null, { who, name: fullName(p), prenom: p.prenom, job: p.metier, talent: p.talent });
+  events.push(e);
+  return e;
+}
+
+// Appelé par le jeu quand des joueurs ramènent l'égaré au village.
+export function rescueLost(state, who, ctx) {
+  const pop = state.village.population;
+  if (!pop?.lost) return null;
+  const prng = createRng(pop.rng);
+  const events = [];
+  welcome(pop, state, prng, who, ctx, events);
+  pop.rng = prng.save();
+  return events[0] ?? null;
+}
+
 // Plancher : le village ne disparaît jamais. S'il se vide, des familles viennent s'installer ;
 // un village prospère mais peu peuplé attire aussi du monde.
 function immigration(pop, state, rng, ctx, events) {
@@ -415,6 +471,14 @@ function outings(pop, state, rng, ctx, events) {
   // Le curieux part explorer les terres lointaines, et en rapporte parfois une ressource rare.
   const far = state.zones.filter((z) => !z.closed && z.dist >= 3 && z.dist <= 5);
   for (const p of adults.filter((a) => a.traits.includes('curieux') && !a.outing)) {
+    // Un voyageur égaré : le curieux part à sa recherche, et le ramène parfois.
+    if (pop.lost && !state.zones[pop.lost.zone].closed && rng.chance(0.3)) {
+      const z = state.zones[pop.lost.zone];
+      p.outing = { zone: z.id, kind: 'exploration' };
+      z.today.visits += 1;
+      if (rng.chance(0.5)) welcome(pop, state, rng, [p.prenom], ctx, events);
+      continue;
+    }
     if (!far.length || !rng.chance(0.15)) continue;
     const z = rng.pick(far);
     p.outing = { zone: z.id, kind: 'exploration' };
@@ -426,7 +490,8 @@ function outings(pop, state, rng, ctx, events) {
     } else {
       events.push(ctx.event('villager_explore', z, { who: p.prenom, label: z.label }));
     }
-  }  goToWork(pop, state, rng, adults.filter((p) => p.metier !== 'garde'));
+  }
+  goToWork(pop, state, rng, adults.filter((p) => p.metier !== 'garde'));
 }
 
 // ---------- Travail hors du village ----------
@@ -572,6 +637,7 @@ export function population(state, rng, ctx) {
     forestier(pop, state, prng, ctx, events);
     clearing(pop, state, prng, ctx, events);
     outposts(pop, state, prng, ctx, events);
+    wanderers(pop, state, prng, ctx, events);
     invent(pop, state, prng, ctx, events);
     rumor(pop, state, prng, ctx, events);
     // Les talents se révèlent aussi chez les adultes qui ont beaucoup appris.

@@ -1,10 +1,14 @@
 // Habitants présents sur la carte du jeu, gérés par le serveur :
-// les gardes, qui partent le matin patrouiller là où la simulation les envoie et combattent
-// vraiment les monstres qu'ils croisent, puis rentrent le soir au village.
+// - les gardes, qui partent le matin patrouiller là où la simulation les envoie et combattent
+//   vraiment les monstres qu'ils croisent, puis rentrent le soir au village ;
+// - le voyageur égaré, qui attend quelque part dans les terres lointaines qu'on vienne le chercher
+//   (touche E), puis suit son sauveteur jusqu'au village où il s'installe.
 import { Pnj } from './schema.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, SPEED } from '../shared/monde.js';
 import { defeatMonster } from './gameplay.js';
-import { pushEvent } from './evenements.js';
+import { pushEvent, announce } from './evenements.js';
+import { rescueLost } from '../src/sim/systems/population.js';
+import { makeCtx } from '../src/sim/tick.js';
 
 export const GUARD_PV = 6;
 const GUARD_SPEED = 3.2; // tuiles par seconde
@@ -13,6 +17,9 @@ const GUARD_REACH = 1.3;
 const GUARD_HIT_MS = 800;
 const GUARD_REGEN_MS = 5000;
 const SYNC_MS = 500;
+const FOLLOW_SPEED = 4.6; // un peu moins vite qu'un joueur : il faut l'attendre de temps en temps
+const FOLLOW_GAP = 1.2;
+export const RESCUE_REACH = 1.6;
 
 export function initPnj(room) {
   room.pnj = { data: new Map(), lastSync: 0 };
@@ -59,6 +66,61 @@ function syncGuards(room) {
   for (const [key, data] of room.pnj.data) {
     if (key.startsWith('g') && !onDuty.has(key)) data.home = true;
   }
+}
+
+// ---------- Voyageur égaré ----------
+
+function syncLost(room) {
+  const lost = room.sim.village.population?.lost ?? null;
+  const key = lost ? `e${lost.id}` : null;
+  for (const [k] of room.pnj.data) if (k.startsWith('e') && k !== key) removePnj(room, k); // parti, ou ramené par un habitant
+  if (!lost || room.state.pnj.has(key)) return;
+  const z = room.sim.zones[lost.zone];
+  const r = () => room.play.rng.next();
+  const e = new Pnj();
+  Object.assign(e, {
+    sorte: 'egare', prenom: lost.prenom, famille: lost.famille, x: (z.x + 0.25 + r() * 0.5) * ZONE_TILES, y: (z.y + 0.25 + r() * 0.5) * ZONE_TILES,
+    dir: 'bas', bouge: false, pv: 1, pvMax: 1, coup: 0, touche: 0, suit: '',
+  });
+  room.state.pnj.set(key, e);
+  room.pnj.data.set(key, { follow: null, rescuers: new Set() });
+}
+
+// Touche E près de l'égaré : il suit ce joueur.
+export function lostNear(room, p) {
+  for (const [key, e] of room.state.pnj) {
+    if (e.sorte === 'egare' && !e.suit && dist(e, p) <= RESCUE_REACH) return [key, e];
+  }
+  return null;
+}
+
+export function followPlayer(room, key, sid, p) {
+  const e = room.state.pnj.get(key);
+  const data = room.pnj.data.get(key);
+  if (!e || !data) return;
+  e.suit = p.nom;
+  data.follow = sid;
+  data.rescuers.add(p.nom);
+}
+
+function updateLost(room, key, e, data, dt) {
+  const p = data.follow ? room.state.joueurs.get(data.follow) : null;
+  if (!p || p.aTerre) {
+    // Son guide est tombé ou parti : il attend là, qu'on revienne le chercher.
+    if (e.suit) { e.suit = ''; data.follow = null; e.bouge = false; }
+    return;
+  }
+  if (dist(e, p) > FOLLOW_GAP) moveTowards(e, p, FOLLOW_SPEED, dt);
+  else e.bouge = false;
+  if (zoneOf(room, e.x, e.y) !== room.sim.villageId) return;
+  // Arrivé au village : il s'installe.
+  const ctx = makeCtx(room.sim, 24);
+  const event = rescueLost(room.sim, [...data.rescuers], ctx);
+  removePnj(room, key);
+  if (!event) return;
+  const pushed = pushEvent(room, event.type, null, event.data);
+  announce(room, pushed);
+  room.syncVillage();
 }
 
 function removePnj(room, key) {
@@ -136,10 +198,12 @@ export function updatePnj(room, dt, t = Date.now()) {
   if (t - room.pnj.lastSync >= SYNC_MS) {
     room.pnj.lastSync = t;
     syncGuards(room);
+    syncLost(room);
   }
   for (const [key, data] of room.pnj.data) {
     const g = room.state.pnj.get(key);
     if (!g) { room.pnj.data.delete(key); continue; }
     if (g.sorte === 'garde') updateGuard(room, key, g, data, dt, t);
+    else updateLost(room, key, g, data, dt);
   }
 }

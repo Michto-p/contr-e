@@ -74,6 +74,10 @@ Réglages du serveur (variables d'environnement) :
   contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
   lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.
 - **E** sur un gisement rare (le bandeau l'indique) : l'extraire, une fois la zone dégagée.
+- **E** près d'un voyageur égaré (un « ? » au-dessus de la tête, un point clignotant sur la
+  mini-carte, et la chronique dit où) : il vous suit. Menez-le jusqu'au village, où il s'installe
+  avec son savoir-faire. Si vous tombez, il vous attend là où il est ; au bout de quelques jours
+  sans secours, il reprend sa route.
 - **E** près du piquet à fanion jaune d'une zone sauvage dégagée : dresser un **avant-poste** (4 bois, trois fois).
   Autour de sa tente, les monstres n'approchent pas et l'on reprend des forces comme au village ;
   la zone abrite moins de monstres et les habitants y travaillent plus loin. Il s'abîme sans entretien.

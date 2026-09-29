@@ -623,7 +623,7 @@ function frame(t) {
     over: game.ambiance ? (c) => drawAmbianceSky(c, game.ambiance, t) : null,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,
   });
-  drawMinimap(mini, { monde: game.monde, state: room.state, players, questZones });
+  drawMinimap(mini, { monde: game.monde, state: room.state, players, pnjs, questZones });
   renderHud();
 }
 
