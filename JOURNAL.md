@@ -76,3 +76,13 @@
 - Problème repéré puis corrigé : quand le premier bâtisseur terminait la tour, le second, qui travaillait encore, en recommençait une au même endroit. Une tour intacte met maintenant fin au chantier pour toute l'équipe (test ajouté).
 - Page : un chantier s'affiche comme un losange creux (légende « chantier »).
 - Décision : ce n'est pas un nouveau système, juste une nouvelle action des joueurs et un nouveau type de quête du village, qui s'appuient sur la nature (usure) et les monstres (effet de la tour, hordes).
+
+# Étape 2 — serveur Colyseus + client Canvas (validée par le développeur)
+
+## Serveur
+- Fait : `npm start` lance `server/index.js` : un serveur Colyseus 0.18 (paquets minimaux `@colyseus/core`, `ws-transport`, `schema`, `sdk`, plus `express`) qui sert aussi la page du jeu sur le même port. Une room = une contrée, créée au démarrage et jamais détruite (`autoDispose = false`) : le monde avance d'une heure toutes les `HEURE_MS` (30 s par défaut), avec ou sans joueurs, et les bots (`BOTS=mixte` par défaut, `aucun` possible) continuent de vivre.
+- Fait : les vrais joueurs pèsent sur la simulation comme les bots. Chaque zone traversée pendant l'heure compte comme présence ; Espace compte comme combat dans la zone courante (hors village). Leurs noms apparaissent donc dans la chronique.
+- Fait : sauvegarde JSON atomique dans `data/contree.json` chaque fin de journée et à l'arrêt. Au redémarrage, le monde rattrape les heures passées serveur éteint (7 jours au plus). Le générateur aléatoire est sauvegardé (`rng.save()`) pour reprendre exactement la même suite.
+- Fait : à l'arrivée, chaque joueur reçoit la carte fixe, les 3 derniers jours de chronique et, s'il revient après au moins un jour, le résumé « pendant votre absence » (même fonction que `--since`). À la première venue, il obtient une maison protégée au village. La chronique du jour est diffusée à chaque fin de journée.
+- Décision : les quêtes du village sont affichées aux vrais joueurs, mais seuls les bots les « valident » pour l'instant ; un vrai joueur aide en étant présent et en combattant. Persistance restée en JSON (SQLite plus tard) pour ne pas ajouter de dépendance native.
+- Tests : 5 tests réseau avec de vrais clients (déplacements vus par l'autre joueur, combat compté, résumé d'absence, chronique diffusée, noms en double) et 2 tests de persistance (reprise à l'identique, rattrapage borné).

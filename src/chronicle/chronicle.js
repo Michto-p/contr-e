@@ -417,11 +417,22 @@ function header(events) {
   const { name, biome, exclusives } = c.data;
   const BIOME_TERRE = { foret: 'de forêts', plaine: 'de plaines', colline: 'de collines', marais: 'de marais', montagne: 'de montagnes' };
   return [
-    `# Chronique de ${name}`,
+    `# Chronique ${/^[AEIOUYÉÈ]/i.test(name) ? `d'${name}` : `de ${name}`}`,
     '',
     `Une terre ${BIOME_TERRE[biome]}. On y trouve ${joinFr(exclusives.map((x) => PARTITIVE[x] ?? x))}, introuvables ailleurs ; le reste devra venir d'autres contrées.`,
     '',
   ];
+}
+
+// Résumé « pendant votre absence » : l'état du monde d'abord, puis les faits des autres.
+export function summarySince(events, since, { debug = false, max = MAX_LINES } = {}) {
+  return linesFor(events.filter((e) => e.day >= since), { debug, max, worldFirst: true });
+}
+
+// Texte d'une quête du tableau du village (« une patrouille dans les champs du Nord »).
+export function questText(q) {
+  const f = QUEST_TEXT[q.kind];
+  return f ? f({ data: { kind: q.kind, job: q.job ?? null, label: q.label ?? null, structure: q.structure ?? null } }) : q.kind;
 }
 
 export function formatChronicle(events, { debug = false, since = null, days: nbDays = null } = {}) {
@@ -431,9 +442,8 @@ export function formatChronicle(events, { debug = false, since = null, days: nbD
 
   if (since != null) {
     const last = Math.max(lastDay, since);
-    const missed = events.filter((e) => e.day >= since);
     out.push(`## Pendant votre absence (jours ${since} à ${last})`, '');
-    const lines = linesFor(missed, { debug, max: MAX_LINES, worldFirst: true });
+    const lines = summarySince(events, since, { debug });
     if (lines.length === 0) lines.push('Rien de notable ne s\'est produit.');
     for (const l of lines) out.push(`- ${l}`);
     return out.join('\n');

@@ -21,3 +21,10 @@ test('weighted respecte les poids', () => {
   for (let i = 0; i < 4000; i++) n[r.weighted({ a: 3, b: 1 })] += 1;
   assert.ok(n.a > n.b * 2.5 && n.a < n.b * 3.5, JSON.stringify(n));
 });
+
+test('save() permet de reprendre la même suite', () => {
+  const a = createRng(9);
+  for (let i = 0; i < 10; i++) a.next();
+  const b = createRng(a.save());
+  for (let i = 0; i < 20; i++) assert.equal(a.next(), b.next());
+});

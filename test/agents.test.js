@@ -13,7 +13,7 @@ function run(scenario, days, seed = 42) {
 }
 
 test('scénarios disponibles', () => {
-  assert.deepEqual(Object.keys(SCENARIOS).sort(), ['absents', 'assidus', 'mixte']);
+  assert.deepEqual(Object.keys(SCENARIOS).sort(), ['absents', 'assidus', 'aucun', 'mixte']);
   assert.throws(() => addPlayers(createWorld(1), createRng(1), 'inconnu'));
 });
 

@@ -14,6 +14,7 @@ export const SCENARIOS = {
   assidus: { assidu: 8 },
   mixte: { assidu: 3, occasionnel: 3, absent: 2 },
   absents: { absent: 8 },
+  aucun: {},
 };
 
 const HELP_OUTPUT = { agriculteur: 'ble', boulanger: 'pain', forgeron: 'outils', bucheron_mineur: 'minerai' };

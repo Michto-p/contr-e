@@ -1,4 +1,5 @@
 // PRNG déterministe (mulberry32). Tout l'aléatoire de la simulation passe par ici.
+// `save()` renvoie l'état interne : createRng(rng.save()) reprend exactement la même suite.
 export function createRng(seed) {
   let a = seed >>> 0;
   const next = () => {
@@ -10,6 +11,7 @@ export function createRng(seed) {
   };
   return {
     next,
+    save: () => a,
     int: (min, max) => min + Math.floor(next() * (max - min + 1)),
     chance: (p) => next() < p,
     pick: (arr) => arr[Math.floor(next() * arr.length)],

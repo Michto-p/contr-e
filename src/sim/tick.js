@@ -42,6 +42,20 @@ export function tick(state, rng, { ticksPerDay = 24 } = {}) {
   return { state: next, events };
 }
 
+// Fait avancer le monde d'une heure : les joueurs agissent (`beforeTick`), puis les systèmes tournent.
+export function advanceHour(state, rng, { ticksPerDay = 24, beforeTick = null } = {}) {
+  const events = [];
+  let current = state;
+  if (beforeTick) {
+    const res = beforeTick(current, rng, makeCtx(current, ticksPerDay));
+    current = res.state;
+    events.push(...res.events);
+  }
+  const res = tick(current, rng, { ticksPerDay });
+  events.push(...res.events);
+  return { state: res.state, events };
+}
+
 // Fait tourner la simulation sur plusieurs jours. `beforeTick` permet aux agents d'agir entre les ticks ;
 // `onDayEnd(state, day)` reçoit l'état à la fin de chaque jour (pour la page de visualisation).
 export function simulate(state, rng, { days = 7, ticksPerDay = 24, beforeTick = null, onDayEnd = null } = {}) {
@@ -49,12 +63,7 @@ export function simulate(state, rng, { days = 7, ticksPerDay = 24, beforeTick = 
   let current = state;
   const total = days * ticksPerDay;
   for (let i = 0; i < total; i++) {
-    if (beforeTick) {
-      const res = beforeTick(current, rng, makeCtx(current, ticksPerDay));
-      current = res.state;
-      events.push(...res.events);
-    }
-    const res = tick(current, rng, { ticksPerDay });
+    const res = advanceHour(current, rng, { ticksPerDay, beforeTick });
     current = res.state;
     events.push(...res.events);
     if (onDayEnd && (i + 1) % ticksPerDay === 0) onDayEnd(current, current.day - 1);

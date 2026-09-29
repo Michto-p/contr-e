@@ -3,10 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Jeu coop 2D - contrées vivantes. Étape 1 : simulation seule.",
-  "engines": { "node": ">=22" },
+  "description": "Jeu coop 2D - contrées vivantes. Étape 2 : serveur Colyseus + client Canvas.",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "start": "node server/index.js",
     "sim": "node scripts/run-sim.js",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.17",
+    "@colyseus/schema": "^5.0.34",
+    "@colyseus/sdk": "^0.18.4",
+    "@colyseus/ws-transport": "^0.18.4",
+    "express": "^5.2.1"
   }
 }

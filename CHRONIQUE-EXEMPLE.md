@@ -1,6 +1,6 @@
 <!-- Généré par : npm run sim -- --days 7 --seed 42 -->
 
-# Chronique de Aubeaigue
+# Chronique d'Aubeaigue
 
 Une terre de collines. On y trouve de la résine dorée et du fer noir, introuvables ailleurs ; le reste devra venir d'autres contrées.
 
