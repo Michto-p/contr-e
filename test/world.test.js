@@ -43,6 +43,10 @@ test('la plaine est le biome le plus courant, le village est dans une plaine', (
     const w = createWorld(seed);
     for (const z of w.zones) if (!z.isVillage && !z.isField) area[z.biome] = (area[z.biome] ?? 0) + 1;
     assert.equal(w.zones[w.villageId].biome, 'plaine');
+    for (const z of w.zones) {
+      if (z.dist <= 1) assert.equal(z.biome, 'plaine');
+      if (z.dist <= 2) assert.ok(z.biome !== 'marais' && z.biome !== 'montagne');
+    }
     const counts = {};
     for (const z of w.zones) if (!z.isVillage && !z.isField) counts[z.biome] = (counts[z.biome] ?? 0) + 1;
     assert.equal(counts[w.signature.biome], Math.max(...Object.values(counts)));

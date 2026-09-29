@@ -1,76 +1,71 @@
 <!-- Généré par : npm run sim -- --days 7 --seed 42 -->
 
-# Chronique de Mormont
+# Chronique de Aubeaigue
 
 Une terre de collines. On y trouve de la résine dorée et du fer noir, introuvables ailleurs ; le reste devra venir d'autres contrées.
 
-## Jour 1 — automne, orage
+## Jour 1 — printemps, soleil
 
-- Eden a nettoyé les collines du Sud-Est : les monstres n'y sont plus qu'une poignée.
 - Yaël a prêté main-forte à l'agriculteur.
-- Camille, Élie, Morgan et Lou ont repoussé les monstres des collines du Nord-Ouest, du Sud-Est et du Sud-Ouest et des marais de l'Ouest.
-- Un violent orage a malmené les constructions exposées.
-- Noé a exploré les collines de l'Est, et en a rapporté du bois.
+- Lou, Morgan, Noé, Camille, Élie et Eden ont repoussé les monstres des collines du Nord-Est, de l'Est, du Sud et du Sud-Est et des prés du Nord-Ouest.
 - Au village, on cherche un coup de main pour l'agriculteur.
 - Journée ordinaire au village : on moud, on forge, on fend du bois.
 
-## Jour 2 — automne, brume
+## Jour 2 — printemps, soleil
 
-- Camille et Élie ont nettoyé les collines du Nord et les marais du Nord-Ouest : les monstres n'y sont plus qu'une poignée.
+- Camille et Noé ont nettoyé les collines du Nord et du Sud : les monstres n'y sont plus qu'une poignée.
 - Yaël a prêté main-forte au boulanger.
-- Charlie et Noé ont repoussé les monstres des collines du Sud-Ouest et du Sud.
-- Le chemin des collines du Sud se couvre d'herbes, faute de passage. Quelques allers-retours suffiraient à le retracer.
+- Élie et Charlie ont repoussé les monstres des collines du Nord-Est et du Sud-Est.
+- Le chemin des prés de l'Ouest se couvre d'herbes, faute de passage. Quelques allers-retours suffiraient à le retracer.
 - Au village, on cherche un coup de main pour le boulanger.
 - Au village, les greniers tiennent et les outils ne manquent pas.
 
-## Jour 3 — automne, pluie
+## Jour 3 — printemps, douceur
 
-- Élie et Camille ont nettoyé les collines du Nord-Est : les monstres n'y sont plus qu'une poignée.
+- Élie et Camille ont nettoyé les collines du Nord-Ouest et du Sud-Ouest : les monstres n'y sont plus qu'une poignée.
 - Yaël a prêté main-forte au forgeron.
-- Le vieux moulin des marais de l'Ouest commence à s'abîmer. Du bois et une journée de travail suffiront aux réparations.
-- Charlie a repoussé les monstres des collines du Sud.
 - Au village, on cherche un coup de main pour le forgeron.
 - Le village vaque à ses affaires, sans inquiétude.
 
-## Jour 4 — automne, pluie
+## Jour 4 — printemps, soleil
 
-- Les champs de l'Ouest et du Sud ont été gardés par Yaël et Camille, qui ont aussi chassé les bêtes alentour.
-- Élie a remis en état le vieux moulin des marais de l'Ouest.
-- Une horde s'est formée dans les hauteurs du Nord-Ouest et se rapproche du village.
-- Les monstres pullulent dans les marais du Nord-Ouest et débordent sur les terres voisines. Il faudra y retourner à plusieurs.
+- Yaël a nettoyé les collines du Sud-Est : les monstres n'y sont plus qu'une poignée.
+- Les champs de l'Ouest et de l'Est ont été gardés par Camille et Yaël, qui ont aussi chassé les bêtes alentour.
+- Les monstres pullulent dans les marais de l'Ouest et débordent sur les terres voisines. Il faudra y retourner à plusieurs.
 - Eden est de retour après une longue absence.
-- Charlie et Noé ont repoussé les monstres des collines du Sud-Est.
-- Eden a exploré les marais de l'Ouest, et en a rapporté du bois.
-- À force de passages, un vrai sentier traverse désormais les prés du Sud-Ouest et les collines du Sud-Est.
+- Eden a repoussé les monstres des collines du Sud.
+- Au village, on cherche des patrouilles dans les champs de l'Est et de l'Ouest et un coup de main pour le bûcheron-mineur.
+- Au village, tout tourne rondement : le four fume et l'enclume sonne.
 
-## Jour 5 — hiver, grand froid
+## Jour 5 — printemps, douceur
 
-- L'hiver est là : la croissance s'arrête presque et les monstres s'engourdissent.
-- La neige ferme notamment les hauteurs du Nord-Ouest, les collines du Nord-Ouest et les marais du Nord jusqu'au printemps.
 - Grâce à l'aide reçue, l'agriculteur devient artisan confirmé.
-- Noé a nettoyé les collines de l'Est : les monstres n'y sont plus qu'une poignée.
-- Les champs du Nord et de l'Ouest ont été gardés par Yaël et Camille, qui ont aussi chassé les bêtes alentour.
-- Les chemins des collines du Nord-Ouest et du Sud-Est ont disparu sous la végétation. Il faudra les rouvrir à pied.
-- Les monstres gagnent encore du terrain, notamment dans les collines du Nord-Ouest, les prés du Nord-Est et les marais de l'Ouest.
-- Au village, on cherche des patrouilles dans les champs du Nord, de l'Ouest, de l'Est et du Sud.
+- Yaël et Élie ont nettoyé les prés du Sud-Ouest : les monstres n'y sont plus qu'une poignée.
+- Les champs de l'Ouest ont été gardés par Yaël, qui a aussi chassé les bêtes alentour.
+- Eden a dû battre en retraite face aux monstres des marais de l'Ouest : trop nombreux pour un combattant seul. Il faudra y retourner à plusieurs.
+- Charlie est de retour après une longue absence.
+- Camille a prêté main-forte au bûcheron-mineur.
+- Les chemins des collines du Nord-Est et du Sud-Est et des prés du Nord-Ouest ont disparu sous la végétation. Il faudra les rouvrir à pied.
+- Charlie a repoussé les monstres des collines du Sud-Est.
 
-## Jour 6 — hiver, gel
+## Jour 6 — été, grand beau
 
-- Le boulanger manque de blé. Des champs bien gardés rendront du blé.
-- Les champs de l'Est, du Nord et de l'Ouest ont été gardés par Yaël, Camille et Élie, qui ont aussi chassé les bêtes alentour.
-- Eden, Camille et Élie ont repoussé les monstres des collines du Nord-Ouest et des marais de l'Ouest.
-- Les monstres gagnent encore du terrain, cette fois dans les collines du Sud.
-- La végétation continue d'effacer les chemins : ceux des marais du Nord-Ouest, des prés du Sud-Ouest et des collines du Sud-Est, du Sud-Ouest et du Sud ont disparu à leur tour.
-- Au village, on cherche des patrouilles dans les champs du Nord et de l'Ouest.
-- Au village, le boulanger fait grise mine.
+- L'été arrive : les journées s'allongent et les bêtes s'agitent.
+- Camille a nettoyé les collines du Sud : les monstres n'y sont plus qu'une poignée.
+- Yaël a escorté les mineurs jusqu'aux collines du Nord-Est.
+- Les champs du Nord et du Sud ont été gardés par Élie et Camille, qui ont aussi chassé les bêtes alentour.
+- Les monstres pullulent notamment dans les collines du Nord-Ouest et du Nord et les marais de l'Ouest et débordent sur les terres voisines. Il faudra y retourner à plusieurs.
+- Eden a repoussé les monstres des marais du Nord-Ouest.
+- À force de passages, un vrai sentier traverse désormais les prés du Nord-Ouest.
+- Le chemin des prés du Sud-Est se couvre d'herbes, faute de passage. Quelques allers-retours suffiraient à le retracer.
 
-## Jour 7 — hiver, neige
+## Jour 7 — été, soleil
 
-- Camille et Morgan ont nettoyé les marais du Nord-Ouest et les collines du Nord-Est : les monstres n'y sont plus qu'une poignée.
-- Les champs du Nord, de l'Ouest, de l'Est et du Sud ont été gardés par Lou, Camille, Morgan et Yaël, qui ont aussi chassé les bêtes alentour.
-- Charlie, Lou et Morgan sont de retour après une longue absence.
-- Yaël et Noé ont repoussé les monstres des collines du Sud-Est et du Sud-Ouest.
-- Les monstres gagnent encore du terrain, notamment dans les collines du Nord-Est et de l'Est et les marais de l'Ouest.
-- Charlie a exploré les prés du Nord-Est, et en a rapporté du bois.
-- La végétation continue d'effacer les chemins : ceux des collines du Nord-Est et du Sud et des marais de l'Ouest ont disparu à leur tour.
-- Au village, on cherche des patrouilles dans les champs de l'Ouest, du Nord et de l'Est.
+- Morgan et Yaël ont nettoyé les prés de l'Ouest : les monstres n'y sont plus qu'une poignée.
+- Les champs du Nord, de l'Est et de l'Ouest ont été gardés par Élie, Camille et Yaël, qui ont aussi chassé les bêtes alentour.
+- Une horde a quitté les marais de l'Ouest et s'abat sur les collines du Sud-Ouest, un pas de plus vers le village.
+- Lou et Morgan sont de retour après une longue absence.
+- Lou a prêté main-forte au boulanger.
+- Charlie a repoussé les monstres des collines du Sud-Est.
+- Les monstres gagnent encore du terrain, notamment dans les collines du Nord-Ouest et du Nord et les prés du Nord-Est.
+- À force de passages, un vrai sentier traverse désormais les prés de l'Ouest et du Sud-Est.

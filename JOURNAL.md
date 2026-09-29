@@ -69,3 +69,4 @@
 ## Chronique : moins de refrains
 - Fait : une nouvelle déjà racontée la veille (monstres qui s'étendent, chemins qui disparaissent, récoltes pillées, quêtes affichées) est reformulée (« gagnent encore du terrain », « s'acharnent », « à son tour ») et descend dans l'ordre d'importance. Les combats du jour sont regroupés en une ligne, les patrouilles demandées aussi. Les traces lointaines d'explorateurs qui s'effacent ne sont plus racontées (visibles avec `--debug`).
 - Corrigé : « les chemins des marais…, les prés… » devient « des marais…, des prés… » (`dePlaces`). La page utilise la même fonction `dayLines` que la CLI. `CHRONIQUE-EXEMPLE.md` a été régénéré (nouvelle carte).
+- Complément : la première zone autour du village est toujours de la plaine, et il n'y a ni marais ni hauteurs à 2 zones ou moins du village (les cellules de Voronoï débordaient vers le centre). Le test de dégradation des structures ne dépend plus du hasard de la graine.

@@ -15,6 +15,8 @@ test('un chemin non emprunté finit par disparaître', () => {
 
 test('les structures hors village se dégradent, jamais les maisons du village', () => {
   const w = createWorld(42);
+  // Structures juste au-dessus du premier palier, pour que l'event soit garanti.
+  for (const z of w.zones) for (const s of z.structures) if (!s.protected) s.condition = 52;
   const { state, events } = simulate(w, createRng(1), { days: 10 });
   const village = state.zones[state.villageId];
   assert.ok(village.structures.every((s) => s.condition === 100));

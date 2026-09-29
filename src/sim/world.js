@@ -122,7 +122,9 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
       const isVillage = dist === 0;
       // Les champs bordent le village sur les 4 côtés.
       const isField = !isVillage && Math.abs(dx) + Math.abs(dy) === 1;
-      const biome = isVillage || isField ? 'plaine' : biomeAt(x, y);
+      // Le village est dans une clairière de plaine ; marais et hauteurs commencent plus loin.
+      let biome = isVillage || isField || dist <= 1 ? 'plaine' : biomeAt(x, y);
+      if (dist <= 2 && FAR_BIOMES.has(biome)) biome = 'plaine';
       const resources = {};
       for (const r of BIOME_RESOURCES[biome]) {
         if (r === 'minerai' && biome === 'colline' && !rng.chance(0.4)) continue;
