@@ -53,12 +53,20 @@ Réglages du serveur (variables d'environnement) :
 - Flèches, ou **Z Q S D** (AZERTY) / **W A S D** (QWERTY) : se déplacer.
 - **Espace** : combattre, dans la direction du regard. Chaque monstre vaincu fait reculer la
   pression de sa zone. Plus une zone est infestée, plus ses monstres sont nombreux et coriaces
-  (gluants, rôdeurs, brutes) : à plusieurs, c'est bien plus facile.
+  (gluants, rôdeurs, brutes, et des cracheurs qui tirent de loin dans les marais et les
+  collines) : à plusieurs, c'est bien plus facile.
 - **E** : agir selon l'endroit (le bandeau indique quoi) : couper du bois en forêt, réparer une
   structure abîmée (2 bois), bâtir une tour de guet demandée par le village (3 bois), donner un
   coup de main au village.
+- **Maj** : roulade. On file quelques pas et les coups (et les crachats) ne portent pas.
+- **R** : manger un morceau de pain du village (+4 PV). Pas de champs gardés, pas de pain.
+- **F** : sac et forge. Les monstres lâchent minerai, cuir et parfois une ressource rare de la
+  contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
+  lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.
+- **E** sur un gisement rare (le bandeau l'indique) : l'extraire, une fois la zone dégagée.
 - **C** : chronique, quêtes du village, métiers, joueurs en ligne.
-- Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ pour combattre, ✋ pour agir.
+- Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
+  🌀 rouler, 🍞 manger, 🎒 sac.
 
 Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
 escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y

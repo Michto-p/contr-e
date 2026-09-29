@@ -194,6 +194,17 @@ export function drawMonster(ctx, m, t, hitAge, lungeAge) {
     px(ctx, body, x + 2, y + 3, 2, 3);
     px(ctx, body, x - 9, y - 4, 3, 2); // queue
     px(ctx, '#ff5a4a', x + 6, y - 5, 1, 1);
+  } else if (m.sorte === 'cracheur') {
+    // Crapaud des marais : gorge gonflée quand il vient de cracher.
+    const puff = lungeAge < 250 ? 2 : 0;
+    px(ctx, 'rgba(0,0,0,0.25)', x - 7, m.dy * TILE + 5, 14, 2);
+    ctx.fillStyle = flash ? '#ffffff' : '#4f8a3c';
+    ctx.beginPath(); ctx.ellipse(x, y, 7, 5 + puff / 2, 0, 0, Math.PI * 2); ctx.fill();
+    px(ctx, flash ? '#ffffff' : '#9ccc5a', x - 4, y + 1, 8 + puff, 3 + puff); // gorge
+    px(ctx, '#f4e06d', x - 5, y - 5, 3, 3);
+    px(ctx, '#f4e06d', x + 2, y - 5, 3, 3);
+    px(ctx, '#1c1814', x - 4, y - 4, 1, 1);
+    px(ctx, '#1c1814', x + 3, y - 4, 1, 1);
   } else {
     px(ctx, 'rgba(0,0,0,0.25)', x - 6, m.dy * TILE + 4, 12, 2);
     ctx.fillStyle = flash ? '#ffffff' : '#5a3d8a';
@@ -265,7 +276,56 @@ function drawStructure(ctx, zx, zy, type, cond, building) {
   }
 }
 
-export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity) {
+// Couleur d'une ressource rare, stable d'une partie à l'autre.
+export function rareColor(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return ['#6fd6ff', '#ff8fd0', '#ffd84a', '#9dff8a', '#c49bff', '#ff9f5a'][h % 6];
+}
+
+export function drawLoot(ctx, b, t) {
+  const x = b.x * TILE;
+  const y = b.y * TILE + Math.sin(t / 250 + b.x) * 1.5;
+  px(ctx, 'rgba(0,0,0,0.25)', x - 3, b.y * TILE + 4, 6, 2);
+  if (b.sorte === 'minerai') {
+    px(ctx, '#7c776e', x - 3, y - 2, 6, 5);
+    px(ctx, '#b9b2a4', x - 2, y - 2, 2, 2);
+    px(ctx, '#d9c47a', x + 1, y + 1, 1, 1);
+  } else if (b.sorte === 'cuir') {
+    px(ctx, '#8a5a2b', x - 4, y - 2, 8, 5);
+    px(ctx, '#a8733a', x - 3, y - 1, 3, 2);
+  } else {
+    // Ressource rare : une gemme qui scintille.
+    const c = rareColor(b.sorte);
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 4, y); ctx.fill();
+    if (Math.sin(t / 150 + b.y) > 0.6) px(ctx, '#ffffff', x - 1, y - 3, 2, 2);
+  }
+}
+
+export function drawProjectile(ctx, pr, t) {
+  const x = pr.x * TILE;
+  const y = pr.y * TILE;
+  px(ctx, 'rgba(0,0,0,0.2)', x - 2, y + 6, 4, 2);
+  ctx.fillStyle = '#b8e05a';
+  ctx.beginPath(); ctx.arc(x, y, 3 + Math.sin(t / 60), 0, Math.PI * 2); ctx.fill();
+  px(ctx, '#ecffb0', x - 1, y - 2, 2, 2);
+}
+
+const LAME = ['#fffae6', '#fffae6', '#8fe3ff', '#ffd84a'];
+
+export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity, dashAge = Infinity) {
+  if (dashAge < 220 && !p.aTerre) {
+    // Roulade : une boule qui file, avec une traînée.
+    const x = p.dx * TILE;
+    const y = p.dy * TILE - 3;
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = TUNIQUES[p.couleur % TUNIQUES.length];
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+    px(ctx, '#f1c8a0', x - 2 + Math.round(Math.cos(dashAge / 30) * 3), y - 2 + Math.round(Math.sin(dashAge / 30) * 3), 4, 4);
+    return;
+  }
   const bob = p.bouge ? Math.abs(Math.sin(t / 90)) * 1.5 : 0;
   const x = p.dx * TILE;
   const y = p.dy * TILE - bob;
@@ -281,9 +341,11 @@ export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity) {
     return;
   }
   px(ctx, 'rgba(0,0,0,0.3)', x - 5, p.dy * TILE + 5, 10, 3);
-  px(ctx, '#3a2f28', x - 4, y + 3, 3, 3); // jambes
-  px(ctx, '#3a2f28', x + 1, y + 3, 3, 3);
+  const boots = p.bottes ? '#8a5a2b' : '#3a2f28';
+  px(ctx, boots, x - 4, y + 3, 3, 3); // jambes (bottes)
+  px(ctx, boots, x + 1, y + 3, 3, 3);
   px(ctx, tunic, x - 5, y - 5, 10, 9); // tunique
+  if (p.armure >= 2) px(ctx, p.armure >= 3 ? '#c9c4ba' : '#8a5a2b', x - 5, y - 5, 10, 3); // épaulières
   px(ctx, 'rgba(0,0,0,0.2)', x - 5, y + 2, 10, 2);
   px(ctx, '#f1c8a0', x - 4, y - 12, 8, 7); // tête
   px(ctx, '#6b4a2b', x - 4, y - 13, 8, 3); // cheveux
@@ -298,16 +360,18 @@ export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity) {
   if (attackAge < 220) {
     const a = { droite: 0, bas: Math.PI / 2, gauche: Math.PI, haut: -Math.PI / 2 }[p.dir] ?? 0;
     const k = attackAge / 220;
-    ctx.strokeStyle = `rgba(255, 250, 230, ${1 - k})`;
+    ctx.strokeStyle = LAME[p.epee ?? 1];
+    ctx.globalAlpha = 1 - k;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(x, y - 3, 12, a - 1.1 + k * 0.6, a + 1.1 - k * 0.6);
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 }
 
 // Dessine le monde vu par la caméra. `view` : { cx, cy, scale } en tuiles / pixels écran.
-export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], questZones = new Set(), view, t, width, height }) {
+export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], questZones = new Set(), under = null, over = null, view, t, width, height }) {
   const { cx, cy, scale } = view;
   const W = monde.largeur;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -372,12 +436,17 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     px(ctx, '#e0a458', fx + 2, fy - 9, 9, 1);
   }
 
+  if (under) under(ctx);
+  state.butins?.forEach((b) => drawLoot(ctx, b, t));
+
   // Monstres et joueurs, du haut vers le bas pour que les plus proches passent devant.
   const actors = [
     ...monsters.map((m) => ({ y: m.dy, draw: () => drawMonster(ctx, m, t, t - m.hitAt, t - m.lungeAt) })),
-    ...players.map((p) => ({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt) })),
+    ...players.map((p) => ({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt, t - p.dashAt) })),
   ].sort((a, b) => a.y - b.y);
   for (const a of actors) a.draw();
+  state.projectiles?.forEach((pr) => drawProjectile(ctx, pr, t));
+  if (over) over(ctx);
   const sorted = [...players].sort((a, b) => a.dy - b.dy);
 
   // Noms en coordonnées écran (texte net).

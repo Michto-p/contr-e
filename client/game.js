@@ -1,8 +1,9 @@
 // Client du jeu : connexion Colyseus, clavier/tactile, prédiction du déplacement, interface.
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
-import { ZONE_TILES, stepPosition, zoneIndexAt } from './shared/monde.js';
-import { buildZoneCanvases, drawWorld, drawMinimap } from './render.js';
+import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
+import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
+import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky } from './ambiance.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('jeu');
@@ -50,6 +51,7 @@ async function connect(nom) {
   const room = game.room;
   room.onMessage('monde', (monde) => {
     game.monde = monde;
+    game.ambiance = createAmbiance(monde);
     game.zoneCanvases = buildZoneCanvases(monde);
   });
   room.onMessage('chronique', (jours) => {
@@ -137,8 +139,11 @@ window.addEventListener('keydown', (e) => {
   if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
   if (e.code === 'Space' || e.code === 'KeyJ') { attack(); e.preventDefault(); }
   if (e.code === 'KeyE' || e.code === 'KeyK') { interact(); e.preventDefault(); }
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyL') { dash(); e.preventDefault(); }
+  if (e.code === 'KeyR') { eat(); e.preventDefault(); }
+  if (e.code === 'KeyF' || e.code === 'KeyI') { toggleBag(); e.preventDefault(); }
   if (e.code === 'KeyC') toggleSide();
-  if (e.code === 'Escape') { $('message').hidden = true; $('cote').classList.remove('ouvert'); }
+  if (e.code === 'Escape') { $('message').hidden = true; $('cote').classList.remove('ouvert'); $('sac').classList.remove('ouvert'); }
 });
 window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); });
 window.addEventListener('blur', () => keys.clear());
@@ -152,6 +157,8 @@ canvas.addEventListener('pointerup', stopPointer);
 canvas.addEventListener('pointercancel', stopPointer);
 $('attaque').addEventListener('pointerdown', (e) => { e.preventDefault(); attack(); });
 $('agir').addEventListener('pointerdown', (e) => { e.preventDefault(); interact(); });
+$('rouler').addEventListener('pointerdown', (e) => { e.preventDefault(); dash(); });
+$('manger').addEventListener('pointerdown', (e) => { e.preventDefault(); eat(); });
 
 function readInput() {
   let x = 0;
@@ -180,6 +187,32 @@ function attack() {
   if (now - lastAttackSent < 400) return;
   lastAttackSent = now;
   game.room.send('attaque');
+}
+
+// Roulade : prédite localement pour qu'elle parte sans délai, le serveur fait de même.
+const FACE = { droite: [1, 0], gauche: [-1, 0], bas: [0, 1], haut: [0, -1] };
+let lastDash = 0;
+function dash() {
+  const room = game.room;
+  if (!room) return;
+  const now = performance.now();
+  if (now - lastDash < 1200) return;
+  const me = room.state.joueurs.get(room.sessionId);
+  if (!me || me.aTerre) return;
+  lastDash = now;
+  const input = readInput();
+  const [fx, fy] = FACE[game.facing ?? me.dir] ?? [0, 1];
+  game.dash = { until: now + DASH_MS, dir: input.x || input.y ? input : { x: fx, y: fy } };
+  room.send('roulade');
+}
+
+let lastEat = 0;
+function eat() {
+  if (!game.room) return;
+  const now = performance.now();
+  if (now - lastEat < 500) return;
+  lastEat = now;
+  game.room.send('manger');
 }
 
 let lastInteractSent = 0;
@@ -245,6 +278,8 @@ function renderHud() {
     $('aterre').hidden = !me.aTerre;
   }
   $('bois').textContent = `🪵 ${s.bois} bois`;
+  $('pain').textContent = `🍞 ${s.pain}`;
+  if ($('sac').classList.contains('ouvert')) renderBag();
   const hq = $('hud-quetes');
   const quests = [...(s.quetes ?? [])].slice(0, 3);
   const qKey = quests.map((q) => `${q.id}:${q.progres}`).join('|');
@@ -320,6 +355,72 @@ function renderSide() {
   }
 }
 
+// ---------- Sac et forge ----------
+
+const SLOT_NOM = { epee: ['', 'épée de fer', 'lame d\'acier', 'lame de légende'], armure: ['', 'tunique', 'cuirasse de cuir', 'cotte renforcée'], bottes: ['sandales', 'bottes de marche'] };
+
+function renderBag() {
+  const room = game.room;
+  const me = room?.state.joueurs.get(room.sessionId);
+  if (!me || !game.monde) return;
+  $('equip').textContent = `Équipement : ${SLOT_NOM.epee[me.epee]} (${me.epee} dégât${me.epee > 1 ? 's' : ''}), ${SLOT_NOM.armure[me.armure]} (${me.pvMax} PV), ${SLOT_NOM.bottes[me.bottes]}.`;
+  const box = $('objets');
+  const items = [...me.sac.entries()].filter(([, n]) => n > 0);
+  const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}|${room.state.outils}|${inVillage(me)}`;
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.replaceChildren();
+  if (!items.length) box.textContent = 'Vide. Les monstres vaincus lâchent du minerai, du cuir et, dans certaines zones, des ressources rares.';
+  for (const [item, n] of items) {
+    const el = document.createElement('span');
+    el.className = 'objet';
+    const rare = game.monde.rares.includes(item);
+    el.textContent = `${rare ? '◆ ' : ''}${item} × ${n}`;
+    if (rare) el.style.color = rareColor(item);
+    box.appendChild(el);
+  }
+  const here = inVillage(me);
+  $('forge-note').textContent = here
+    ? `Le forgeron a ${room.state.outils} outil${room.state.outils > 1 ? 's' : ''} : chaque pièce en consomme un.`
+    : 'Revenez au village pour forger.';
+  const list = $('recettes');
+  list.replaceChildren();
+  const rares = game.monde.rares.reduce((sum, r) => sum + (me.sac.get(r) ?? 0), 0);
+  for (const r of game.monde.recettes) {
+    const row = document.createElement('div');
+    row.className = 'recette';
+    const nom = document.createElement('span');
+    nom.className = 'nom';
+    nom.textContent = r.nom;
+    const cost = Object.entries(r.requis).map(([k, n]) => `${n} ${k}`);
+    if (r.rares) cost.push(`${r.rares} ressource${r.rares > 1 ? 's' : ''} rare${r.rares > 1 ? 's' : ''}`);
+    const detail = document.createElement('span');
+    detail.className = 'detail';
+    detail.textContent = `${r.effet} — ${cost.join(', ')}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const owned = me[r.slot] >= r.niveau;
+    const missing = me[r.slot] < r.niveau - 1 || Object.entries(r.requis).some(([k, n]) => (me.sac.get(k) ?? 0) < n) || rares < r.rares;
+    btn.textContent = owned ? 'Équipé' : 'Forger';
+    btn.disabled = owned || missing || !here || room.state.outils < 1;
+    btn.addEventListener('click', () => room.send('fabriquer', { recette: r.id }));
+    row.append(nom, btn, detail);
+    list.appendChild(row);
+  }
+}
+
+function inVillage(p) {
+  return zoneIndexAt(p.x, p.y, game.monde.largeur, game.monde.hauteur) === game.monde.village;
+}
+
+function toggleBag() {
+  $('sac').classList.toggle('ouvert');
+  $('objets').dataset.key = '';
+  renderBag();
+}
+$('btn-sac').addEventListener('click', toggleBag);
+$('fermer-sac').addEventListener('click', toggleBag);
+
 function toggleSide() {
   $('cote').classList.toggle('ouvert');
   renderSide();
@@ -363,7 +464,10 @@ function frame(t) {
   if (mine) {
     if (!game.meInit) { game.me = { x: mine.x, y: mine.y }; game.meInit = true; }
     // Prédiction locale, bloquée par les zones fermées comme sur le serveur.
-    const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, input, dt);
+    const dashing = game.dash && t < game.dash.until;
+    const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1);
+    const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, dashing ? game.dash.dir : input, dt, factor);
+    if (input.x || input.y) game.facing = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
     const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;
     if (!blocked(next.x, game.me.y)) game.me.x = next.x;
     if (!blocked(game.me.x, next.y)) game.me.y = next.y;
@@ -382,8 +486,11 @@ function frame(t) {
     else { d.x += (p.x - d.x) * 0.25; d.y += (p.y - d.y) * 0.25; }
     if (p.attaque !== d.attaque) { d.attaque = p.attaque; d.attackAt = t; }
     if (p.touche !== d.touche) { d.touche = p.touche; d.hurtAt = t; }
+    if (d.roulade === undefined) d.roulade = p.roulade;
+    if (p.roulade !== d.roulade) { d.roulade = p.roulade; if (!moi) d.dashAt = t; }
+    if (moi && game.dash && t < game.dash.until) d.dashAt = game.dash.until - DASH_MS;
     const dir = moi && (input.x || input.y) ? (Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut')) : p.dir;
-    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) && !p.aTerre : p.bouge, couleur: p.couleur, attackAt: d.attackAt, hurtAt: d.hurtAt, aTerre: p.aTerre, moi });
+    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) && !p.aTerre : p.bouge, couleur: p.couleur, attackAt: d.attackAt, hurtAt: d.hurtAt, dashAt: d.dashAt ?? -1e9, aTerre: p.aTerre, epee: p.epee, armure: p.armure, bottes: p.bottes, moi });
   });
   for (const id of game.others.keys()) if (!room.state.joueurs.has(id)) game.others.delete(id);
 
@@ -411,8 +518,11 @@ function frame(t) {
   const cx = Math.max(halfW, Math.min(worldW - halfW, game.me.x));
   const cy = Math.max(halfH, Math.min(worldH - halfH, game.me.y));
 
+  if (game.ambiance) updateAmbiance(game.ambiance, dt, game.me, t, room.state);
   drawWorld(ctx, {
     monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, questZones,
+    under: game.ambiance ? (c) => drawAmbianceGround(c, game.ambiance, t) : null,
+    over: game.ambiance ? (c) => drawAmbianceSky(c, game.ambiance, t) : null,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,
   });
   drawMinimap(mini, { monde: game.monde, state: room.state, players, questZones });
