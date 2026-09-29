@@ -42,3 +42,12 @@
 
 ## --since (vue « retour de joueur »)
 - Fait : dans le résumé « pendant votre absence », l'état du monde (saisons, récoltes, mine, monstres) passe avant les exploits des autres joueurs.
+
+## GitHub Pages
+- Fait : `site/index.html` fait tourner la simulation directement dans le navigateur (le code de `src/` n'a aucune dépendance) avec les réglages graine, jours, scénario, `--since` et chiffres. Les paramètres sont repris dans l'URL, ce qui permet de partager une chronique. Le workflow `.github/workflows/pages.yml` lance `npm test` et la sim à chaque push, puis publie la page.
+- Décision : ce n'est pas un client de jeu (pas de rendu graphique, pas de réseau), juste une page pour lire la chronique ; elle reste donc dans le périmètre de l'étape 1. Elle a été demandée par le développeur.
+- À faire côté développeur : Settings > Pages > Source = « GitHub Actions ». Par défaut, l'environnement `github-pages` n'accepte que la branche par défaut : le déploiement réussira après la fusion dans `main` (ou en autorisant la branche dans Settings > Environments).
+
+## Bilan de l'étape 1
+- Les 4 systèmes (nature, monstres, village, saisons), les agents et la chronique fonctionnent. `CHRONIQUE-EXEMPLE.md` contient la sortie de `npm run sim -- --days 7 --seed 42`. Arrêt ici, comme demandé : l'étape 2 n'est pas commencée.
+- Pistes repérées pour la suite : les lignes « chemin qui s'efface » reviennent souvent et pourraient être regroupées sur plusieurs jours ; sur 30 jours, le scénario mixte laisse le forgeron et le mineur au niveau 1 (peut-être trop dur, à valider en jouant) ; les occasionnels battent souvent en retraite seuls (voulu : pilier coopération).
