@@ -149,3 +149,7 @@
 ## Carte plus grande
 - Fait : le jeu crée des contrées de 16 × 16 zones (réglable avec `TAILLE`), et chaque zone fait 16 tuiles de côté au lieu de 12 : environ trois fois plus de terrain à parcourir. La simulation seule (`npm run sim`) garde 12 × 12 par défaut, la chronique d'exemple ne change donc pas.
 - Décision : une contrée sauvegardée garde sa taille ; `npm run relancer -- --nouvelle` archive l'ancienne dans `data/` et en crée une neuve.
+
+## Les gardes
+- Fait : nouveau métier d'habitant `garde` (compétence `armes`, talent « maître d'armes »), choisi à seize ans surtout par les audacieux ; le village en compte un dès le départ. Chaque matin ils patrouillent (lieux de travail et abords des champs d'abord) : la zone compte comme combattue et les habitants y travaillent plus loin. En jeu (`server/pnj.js`), ils apparaissent sur la carte, marchent jusqu'à leur zone, combattent vraiment les monstres (qui les attaquent aussi) et rentrent le soir.
+- Décision : pas de nouveau système, le métier vit dans la population ; les victoires des gardes font reculer la zone mais ne donnent pas de butin (il reste aux joueurs). Les anciennes sauvegardes reçoivent la compétence `armes` au chargement.

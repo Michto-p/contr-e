@@ -22,6 +22,7 @@ const game = {
   zoneCanvases: null,
   me: { x: 0, y: 0 }, // position prédite du joueur local
   others: new Map(), // sessionId -> position affichée (interpolée)
+  pnj: new Map(), // gardes et égarés : position affichée
   monsters: new Map(), // id -> position affichée et instants des coups
   input: { x: 0, y: 0 },
   sentInput: { x: 0, y: 0 },
@@ -588,6 +589,17 @@ function frame(t) {
     monsters.push({ sorte: m.sorte, dx: d.x, dy: d.y, pv: m.pv, pvMax: m.pvMax, hitAt: d.hitAt, lungeAt: d.lungeAt, seed: d.seed });
   });
   for (const id of game.monsters.keys()) if (!room.state.monstres.has(id)) game.monsters.delete(id);
+  const pnjs = [];
+  room.state.pnj?.forEach((g, id) => {
+    let d = game.pnj.get(id);
+    if (!d) { d = { x: g.x, y: g.y, coup: g.coup, touche: g.touche, hitAt: -1e9, lungeAt: -1e9 }; game.pnj.set(id, d); }
+    d.x += (g.x - d.x) * 0.3;
+    d.y += (g.y - d.y) * 0.3;
+    if (g.coup !== d.coup) { d.coup = g.coup; d.lungeAt = t; }
+    if (g.touche !== d.touche) { d.touche = g.touche; d.hitAt = t; }
+    pnjs.push({ sorte: g.sorte, prenom: g.prenom, dx: d.x, dy: d.y, dir: g.dir, bouge: g.bouge, pv: g.pv, pvMax: g.pvMax, suit: g.suit, hitAt: d.hitAt, lungeAt: d.lungeAt });
+  });
+  for (const id of game.pnj.keys()) if (!room.state.pnj.has(id)) game.pnj.delete(id);
   const questZones = new Set([...(room.state.quetes ?? [])].map((q) => q.zone).filter((z) => z >= 0));
 
   // Zoom entier : environ 20 tuiles visibles en largeur, 2× au minimum.
@@ -606,7 +618,7 @@ function frame(t) {
     game.nearVillager = nearestVillager(game.ambiance, game.me);
   }
   drawWorld(ctx, {
-    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, questZones,
+    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, pnjs, questZones,
     under: game.ambiance ? (c) => drawAmbianceGround(c, game.ambiance, t) : null,
     over: game.ambiance ? (c) => drawAmbianceSky(c, game.ambiance, t) : null,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,

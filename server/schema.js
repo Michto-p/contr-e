@@ -72,6 +72,22 @@ export const Monstre = schema({
   touche: t.uint16(), // compteur : chaque coup reçu
 }, 'Monstre');
 
+// Un habitant présent sur la carte du jeu : garde en patrouille ou voyageur égaré.
+export const Pnj = schema({
+  sorte: t.string(), // 'garde' | 'egare'
+  prenom: t.string(),
+  famille: t.string(),
+  x: t.float32(),
+  y: t.float32(),
+  dir: t.string(),
+  bouge: t.boolean(),
+  pv: t.uint8(),
+  pvMax: t.uint8(),
+  coup: t.uint16(), // compteur : chaque coup porté
+  touche: t.uint16(), // compteur : chaque coup reçu
+  suit: t.string(), // égaré : nom du joueur qui le ramène
+}, 'Pnj');
+
 export const Zone = schema({
   p: t.uint8(), // pression des monstres 0–100
   w: t.uint8(), // usure du chemin
@@ -103,6 +119,7 @@ export const EtatContree = schema({
   monstres: t.map(Monstre),
   butins: t.map(Butin),
   projectiles: t.map(Projectile),
+  pnj: t.map(Pnj),
   zones: t.array(Zone),
   metiers: t.map(Metier),
   quetes: t.array(Quete),

@@ -208,6 +208,14 @@ function moveMonsters(room, dt, t) {
       const d = dist(m, p);
       if (d < best) { best = d; target = [sid, p]; }
     }
+    // Les gardes en patrouille attirent aussi les monstres (les cracheurs ne visent que les joueurs).
+    if (!spitter) {
+      room.state.pnj?.forEach((g) => {
+        if (g.sorte !== 'garde' || g.pv === 0) return;
+        const d = dist(m, g);
+        if (d < best) { best = d; target = [null, g]; }
+      });
+    }
     let goal;
     let speed = data.kind.vitesse;
     if (target && spitter) {
@@ -228,7 +236,8 @@ function moveMonsters(room, dt, t) {
         if (t - data.lastHit >= data.kind.cadence) {
           data.lastHit = t;
           m.coup = (m.coup + 1) % 65536;
-          hurtPlayer(room, target[0], target[1], data.kind.degats, t);
+          if (target[0]) hurtPlayer(room, target[0], target[1], data.kind.degats, t);
+          else { target[1].pv = Math.max(0, target[1].pv - data.kind.degats); target[1].touche = (target[1].touche + 1) % 65536; }
         }
       }
     } else {
@@ -364,6 +373,18 @@ export function playerAttack(room, sid, t = Date.now()) {
     data.lastHit = t; // sonné : il ne riposte pas tout de suite
     if (m.pv === 0) killMonster(room, sid, p, id, data, t);
   }
+}
+
+// Un monstre vaincu par un garde : la zone recule comme pour un joueur, mais sans butin.
+export function defeatMonster(room, id, t) {
+  const data = room.play.monsters.get(id);
+  if (!data) return;
+  room.state.monstres.delete(id);
+  room.play.monsters.delete(id);
+  room.play.spawnAt.set(data.zone, t + RESPAWN_AFTER_KILL_MS);
+  const zone = room.sim.zones[data.zone];
+  zone.monsterPressure = clamp(zone.monsterPressure - 1);
+  room.syncZone(data.zone);
 }
 
 function killMonster(room, sid, p, id, data, t) {

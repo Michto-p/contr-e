@@ -8,6 +8,7 @@ const METIER = {
   bucheron_mineur: 'coupe le bois et descend à la mine',
   eleveur: 'élève les bêtes',
   enseignant: "fait l'école aux enfants",
+  garde: 'monte la garde',
   ancien: 'profite de ses vieux jours',
   '': 'joue sur la place',
 };
@@ -19,6 +20,7 @@ const TALENT = {
   bouvier: 'Mes bêtes engraissent les champs : c\'est pour ça que le blé pousse si bien ici.',
   'maître des levains': 'Mon levain a trois générations. On me l\'a transmis, je le transmettrai.',
   érudit: 'Les enfants apprennent vite. Ils iront plus loin que nous.',
+  "maître d'armes": 'Une lance bien tenue vaut trois épées mal maniées. Je l\'apprends aux jeunes qui veulent garder le village.',
 };
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -65,6 +67,7 @@ function situationLine(ctx) {
 const WORK_LINES = {
   agriculteur: ['Il faut surveiller ces champs : une nuit de bêtes, et la moitié de la récolte y passe.', 'La terre est bonne ici. Tant qu\'on la garde, elle nous nourrira.'],
   bucheron_mineur: ['Chaque arbre abattu ici, c\'est une maison ou un avant-poste au village.', 'On ne s\'aventure pas plus loin sans un avant-poste pour se replier.'],
+  garde: ['Je tiens ce coin tant que les paysans travaillent. À plusieurs, on le tiendrait mieux.', 'Si vous voyez un voyageur égaré, ramenez-le : le village a besoin de bras.'],
   eleveur: ['Les bêtes aiment ce pré. Tant que les monstres restent loin, elles engraissent.', 'Un avant-poste par ici, et je pourrais mener le troupeau plus loin.'],
 };
 
@@ -75,7 +78,7 @@ export function talk(h, ctx) {
   if (!h.metier && h.parents) lines.push(`Je suis l'enfant de ${h.parents}. Plus tard, je ferai comme eux… ou autre chose !`);
   if (h.partenaire && h.metier) lines.push(`Je partage ma vie avec ${h.partenaire}.`);
   if (h.talent && TALENT[h.talent]) lines.push(TALENT[h.talent]);
-  if (h.sortie >= 0 && h.motif === 'travail') lines.push(pick(WORK_LINES[h.metier] ?? ['Du travail, il y en a toujours.']));
+  if (h.sortie >= 0 && (h.motif === 'travail' || h.motif === 'garde')) lines.push(pick(WORK_LINES[h.metier] ?? ['Du travail, il y en a toujours.']));
   const situation = situationLine(ctx);
   if (situation && Math.random() < 0.6) lines.push(situation);
   lines.push(traitLine(h, ctx));

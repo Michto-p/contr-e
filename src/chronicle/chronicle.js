@@ -141,7 +141,7 @@ const QUEST_DONE = {
 const deN = (name) => (/^[AEIOUYÉÈH]/i.test(name) ? `d'${name}` : `de ${name}`);
 const JOB_AT = {
   agriculteur: 'aux champs', boulanger: 'au fournil', forgeron: 'à la forge', bucheron_mineur: 'à la coupe et à la mine',
-  eleveur: 'auprès des bêtes', enseignant: "à l'école", ancien: 'au coin du feu',
+  eleveur: 'auprès des bêtes', enseignant: "à l'école", garde: 'à la garde du village', ancien: 'au coin du feu',
 };
 const TALENT_TEXT = {
   forestier: 'saura replanter et choisir ses arbres',
@@ -150,6 +150,7 @@ const TALENT_TEXT = {
   bouvier: 'sait mener les bêtes',
   'maître des levains': 'a le secret des levains',
   érudit: 'transmet son savoir mieux que personne',
+  "maître d'armes": 'manie la lance mieux que personne',
 };
 const RUMEURS = {
   menace: {
@@ -181,6 +182,14 @@ const RENDERERS = {
     key: (e) => e.data.label,
     priority: () => 4,
     text: (evs) => `D'un naturel audacieux, ${who(evs)} ${plural(evs) ? 'ont' : 'a'} prêté main-forte contre les monstres ${deLabel(evs[0].data.label)}.`,
+  },
+  guard_patrol: {
+    priority: () => 3,
+    text: (evs) => {
+      const e = evs[0];
+      const n = e.data.who.length;
+      return `${cap(joinFr(e.data.who))}, de garde, ${n > 1 ? 'ont' : 'a'} patrouillé dans ${joinFr(e.data.labels)}.`;
+    },
   },
   villager_hurt: {
     key: (e) => e.data.who,

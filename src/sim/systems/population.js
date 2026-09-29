@@ -12,14 +12,14 @@ import { clamp, neighbors, zoneLabel, standing, OUTPOST } from '../world.js';
 
 export const ADULT = 16;
 export const ELDER = 62;
-export const SKILLS = ['culture', 'cuisine', 'forge', 'bois', 'elevage', 'savoir'];
+export const SKILLS = ['culture', 'cuisine', 'forge', 'bois', 'elevage', 'savoir', 'armes'];
 export const JOB_SKILL = {
-  agriculteur: 'culture', boulanger: 'cuisine', forgeron: 'forge', bucheron_mineur: 'bois', eleveur: 'elevage', enseignant: 'savoir',
+  agriculteur: 'culture', boulanger: 'cuisine', forgeron: 'forge', bucheron_mineur: 'bois', eleveur: 'elevage', enseignant: 'savoir', garde: 'armes',
 };
 export const TRAITS = ['travailleur', 'curieux', 'bavard', 'prudent', 'audacieux', 'rêveur', 'têtu', 'patient'];
 // Un métier bien appris + du savoir = un talent.
 export const TALENTS = {
-  bucheron_mineur: 'forestier', agriculteur: 'agronome', forgeron: 'inventeur', eleveur: 'bouvier', boulanger: 'maître des levains', enseignant: 'érudit',
+  bucheron_mineur: 'forestier', agriculteur: 'agronome', forgeron: 'inventeur', eleveur: 'bouvier', boulanger: 'maître des levains', enseignant: 'érudit', garde: "maître d'armes",
 };
 const TALENT_SAVOIR = 50;
 const TALENT_SKILL = 40;
@@ -91,6 +91,12 @@ export function createPopulation(seed, { yearsPerDay = 1 } = {}) {
     for (let k = 0; k < kids; k++) {
       makePerson(pop, rng, { famille, age: rng.int(2, 14), skills: newSkills(rng, null), traits: twoTraits(rng), parents: [a.id, b.id] });
     }
+  }
+  // Un garde, jeune et audacieux, veille déjà sur le village.
+  {
+    const skills = newSkills(rng, 'garde');
+    const traits = ['audacieux', rng.pick(TRAITS.filter((t) => t !== 'audacieux'))];
+    makePerson(pop, rng, { famille: rng.pick(FAMILLES), age: rng.int(20, 28), metier: 'garde', skills, traits });
   }
   for (let e = 0; e < 2; e++) {
     const job = rng.pick(['agriculteur', 'forgeron', 'bucheron_mineur', 'boulanger']);
@@ -187,6 +193,7 @@ function comeOfAge(pop, state, rng, ctx, events) {
       let need;
       if (job === 'enseignant') need = count ? -60 : 30;
       else if (job === 'eleveur') need = count >= 2 ? -40 : count ? 0 : 35;
+      else if (job === 'garde') need = count >= 3 ? -40 : 12 * (3 - count) + (p.traits.includes('audacieux') ? 15 : 0);
       else need = 15 * (3 - count);
       const sat = state.village.jobs[job]?.satisfaction ?? 60;
       // Le savoir sert partout : il compte moins pour choisir l'école.
@@ -391,7 +398,7 @@ function outings(pop, state, rng, ctx, events) {
   const fronts = state.zones.filter((z) => z.isField)
     .flatMap((f) => neighbors(state, f).filter((n) => !n.isVillage && !n.isField && !n.closed && n.monsterPressure >= 45))
     .sort((a, b) => b.monsterPressure - a.monsterPressure);
-  for (const p of adults.filter((a) => a.traits.includes('audacieux'))) {
+  for (const p of adults.filter((a) => a.traits.includes('audacieux') && !a.outing)) {
     if (!fronts.length || !rng.chance(0.35)) continue;
     const z = fronts[0];
     p.outing = { zone: z.id, kind: 'defense' };
@@ -419,7 +426,7 @@ function outings(pop, state, rng, ctx, events) {
     } else {
       events.push(ctx.event('villager_explore', z, { who: p.prenom, label: z.label }));
     }
-  }  goToWork(pop, state, rng, adults);
+  }  goToWork(pop, state, rng, adults.filter((p) => p.metier !== 'garde'));
 }
 
 // ---------- Travail hors du village ----------
@@ -439,6 +446,7 @@ function workLimit(p, z) {
   if (p.traits.includes('audacieux')) limit += 15;
   if (standing(z, OUTPOST)) limit += 25; // un avant-poste permet de travailler plus loin
   if (standing(z, 'tour de guet')) limit += 10;
+  if (z.today.guards) limit += 15; // escortés par un garde
   return limit;
 }
 
@@ -450,6 +458,40 @@ function workplaces(state, job) {
     case 'eleveur': return open.filter((z) => !z.isField && z.dist <= 3 && (z.biome === 'plaine' || z.biome === 'colline'));
     default: return [];
   }
+}
+
+// Les gardes patrouillent là où la menace pèse le plus : devant les champs, là où l'on travaille.
+const GUARD_RANGE = 3;
+function patrol(pop, state, rng, ctx, events) {
+  const guards = living(pop).filter((p) => p.metier === 'garde' && !p.outing && !(p.hurtUntil > ctx.day));
+  if (!guards.length) return;
+  // Priorité aux lieux de travail (pour y escorter les habitants) et aux abords des champs ; une zone
+  // trop infestée pour un garde seul compte moins.
+  const fronts = new Set(state.zones.filter((z) => z.isField).flatMap((f) => neighbors(state, f)).map((z) => z.id));
+  const work = new Set(['bucheron_mineur', 'eleveur'].flatMap((job) => workplaces(state, job)).map((z) => z.id));
+  const zones = state.zones.filter((z) => !z.isVillage && !z.closed && z.dist <= GUARD_RANGE && z.monsterPressure >= 20)
+    .map((z) => [z, Math.min(z.monsterPressure, 70) + (work.has(z.id) ? 25 : 0) + (z.isField || fronts.has(z.id) ? 15 : 0)
+      + (standing(z, OUTPOST) ? 10 : 0) - z.dist * 5])
+    .sort((a, b) => b[1] - a[1] || a[0].id - b[0].id);
+  const done = [];
+  for (const g of guards) {
+    const next = zones.shift();
+    if (!next) break;
+    const z = next[0];
+    g.outing = { zone: z.id, kind: 'garde' };
+    z.today.fights += g.talent ? 2 : 1;
+    z.today.fighters.push(g.prenom);
+    z.today.guards = (z.today.guards ?? 0) + 1;
+    if (z.monsterPressure >= 80 && rng.chance(0.25)) {
+      g.hurtUntil = ctx.day + 2;
+      events.push(ctx.event('villager_hurt', z, { who: g.prenom, label: z.label, fix: 'groupe' }));
+    } else done.push([g.prenom, z.label]);
+  }
+  // La chronique ne le dit que quand la garde change de terrain.
+  const labels = [...new Set(done.map((d) => d[1]))];
+  const key = labels.join('|');
+  if (done.length && key !== pop.lastPatrol) events.push(ctx.event('guard_patrol', null, { who: done.map((d) => d[0]), labels }));
+  pop.lastPatrol = key;
 }
 
 function goToWork(pop, state, rng, adults) {
@@ -477,7 +519,7 @@ function outposts(pop, state, rng, ctx, events) {
   if (ctx.day - (pop.outpostDay ?? -99) < OUTPOST_GAP) return;
   if (state.zones.filter((z) => z.structures.some((st) => st.type === OUTPOST)).length >= MAX_OUTPOSTS) return;
   const site = state.zones
-    .filter((z) => !z.isField && !z.isVillage && !z.closed && (z.today.workers ?? 0) >= 1 && z.monsterPressure < 55
+    .filter((z) => !z.isField && !z.isVillage && !z.closed && ((z.today.workers ?? 0) + (z.today.guards ?? 0)) >= 1 && z.monsterPressure < 55
       && !z.structures.some((st) => st.type === OUTPOST))
     .sort((a, b) => b.today.workers - a.today.workers || b.dist - a.dist || a.id - b.id)[0];
   if (!site || !rng.chance(0.5)) return;
@@ -507,7 +549,11 @@ export function population(state, rng, ctx) {
   const prng = createRng(pop.rng);
   const events = [];
   pop.day = ctx.day;
-  if (morning) outings(pop, state, prng, ctx, events);
+  for (const p of pop.people) p.skills.armes ??= 10; // contrées créées avant les gardes
+  if (morning) {
+    patrol(pop, state, prng, ctx, events);
+    outings(pop, state, prng, ctx, events);
+  }
   if (evening) {
     for (const p of pop.people) {
       if (p.outing?.kind === 'travail') p.lastWork = p.outing.zone;

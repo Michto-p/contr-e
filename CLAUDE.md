@@ -75,6 +75,7 @@ server/
   index.js            createGameServer() : Colyseus + fichiers du client ; `npm start`
   contree-room.js     la room : horloge du monde, joueurs réels -> simulation, chronique diffusée
   gameplay.js         temps réel : monstres, points de vie, touche E (bois, réparer, bâtir, aider), quêtes jouables
+  pnj.js              habitants sur la carte : gardes en patrouille qui combattent
   persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
 client/               index.html, game.js (réseau, entrées, interface), render.js (dessin)
@@ -117,7 +118,8 @@ test/
   à 16 ans (souvent celui de la famille), talents (forestier, agronome, inventeur…) qui agissent sur
   le monde : replanter, ouvrir des passages, défricher un champ avec l'éleveur, inventer des plans
   avec les ressources rares rapportées par les joueurs. Le jour, les adultes travaillent hors du village
-  (champs, bois, mine, pâtures) si la zone n'est pas trop dangereuse, et y dressent des avant-postes. La production des métiers dépend des
+  (champs, bois, mine, pâtures) si la zone n'est pas trop dangereuse, et y dressent des avant-postes ; les
+  gardes patrouillent devant les champs et escortent ceux qui travaillent. La production des métiers dépend des
   habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
   (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 

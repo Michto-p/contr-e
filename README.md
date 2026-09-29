@@ -98,6 +98,11 @@ mine (hache), l'éleveur aux pâtures avec son troupeau. Leur présence ralentit
 entretient chemins et bâtisses ; là où ils travaillent, ils dressent eux-mêmes des avant-postes
 avec le bois du village. On les voit partir le matin et rentrer le soir.
 
+Les **gardes** (casque, lance et bouclier) sont des habitants comme les autres : souvent des jeunes
+audacieux qui ont choisi ce métier à seize ans. Chaque matin, ils partent patrouiller là où l'on
+travaille et devant les champs, et combattent pour de bon les monstres qu'ils croisent ; blessés,
+ils rentrent se soigner quelques jours. Avec un garde, les habitants osent travailler plus loin.
+
 Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
 escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y
 travaillant avec **E**. À bout de forces, on se relève au village sans rien perdre.

@@ -396,8 +396,59 @@ export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity, dashAge = I
   }
 }
 
+// Habitants gérés par le serveur : gardes (casque, lance, bouclier) et voyageurs égarés (cape, baluchon).
+export function drawPnj(ctx, g, t, hitAge, lungeAge) {
+  const bob = g.bouge ? Math.abs(Math.sin(t / 100)) * 1.5 : 0;
+  const x = g.dx * TILE;
+  const y = g.dy * TILE - bob;
+  const flash = hitAge < 160;
+  px(ctx, 'rgba(0,0,0,0.3)', x - 5, g.dy * TILE + 5, 10, 3);
+  px(ctx, '#3a2f28', x - 4, y + 3, 3, 3);
+  px(ctx, '#3a2f28', x + 1, y + 3, 3, 3);
+  if (g.sorte === 'garde') {
+    const [fx, fy] = { droite: [1, 0], gauche: [-1, 0], bas: [0, 1], haut: [0, -1] }[g.dir] ?? [0, 1];
+    const lunge = lungeAge < 200 ? (1 - lungeAge / 200) * 5 : 0;
+    px(ctx, flash ? '#ffffff' : '#4f6b8a', x - 5, y - 5, 10, 9); // tunique
+    px(ctx, flash ? '#ffffff' : '#c9b27a', x - 2, y - 5, 4, 9); // tabard aux couleurs du village
+    px(ctx, '#f1c8a0', x - 4, y - 12, 8, 7);
+    px(ctx, '#aeb4ba', x - 5, y - 14, 10, 4); // casque
+    px(ctx, '#7d848b', x - 5, y - 11, 10, 1);
+    if (g.dir !== 'haut') px(ctx, '#1c1814', x - 2, y - 9, 1, 2), px(ctx, '#1c1814', x + 1, y - 9, 1, 2);
+    // Bouclier au bras, lance pointée dans la direction du regard.
+    px(ctx, '#8a5a2b', x - 8, y - 4, 4, 7);
+    px(ctx, '#c9b27a', x - 7, y - 2, 2, 3);
+    const sx = x + 5 + fx * (6 + lunge);
+    const sy = y - 4 + fy * (6 + lunge);
+    ctx.strokeStyle = '#6b4a2b';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x + 5 - fx * 6, y - 4 - fy * 6 + (fy ? 0 : 6)); ctx.lineTo(sx, sy); ctx.stroke();
+    px(ctx, '#dfe4ea', sx - 1, sy - 1, 3, 3);
+  } else {
+    px(ctx, flash ? '#ffffff' : '#7a6a58', x - 5, y - 6, 10, 10); // cape de voyage
+    px(ctx, '#f1c8a0', x - 3, y - 11, 6, 6);
+    px(ctx, '#6a5a48', x - 5, y - 13, 10, 4); // capuche
+    px(ctx, '#6a5a48', x - 5, y - 11, 2, 5);
+    px(ctx, '#6a5a48', x + 3, y - 11, 2, 5);
+    px(ctx, '#c9a66b', x + 3, y - 7, 5, 5); // baluchon
+    px(ctx, '#8a6a3a', x + 4, y - 11, 1, 5); // bâton
+    if (!g.suit) {
+      // Perdu : un point d'interrogation qui flotte au-dessus de sa tête.
+      const qy = y - 24 + Math.sin(t / 300) * 2;
+      px(ctx, '#fff6c9', x - 2, qy, 5, 1);
+      px(ctx, '#fff6c9', x + 2, qy + 1, 1, 2);
+      px(ctx, '#fff6c9', x, qy + 3, 2, 1);
+      px(ctx, '#fff6c9', x, qy + 4, 1, 1);
+      px(ctx, '#fff6c9', x, qy + 6, 1, 1);
+    }
+  }
+  if (g.pv < g.pvMax) {
+    px(ctx, 'rgba(0,0,0,0.6)', x - 6, y - 18, 12, 2);
+    px(ctx, '#7ec850', x - 6, y - 18, Math.max(1, Math.round((12 * g.pv) / g.pvMax)), 2);
+  }
+}
+
 // Dessine le monde vu par la caméra. `view` : { cx, cy, scale } en tuiles / pixels écran.
-export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], questZones = new Set(), under = null, over = null, view, t, width, height }) {
+export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], pnjs = [], questZones = new Set(), under = null, over = null, view, t, width, height }) {
   const { cx, cy, scale } = view;
   const W = monde.largeur;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -477,6 +528,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
   const actors = [
     ...monsters.map((m) => ({ y: m.dy, draw: () => drawMonster(ctx, m, t, t - m.hitAt, t - m.lungeAt) })),
     ...players.map((p) => ({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt, t - p.dashAt) })),
+    ...pnjs.map((g) => ({ y: g.dy, draw: () => drawPnj(ctx, g, t, t - g.hitAt, t - g.lungeAt) })),
   ].sort((a, b) => a.y - b.y);
   for (const a of actors) a.draw();
   state.projectiles?.forEach((pr) => drawProjectile(ctx, pr, t));
@@ -495,6 +547,17 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     ctx.strokeText(p.nom, sx, sy);
     ctx.fillStyle = p.moi ? '#ffe28a' : '#fdf6e3';
     ctx.fillText(p.nom, sx, sy);
+  }
+  // Prénom des gardes et des égarés, plus discret.
+  ctx.font = `${Math.max(10, Math.round(3.6 * scale))}px system-ui, sans-serif`;
+  for (const g of pnjs) {
+    const sx = Math.round(width / 2 + (g.dx - cx) * unit);
+    const sy = Math.round(height / 2 + (g.dy - cy) * unit - 17 * scale);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20, 16, 12, 0.8)';
+    ctx.strokeText(g.prenom, sx, sy);
+    ctx.fillStyle = g.sorte === 'garde' ? '#cfe0f2' : '#fff6c9';
+    ctx.fillText(g.prenom, sx, sy);
   }
 }
 

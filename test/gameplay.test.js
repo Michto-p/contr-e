@@ -196,3 +196,28 @@ test('touche E : dresser un avant-poste dans une zone dégagée, sûre ensuite',
   assert.ok(!nearOutpost(room(), spot.x + 8, spot.y));
   await g.r.leave();
 });
+
+test('un garde en patrouille apparaît sur la carte, combat les monstres et rentre le soir', async () => {
+  clearMonsters();
+  const h = await join('Hugo'); // un joueur présent : les monstres de la zone existent
+  const sim = room().sim;
+  const g = sim.village.population.people.find((p) => p.alive && p.metier === 'garde');
+  assert.ok(g, 'le village a un garde');
+  const zone = sim.zones.find((z) => z.dist === 1 && !z.isField && !z.closed);
+  g.outing = { zone: zone.id, kind: 'garde' };
+  g.hurtUntil = 0;
+  const key = `g${g.id}`;
+  assert.ok(await until(() => room().state.pnj.has(key)), 'garde sur la carte');
+  const guard = room().state.pnj.get(key);
+  // On le place dans sa zone, un monstre fragile à côté : il le vainc.
+  place(guard, zone);
+  place(h.p(), zone, 4, 4);
+  const id = spawnMonster(zone, guard.x + 1, guard.y, { pv: 2 });
+  assert.ok(await until(() => !room().state.monstres.has(id), 4000), 'monstre vaincu par le garde');
+  assert.ok(guard.coup >= 1);
+  // Le soir : il rentre au village et quitte la carte.
+  room().sim.village.population.people.find((p) => p.id === g.id).outing = null;
+  place(guard, room().sim.zones[room().sim.villageId], 0, 0.5);
+  assert.ok(await until(() => !room().state.pnj.has(key)), 'rentré');
+  await h.r.leave();
+});

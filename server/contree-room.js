@@ -6,6 +6,7 @@ import { Room } from '@colyseus/core';
 import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js';
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
+import { initPnj, updatePnj } from './pnj.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -55,6 +56,7 @@ export function makeContreeRoom(config) {
       this.lastAttack = new Map();
       this.loadOrCreate();
       initGameplay(this);
+      initPnj(this);
       initObjets(this);
       this.lastActions = 0;
 
@@ -335,6 +337,7 @@ export function makeContreeRoom(config) {
         this.activity.get(sid)?.zones.add(this.zoneOf(p));
       }
       updateGameplay(this, dt);
+      updatePnj(this, dt);
       updateObjets(this);
       // L'action de la touche E dépend de l'endroit : recalculée quatre fois par seconde.
       const t = Date.now();
