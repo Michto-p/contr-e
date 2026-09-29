@@ -10,7 +10,7 @@ import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor, needsSpeed } from '../shared/competences.js';
 import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom, syncRuins, abandonHouses, furnish } from './maisons.js';
-import { rankOf } from '../src/sim/systems/population.js';
+import { rankOf, prestige, votesFor, eligible } from '../src/sim/systems/population.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -95,6 +95,17 @@ export function makeContreeRoom(config) {
       this.onMessage('amenager', (client, m) => {
         const p = this.state.joueurs.get(client.sessionId);
         if (p) furnish(this, p, m, (text) => client.send('info', text));
+      });
+      // Une voix par joueur pour choisir qui prend la tête du village (on peut changer d'avis).
+      this.onMessage('voter', (client, m) => {
+        const p = this.state.joueurs.get(client.sessionId);
+        const id = Number(m?.id);
+        const h = this.sim.village.population?.people.find((q) => q.id === id);
+        if (!p || !h || !eligible(h)) return;
+        this.sim.village.votes ??= {};
+        this.sim.village.votes[p.joueur] = id;
+        client.send('info', `Votre voix va à ${h.prenom} ${h.famille}. On compte les voix chaque soir.`);
+        this.syncVillage();
       });
       this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
       this.onMessage('roulade', (client) => {
@@ -225,9 +236,11 @@ export function makeContreeRoom(config) {
         joueur: q.hero ?? '',
         joue: Boolean(q.played),
         rang: rankOf(pop, q),
+        prestige: Math.min(255, Math.round(prestige(q))),
+        voix: votesFor(this.sim, q.id),
         blesse: (q.hurtUntil ?? 0) > this.sim.day,
       }));
-      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}:${h.joue}:${h.joueur}:${h.rang}`).join('|');
+      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}:${h.joue}:${h.joueur}:${h.rang}:${h.prestige}:${h.voix}`).join('|');
       // Le rang et la renommée des personnages en jeu.
       this.state.joueurs.forEach((p) => {
         const h = byId.get(this.registry[p.nom]?.hid);
@@ -235,6 +248,8 @@ export function makeContreeRoom(config) {
         const rang = rankOf(pop, h);
         if (p.rang !== rang) p.rang = rang;
         if (p.renommee !== (h.renommee ?? 0)) p.renommee = h.renommee ?? 0;
+        const vote = this.sim.village.votes?.[p.joueur] ?? -1;
+        if (p.vote !== vote) p.vote = vote;
       });
       if (key(people) !== key([...this.state.habitants])) {
         this.state.habitants.splice(0, this.state.habitants.length);

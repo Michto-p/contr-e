@@ -628,6 +628,31 @@ function renderSide() {
     p3.textContent = `${chef ? `À la tête du village : ${chef.prenom} ${chef.famille}.` : ''} ${maitres.length ? `Maîtres d'atelier : ${maitres.map((h) => `${h.prenom} (${METIERS_PERSO[h.metier]?.[0] ?? h.metier})`).join(', ')}.` : ''} Apprentis : ${habitants.filter((h) => h.rang === 'apprenti').length}.`;
     vi.appendChild(p3);
   }
+  // L'élection : les mieux placés pour prendre la tête du village, et une voix par joueur.
+  const me = game.room.state.joueurs.get(game.room.sessionId);
+  const candidats = habitants.filter((h) => h.age >= 20 && (h.metier !== 'ancien' || h.age < 80))
+    .sort((a, b) => (b.prestige + 15 * b.voix) - (a.prestige + 15 * a.voix)).slice(0, 5);
+  if (candidats.length && me) {
+    const titre = document.createElement('p');
+    titre.className = 'famille';
+    titre.textContent = 'Qui doit mener le village ? Chaque joueur a une voix (elle vaut 15 points de prestige) ; on compte chaque soir.';
+    vi.appendChild(titre);
+    for (const h of candidats) {
+      const row = document.createElement('p');
+      row.className = 'candidat';
+      const txt = document.createElement('span');
+      txt.textContent = `${h.rang === 'chef' ? '👑 ' : ''}${h.prenom} ${h.famille} — prestige ${h.prestige}${h.voix ? `, ${h.voix} voix` : ''}`;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'offrir';
+      const mine = me.vote === h.id;
+      b.textContent = mine ? 'Votre voix' : 'Voter';
+      b.disabled = mine;
+      b.addEventListener('click', () => { game.room.send('voter', { id: h.id }); });
+      row.append(txt, b);
+      vi.appendChild(row);
+    }
+  }
   const talents = habitants.filter((h) => h.talent);
   if (talents.length) {
     const p3 = document.createElement('p');

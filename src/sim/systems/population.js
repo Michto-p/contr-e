@@ -423,9 +423,19 @@ export function rankOf(pop, p) {
   return '';
 }
 
+// Les joueurs votent : chaque voix compte autant que 15 points de prestige.
+export const VOTE_WEIGHT = 15;
+export function votesFor(state, id) {
+  return Object.values(state.village.votes ?? {}).filter((v) => v === id).length;
+}
+export const eligible = (p) => p.alive && p.age >= 20 && (p.metier !== 'ancien' || p.age < 80);
+
 function hierarchy(pop, state, ctx, events) {
-  const adults = living(pop).filter((p) => p.age >= 20 && p.metier !== 'ancien' || (p.metier === 'ancien' && p.age < 80));
-  const chef = [...adults].sort((a, b) => prestige(b) - prestige(a) || a.id - b.id)[0] ?? null;
+  // Une voix pour quelqu'un qui n'est plus là ne compte plus.
+  for (const [j, id] of Object.entries(state.village.votes ?? {})) if (!byId(pop, id) || !eligible(byId(pop, id))) delete state.village.votes[j];
+  const adults = living(pop).filter(eligible);
+  const score = (p) => prestige(p) + VOTE_WEIGHT * votesFor(state, p.id);
+  const chef = [...adults].sort((a, b) => score(b) - score(a) || a.id - b.id)[0] ?? null;
   if (chef && chef.id !== pop.chef) {
     const before = pop.chef != null ? byId(pop, pop.chef) : null;
     pop.chef = chef.id;

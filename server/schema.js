@@ -9,6 +9,7 @@ export const Joueur = schema({
   secret: t.string(), // secret de classe découvert ('' sinon)
   rang: t.string(), // sa place dans le village : 'chef', 'maitre', 'apprenti' ou ''
   renommee: t.uint8(),
+  vote: t.int16(), // l'habitant pour qui son joueur a voté (-1 : personne)
   force: t.uint8(),
   endurance: t.uint8(),
   agilite: t.uint8(),
@@ -55,6 +56,8 @@ export const Habitant = schema({
   joueur: t.string(), // personnage d'un joueur ('' sinon)
   joue: t.boolean(), // incarné en ce moment (il n'est donc pas au village)
   rang: t.string(), // 'chef', 'maitre', 'apprenti' ou ''
+  prestige: t.uint8(), // renommée, sagesse, savoir-faire, âge : de quoi prendre la tête du village
+  voix: t.uint8(), // voix des joueurs pour qu'il prenne la tête du village
   motif: t.string(), // 'travail', 'defense' ou 'exploration'
   blesse: t.boolean(),
 }, 'Habitant');

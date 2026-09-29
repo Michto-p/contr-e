@@ -362,3 +362,20 @@ test('on frappe chez un ami : s\'il est chez lui, on entre ; sinon personne ne r
   await v.leave();
   await g.leave();
 });
+
+test('les joueurs votent pour qui mène le village', async () => {
+  const pop = room().sim.village.population;
+  const r = await join({ joueur: 'Ivo', nouveau: { prenom: 'Sacha', metier: 'garde', classe: 'guerrier' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Sacha'));
+  // Un habitant adulte qui n'est pas chef : quelques voix le font passer devant.
+  const candidate = pop.people.find((q) => q.alive && q.age >= 25 && q.age < 60 && q.id !== pop.chef && !q.hero);
+  r.send('voter', { id: candidate.id });
+  assert.ok(await until(() => room().sim.village.votes?.Ivo === candidate.id), 'voix enregistrée');
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId).vote === candidate.id));
+  for (const j of ['Ana', 'Ben', 'Cy', 'Dé', 'Eva', 'Fil']) room().sim.village.votes[j] = candidate.id;
+  while (room().sim.tick % 24 !== 23) room().gameHour();
+  room().gameHour();
+  assert.equal(room().sim.village.population.chef, candidate.id, 'élu');
+  assert.ok(room().world.events.some((e) => e.type === 'new_chief' && e.data.prenom === candidate.prenom));
+  await r.leave();
+});

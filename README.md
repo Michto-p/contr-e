@@ -160,7 +160,8 @@ défrichages, défense, et pour les joueurs : quêtes, hordes repoussées, égar
 l'adulte le plus respecté **prend la tête du village** (couronne de feuilles d'or ; un petit bonus pour
 tous les métiers), le plus habile de chaque métier devient **maître d'atelier** (le métier produit
 plus), et les jeunes qui travaillent auprès de lui sont ses **apprentis** (ils apprennent plus vite).
-Un personnage de joueur peut prendre la tête du village.
+Un personnage de joueur peut prendre la tête du village. Les joueurs **votent** (panneau C) : chaque
+joueur a une voix, qui compte autant que 15 points de prestige ; on compte chaque soir.
 
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
 les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent

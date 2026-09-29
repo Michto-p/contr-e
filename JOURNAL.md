@@ -237,3 +237,7 @@
 ## Rendre visite
 - Fait : devant la porte d'un autre joueur, E « frapper chez X » : si un de ses personnages est chez lui, on entre (il est prévenu), sinon « personne ne répond ». Le visiteur voit l'aménagement et les occupants ; le lit, le coffre et le panier restent à l'hôte.
 - Décision : pas de clé ni d'invitation pour l'instant, la présence de l'hôte suffit.
+
+## Élire le chef
+- Fait : `state.village.votes` (joueur → habitant). Chaque soir, le chef est l'adulte au meilleur score : prestige + 15 par voix. Le panneau Chronique liste les 5 mieux placés (prestige, voix) avec un bouton Voter ; une voix par joueur, qu'on peut changer ; une voix pour un habitant disparu ne compte plus.
+- Décision : la simulation lit les voix comme une donnée de l'état (elle reste déterministe) ; le poids d'une voix (15) laisse le prestige compter mais permet à quelques joueurs d'élire quelqu'un.
