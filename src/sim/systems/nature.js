@@ -56,7 +56,8 @@ export function nature(state, rng, ctx) {
     for (const s of z.structures) {
       if (s.protected) continue;
       if (s.maintainedDay === ctx.day) continue;
-      const loss = rng.int(1, 3) + (z.monsterPressure >= 70 ? 2 : 0);
+      const storm = state.season?.weather === 'orage';
+      const loss = rng.int(1, 3) + (z.monsterPressure >= 70 ? 2 : 0) + (storm ? rng.int(2, 5) : 0);
       s.condition = clamp(s.condition - loss);
       const step = structureStep(s.condition);
       if (step && step !== s.warned) {

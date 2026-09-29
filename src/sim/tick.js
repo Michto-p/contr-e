@@ -2,9 +2,10 @@
 import { nature } from './systems/nature.js';
 import { monsters } from './systems/monsters.js';
 import { village } from './systems/village.js';
+import { seasons } from './systems/seasons.js';
 
 // Ordre d'application des systèmes.
-export const SYSTEMS = [nature, monsters, village];
+export const SYSTEMS = [seasons, nature, monsters, village];
 
 export function makeCtx(state, ticksPerDay) {
   const hour = state.tick % ticksPerDay;

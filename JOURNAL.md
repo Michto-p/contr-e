@@ -30,3 +30,7 @@
 - Fait : les chaînes blé → pain et minerai/charbon → outils → (agriculteur, mineur). Un champ menacé et non gardé perd 20 à 50 % de sa part de récolte. La mine devient dangereuse au-delà de 70 de pression. Les quêtes (patrouille, escorte, réparation, coup de main) sont générées chaque matin et expirent au bout de 3 jours. Déclin après 3 jours de négligence (jamais sous le niveau 1) ; reprise en 1 jour d'aide pour un niveau déjà atteint, 2 pour un nouveau.
 - Problème repéré puis corrigé : avec les premiers réglages, les stocks absorbaient tout et le village restait « rondement » même en perdant 40 % des récoltes. J'ai réduit les stocks de départ, rendu le pain périssable (30 au plus) et fait dépendre la satisfaction de la production réelle. Sans joueurs, les pénuries arrivent maintenant vers les jours 10 à 12.
 - Décision : une pénurie n'est annoncée qu'au début et à la fin, pas chaque jour.
+
+## systems/seasons.js
+- Fait : un cycle de 28 jours dont le point de départ est tiré de la graine (chaque contrée a son calendrier). Chaque saison règle la croissance et l'agressivité des monstres. L'hiver ferme les hauteurs et les confins (dont parfois la mine), le printemps les rouvre. Une météo du jour apparaît dans le titre, et l'orage abîme davantage les structures exposées.
+- Décision : la météo n'a qu'un seul effet mécanique (l'orage), pour rester simple et lisible.

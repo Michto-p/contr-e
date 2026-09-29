@@ -187,7 +187,8 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
       quests: [],
       nextQuestId: 1,
     },
-    season: { index: 0, dayInSeason: 1, startOffset: rng.int(0, 27) },
+    // Le cycle ne commence pas toujours au printemps : chaque contrée a son propre calendrier.
+    season: { startOffset: rng.int(0, 27) },
     players: [],
   };
 }

@@ -103,7 +103,31 @@ const QUEST_TEXT = {
 // ---------- Rendus par type d'event ----------
 // key : regroupe les events d'un même jour ; priority : importance (10 = majeur) ; text : phrase.
 
+const SEASON_TEXT = {
+  printemps: 'Le printemps s\'installe : la sève remonte et les champs reverdissent.',
+  'été': 'L\'été arrive : les journées s\'allongent et les bêtes s\'agitent.',
+  automne: 'L\'automne tombe sur la contrée : les récoltes ralentissent, les monstres s\'enhardissent.',
+  hiver: 'L\'hiver est là : la croissance s\'arrête presque et les monstres s\'engourdissent.',
+};
+
 const RENDERERS = {
+  season_change: {
+    priority: () => 10,
+    text: (evs) => SEASON_TEXT[evs[0].data.season],
+  },
+  zones_closed: {
+    priority: () => 8,
+    text: (evs) => `La neige ferme ${somePlaces(evs[0].data.labels, 3)} jusqu'au printemps.`,
+  },
+  zones_opened: {
+    priority: () => 8,
+    text: (evs) => `Le dégel rouvre ${somePlaces(evs[0].data.labels, 3)}.`,
+  },
+  day_start: {
+    // Seul l'orage mérite une ligne ; le reste de la météo va dans le titre du jour.
+    priority: () => 3,
+    text: (evs) => (evs[0].data.weather === 'orage' ? 'Un violent orage a malmené les constructions exposées.' : null),
+  },
   harvest_loss: {
     priority: () => 9,
     text: (evs, debug) => {
@@ -253,6 +277,7 @@ function groupEvents(events) {
 export function linesFor(events, { debug = false, max = MAX_LINES } = {}) {
   const lines = groupEvents(events.filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
     .map((g) => ({ ...renderGroup(g.type, g.events, debug), first: g.first }))
+    .filter((l) => l.text)
     .sort((a, b) => b.priority - a.priority || a.first - b.first);
   return lines.slice(0, max).map((l) => l.text);
 }
@@ -289,7 +314,8 @@ export function formatChronicle(events, { debug = false, since = null, days: nbD
     const dayEvents = events.filter((e) => e.day === day);
     const lines = linesFor(dayEvents, { debug });
     if (lines.length === 0) lines.push('Journée calme dans la contrée.');
-    out.push(`## Jour ${day}`, '');
+    const start = dayEvents.find((e) => e.type === 'day_start');
+    out.push(start ? `## Jour ${day} — ${start.data.season}, ${start.data.weather}` : `## Jour ${day}`, '');
     for (const l of lines) out.push(`- ${l}`);
     out.push('');
   }
