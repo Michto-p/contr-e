@@ -42,3 +42,11 @@ test('chaque jour apparaît dans la chronique', () => {
   const text = formatChronicle(events, { days: 7 });
   for (let d = 1; d <= 7; d++) assert.match(text, new RegExp(`## Jour ${d}\\b`));
 });
+
+test('--since résume la période manquée', () => {
+  const { events } = simulate(createWorld(42), createRng(42), { days: 7 });
+  const text = formatChronicle(events, { since: 3, days: 7 });
+  assert.match(text, /Pendant votre absence \(jours 3 à 7\)/);
+  const lines = text.split('\n').filter((l) => l.startsWith('- '));
+  assert.ok(lines.length >= 1 && lines.length <= 8);
+});

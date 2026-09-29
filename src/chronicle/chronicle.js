@@ -327,10 +327,17 @@ function dedupe(events) {
   });
 }
 
+// Actions des joueurs : dans le résumé « pendant votre absence », l'état du monde passe avant.
+const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat']);
+
 // Transforme les events d'une période en lignes triées par importance.
-export function linesFor(events, { debug = false, max = MAX_LINES } = {}) {
+export function linesFor(events, { debug = false, max = MAX_LINES, worldFirst = false } = {}) {
   const lines = groupEvents(dedupe(events).filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
-    .map((g) => ({ ...renderGroup(g.type, g.events, debug), first: g.first }))
+    .map((g) => {
+      const r = renderGroup(g.type, g.events, debug);
+      if (worldFirst && PLAYER_ACTIONS.has(g.type)) r.priority -= 4;
+      return { ...r, first: g.first };
+    })
     .filter((l) => l.text)
     .sort((a, b) => b.priority - a.priority || a.first - b.first);
   return lines.slice(0, max).map((l) => l.text);
@@ -358,7 +365,7 @@ export function formatChronicle(events, { debug = false, since = null, days: nbD
     const last = Math.max(lastDay, since);
     const missed = events.filter((e) => e.day >= since);
     out.push(`## Pendant votre absence (jours ${since} à ${last})`, '');
-    const lines = linesFor(missed, { debug, max: MAX_LINES });
+    const lines = linesFor(missed, { debug, max: MAX_LINES, worldFirst: true });
     if (lines.length === 0) lines.push('Rien de notable ne s\'est produit.');
     for (const l of lines) out.push(`- ${l}`);
     return out.join('\n');

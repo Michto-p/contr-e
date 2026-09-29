@@ -39,3 +39,6 @@
 - Fait : trois scénarios (`assidus` = 8 assidus ; `mixte` = 3 assidus, 3 occasionnels, 2 absents ; `absents` = 8 absents, présents aux jours 1 et 7). Chaque matin, les quêtes urgentes sont réparties, à deux si la zone est trop dangereuse pour un joueur seul. Les assidus sans quête chassent autour des champs, les occasionnels explorent (découverte des ressources exclusives, bois rapporté). Les trajets tracent des chemins, et chaque joueur a une maison protégée au village.
 - Résultats (graine 42, 7 jours) : aucune perte de récolte avec des assidus, jusqu'à 7 pertes quand tout le monde est absent. Sur 30 jours, les métiers finissent aux niveaux 5/4/3/4 (assidus), 5/2/1/1 (mixte) et 3/1/1/1 (absents).
 - Problème repéré puis corrigé : la nature ne voyait pas les nouveaux sentiers (les joueurs usent les chemins hors du système nature), donc l'état du chemin est désormais mémorisé dans la zone. La chronique élimine aussi les doublons (une même action racontée deux fois). Un nouveau niveau de métier demande 3 jours d'aide, contre 1 pour un niveau perdu.
+
+## --since (vue « retour de joueur »)
+- Fait : dans le résumé « pendant votre absence », l'état du monde (saisons, récoltes, mine, monstres) passe avant les exploits des autres joueurs.
