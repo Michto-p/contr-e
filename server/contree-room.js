@@ -7,6 +7,7 @@ import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
 import { initPnj, updatePnj } from './pnj.js';
+import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon } from './personnages.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -44,7 +45,9 @@ export function makeContreeRoom(config) {
   const {
     heureMs = 30_000, bots = 'mixte', graine = 42, fichier = 'data/contree.json',
     rattrapageMaxJours = 7, rythmeVie = null, taille = undefined, now = () => Date.now(), log = () => {}, version = '',
+    abandonJours = 30,
   } = config;
+  const abandonMs = abandonJours * 24 * 3600 * 1000;
 
   return class ContreeRoom extends Room {
     maxClients = 20;
@@ -99,6 +102,7 @@ export function makeContreeRoom(config) {
 
     loadOrCreate() {
       this.world = openWorld({ fichier, graine, bots, heureMs, rattrapageMaxJours, rythmeVie, taille, now: now() });
+      initAccounts(this.world, now());
       const { sim, created, caughtUp } = this.world;
       if (created) log(`Nouvelle contrée : ${sim.name} (graine ${graine}, bots : ${bots}).`);
       else log(`Contrée ${sim.name} rechargée (jour ${sim.day}) ; ${caughtUp} heure(s) rattrapée(s).`);
@@ -107,6 +111,9 @@ export function makeContreeRoom(config) {
     get sim() { return this.world.sim; }
     get events() { return this.world.events; }
     get registry() { return this.world.registry; }
+    get players() { return this.world.players; }
+    playing() { return new Set([...this.state.joueurs.values()].map((p) => p.nom)); }
+    charactersOf(joueur) { return charactersOf(this, cleanName(joueur), now(), abandonMs, this.playing()); }
 
     save() {
       this.state.joueurs.forEach((p) => savePlayer(this, p));
@@ -137,6 +144,7 @@ export function makeContreeRoom(config) {
       }
       const dayBefore = this.sim.day;
       this.advance();
+      checkAbandon(this, now(), abandonMs, this.playing());
       this.syncState();
       const hour = this.sim.tick % 24;
       if (hour === 21) this.broadcast('annonce', 'La nuit tombe : les monstres s\'enhardissent. Le village et les avant-postes restent sûrs.');
@@ -195,9 +203,11 @@ export function makeContreeRoom(config) {
         partenaire: q.partner ? byId.get(q.partner)?.prenom ?? '' : '',
         sortie: q.outing ? q.outing.zone : -1,
         motif: q.outing?.kind ?? '',
+        joueur: q.hero ?? '',
+        joue: Boolean(q.played),
         blesse: (q.hurtUntil ?? 0) > this.sim.day,
       }));
-      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}`).join('|');
+      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}:${h.joue}:${h.joueur}`).join('|');
       if (key(people) !== key([...this.state.habitants])) {
         this.state.habitants.splice(0, this.state.habitants.length);
         for (const h of people) this.state.habitants.push(Object.assign(new Habitant(), h));
@@ -261,20 +271,51 @@ export function makeContreeRoom(config) {
       };
     }
 
+    // Quel personnage ce client incarne : { joueur, perso } pour reprendre un personnage,
+    // { joueur, nouveau: { prenom, metier, couleur } } pour en créer un. Sans l'un ni l'autre
+    // (anciens clients, tests), le joueur incarne un personnage qui porte son nom.
+    resolveCharacter(options) {
+      const t = now();
+      const taken = this.playing();
+      let joueur = cleanName(options?.joueur ?? options?.nom);
+      if (options?.nouveau) {
+        const name = createCharacter(this, joueur, options.nouveau, t, cleanName);
+        return { joueur, name };
+      }
+      if (options?.perso) {
+        const name = cleanName(options.perso);
+        const entry = this.registry[name];
+        if (!entry || entry.owner !== joueur || entry.perdu) throw new Error(`${name} n'est pas (ou plus) un de vos personnages.`);
+        if (taken.has(name)) throw new Error(`${name} est déjà en jeu.`);
+        return { joueur, name };
+      }
+      // Sans choix : un personnage du nom du joueur (suffixé s'il est déjà en jeu ou pris par un autre).
+      const takenByOther = (n) => this.registry[n] && !this.registry[n].perdu && this.registry[n].owner !== n;
+      let name = joueur;
+      for (let i = 2; taken.has(name) || takenByOther(name); i++) name = `${joueur.slice(0, NAME_MAX - 2)} ${i}`;
+      joueur = name;
+      if (this.registry[name]?.perdu) delete this.registry[name]; // l'ancien est resté au village
+      if (!this.registry[name]) createCharacter(this, joueur, { prenom: name, metier: 'aventurier' }, t, cleanName);
+      return { joueur, name };
+    }
+
     onJoin(client, options) {
-      let name = cleanName(options?.nom);
-      const taken = new Set([...this.state.joueurs.values()].map((p) => p.nom));
-      for (let i = 2; taken.has(name); i++) name = `${cleanName(options?.nom).slice(0, NAME_MAX - 2)} ${i}`;
+      const { joueur, name } = this.resolveCharacter(options);
+      const entry = this.registry[name];
+      ensureHero(this, name);
+      const account = this.players[joueur] ?? (this.players[joueur] = { persos: [name], lastDay: null });
+      const firstVisit = account.lastDay == null;
 
       const v = this.sim.zones[this.sim.villageId];
       const p = new Joueur();
       p.nom = name;
+      p.joueur = joueur;
       p.x = (v.x + 0.5) * ZONE_TILES + (this.clients.length % 3) - 1;
       p.y = (v.y + 0.5) * ZONE_TILES + 1.5;
       p.dir = 'bas';
       p.bouge = false;
       p.attaque = 0;
-      p.couleur = colorOf(name);
+      p.couleur = entry.couleur ?? colorOf(name);
       p.pv = PLAYER_PV;
       p.pvMax = PLAYER_PV;
       p.aTerre = false;
@@ -292,20 +333,22 @@ export function makeContreeRoom(config) {
       for (let d = Math.max(1, this.sim.day - 3); d < this.sim.day; d++) recent.push(this.dayChronicle(d));
       client.send('chronique', recent);
 
-      const known = this.registry[name];
-      if (!known) {
-        // Première venue : une maison au village, protégée.
-        v.structures.push({ type: `maison de ${name}`, condition: 100, protected: true });
+      if (firstVisit) {
+        // Première venue du joueur : une maison au village, protégée.
+        if (!v.structures.some((st) => st.type === `maison de ${joueur}`)) v.structures.push({ type: `maison de ${joueur}`, condition: 100, protected: true });
         client.send('bienvenue', { nom: name, contree: this.sim.name });
-      } else if (known.lastDay < this.sim.day) {
+      } else if (account.lastDay < this.sim.day) {
         client.send('absence', {
-          depuis: known.lastDay,
+          depuis: account.lastDay,
           jusqua: this.sim.day,
-          lignes: summarySince(this.events, known.lastDay),
+          lignes: summarySince(this.events, account.lastDay),
         });
       }
-      this.registry[name] = { ...(this.registry[name] ?? {}), lastDay: this.sim.day };
-      log(`${name} arrive (${this.clients.length} connecté·e·s).`);
+      account.lastDay = this.sim.day;
+      entry.lastDay = this.sim.day;
+      startPlaying(this, name, now());
+      this.syncVillage();
+      log(`${joueur} arrive avec ${name} (${this.clients.length} connecté·e·s).`);
     }
 
     onLeave(client) {
@@ -313,7 +356,9 @@ export function makeContreeRoom(config) {
       if (p) {
         savePlayer(this, p);
         this.registry[p.nom].lastDay = this.sim.day;
-        log(`${p.nom} s'en va.`);
+        if (this.players[p.joueur]) this.players[p.joueur].lastDay = this.sim.day;
+        stopPlaying(this, p.nom, now());
+        log(`${p.joueur} laisse ${p.nom} au village.`);
       }
       this.state.joueurs.delete(client.sessionId);
       this.inputs.delete(client.sessionId);

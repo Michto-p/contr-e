@@ -4,7 +4,7 @@
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
 import { createSky } from './ciel.js';
 import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
-import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
+import { buildZoneCanvases, drawWorld, drawMinimap, rareColor, TUNIQUES } from './render.js';
 import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
 import { talk } from './dialogues.js';
 import { buildTrees, renderTrees } from './shared/genealogie.js';
@@ -41,7 +41,8 @@ function setNotice(text, isError = false) {
   el.classList.toggle('erreur', isError);
 }
 
-async function connect(nom) {
+// `options` : { joueur, perso } pour reprendre un personnage, { joueur, nouveau } pour en créer un.
+async function connect(options) {
   if (typeof Colyseus === 'undefined') {
     setNotice('La bibliothèque réseau n\'a pas pu être chargée. La page doit être ouverte depuis le serveur du jeu (npm start).', true);
     return;
@@ -49,9 +50,11 @@ async function connect(nom) {
   setNotice('Connexion…');
   try {
     const client = new Colyseus.Client(endpoint);
-    game.room = await client.join('contree', { nom });
+    game.room = await client.join('contree', options);
   } catch (err) {
-    setNotice(`Impossible de rejoindre la contrée (${err.message || err}). Le serveur est-il lancé ? Dans un Codespace, le port 2567 doit être public.`, true);
+    // Un refus de la contrée (prénom pris, personnage déjà en jeu…) arrive avec un code et un message clair.
+    if (typeof err?.code === 'number' && err.message) setNotice(err.message, true);
+    else setNotice(`Impossible de rejoindre la contrée (${err.message || err}). Le serveur est-il lancé ? Dans un Codespace, le port 2567 doit être public.`, true);
     return;
   }
   const room = game.room;
@@ -90,19 +93,144 @@ async function connect(nom) {
     toast('Connexion perdue avec la contrée. Rechargez la page pour revenir.');
   });
 
-  try { localStorage.setItem('contree.nom', nom); } catch { /* stockage indisponible */ }
+  game.joueur = options.joueur;
+  try { localStorage.setItem('contree.nom', options.joueur); } catch { /* stockage indisponible */ }
   $('accueil').hidden = true;
   for (const id of ['hud', 'minimap', 'boutons', 'aide']) $(id).hidden = false;
   requestAnimationFrame(frame);
   setInterval(renderSide, 2000);
 }
 
+// ---------- Choix et création des personnages ----------
+
+const METIERS_PERSO = {
+  aventurier: ['Aventurier', 'Sans métier : laissé au village, repos entre deux aventures.'],
+  agriculteur: ['Agriculteur', 'Laissé au village : travail aux champs, plus de blé.'],
+  boulanger: ['Boulanger', 'Laissé au village : coup de main au fournil, plus de pain.'],
+  forgeron: ['Forgeron', 'Laissé au village : coup de main à la forge, plus d\'outils.'],
+  bucheron_mineur: ['Bûcheron-mineur', 'Laissé au village : coupe du bois, descente à la mine.'],
+  eleveur: ['Éleveur', 'Laissé au village : les bêtes, dont le fumier enrichit les champs.'],
+  garde: ['Garde', 'Laissé au village : patrouilles et combats contre les monstres.'],
+};
+let couleur = 0;
+
+function duree(ms) {
+  const h = ms / 3_600_000;
+  if (h < 1) return 'moins d\'une heure';
+  if (h < 24) return `${Math.floor(h)} h`;
+  const j = Math.floor(h / 24);
+  return `${j} jour${j > 1 ? 's' : ''}`;
+}
+
+async function showChoice(joueurSaisi) {
+  setNotice('Recherche de vos personnages…');
+  let data;
+  try {
+    const res = await fetch(`${endpoint}/persos?joueur=${encodeURIComponent(joueurSaisi)}`);
+    data = await res.json();
+    if (!res.ok) throw new Error(data.erreur ?? res.status);
+  } catch (err) {
+    setNotice(`Impossible de joindre la contrée (${err.message || err}). Le serveur est-il lancé ?`, true);
+    return;
+  }
+  setNotice('');
+  game.joueur = data.joueur;
+  $('entrer').hidden = true;
+  $('choix').hidden = false;
+  $('choix-titre').textContent = `Les personnages de ${data.joueur}`;
+  $('choix-note').textContent = `Celui que vous ne jouez pas vit au village, et y travaille s'il a un métier. Vous pouvez le reprendre à tout moment ; sans être joué pendant ${data.abandonJours} jours, il reste au village pour de bon.`;
+  const box = $('persos');
+  box.replaceChildren();
+  if (!data.persos.length) {
+    const p = document.createElement('p');
+    p.className = 'note';
+    p.textContent = 'Pas encore de personnage : créez le premier ci-dessous.';
+    box.appendChild(p);
+  }
+  for (const c of data.persos) {
+    const row = document.createElement('div');
+    row.className = 'perso';
+    const pastille = document.createElement('span');
+    pastille.className = 'pastille';
+    pastille.style.background = TUNIQUES[c.couleur % TUNIQUES.length];
+    const nom = document.createElement('span');
+    nom.className = 'nom';
+    nom.textContent = c.nom;
+    const d1 = document.createElement('span');
+    d1.className = 'detail';
+    d1.textContent = `${METIERS_PERSO[c.metier]?.[0] ?? c.metier}${c.age != null ? ` · ${c.age} ans` : ''} · ${c.enJeu ? 'en jeu' : 'au village'}`;
+    const d2 = document.createElement('span');
+    d2.className = 'detail';
+    d2.textContent = `Joué il y a ${duree(c.absentDepuis)}`;
+    if (c.resteAvantPerte < 7 * 24 * 3_600_000) {
+      d2.classList.add('alerte');
+      d2.textContent += ` · restera au village pour de bon dans ${duree(c.resteAvantPerte)}`;
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'primaire';
+    b.textContent = 'Jouer';
+    b.disabled = c.enJeu;
+    b.addEventListener('click', () => connect({ joueur: data.joueur, perso: c.nom }));
+    row.append(pastille, nom, b, d1, d2);
+    box.appendChild(row);
+  }
+  // Création : un prénom, un métier, une couleur de tunique.
+  $('creer').hidden = data.persos.length >= data.max;
+  const sel = $('metier');
+  if (!sel.options.length) {
+    for (const m of data.metiers) {
+      const o = document.createElement('option');
+      o.value = m;
+      o.textContent = METIERS_PERSO[m]?.[0] ?? m;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => { $('metier-note').textContent = METIERS_PERSO[sel.value]?.[1] ?? ''; });
+    $('metier-note').textContent = METIERS_PERSO[sel.value]?.[1] ?? '';
+    const cols = $('couleurs');
+    TUNIQUES.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.style.background = c;
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-label', `Tunique ${i + 1}`);
+      b.setAttribute('aria-checked', String(i === couleur));
+      b.addEventListener('click', () => {
+        couleur = i;
+        for (const x of cols.children) x.setAttribute('aria-checked', String(x === b));
+      });
+      cols.appendChild(b);
+    });
+  }
+  $('perdus').textContent = data.perdus.length
+    ? `Restés au village pour de bon : ${data.perdus.join(', ')}. Vous les croiserez parmi les habitants.`
+    : '';
+  if (data.persos.length >= data.max) $('perdus').textContent += ` (${data.max} personnages au plus.)`;
+}
+
 $('entrer').addEventListener('submit', (e) => {
   e.preventDefault();
   const nom = $('nom').value.trim();
-  if (nom) connect(nom);
+  if (nom) showChoice(nom);
 });
-try { $('nom').value = localStorage.getItem('contree.nom') ?? ''; } catch { /* rien */ }
+$('creer').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const prenom = $('prenom').value.trim();
+  if (prenom) connect({ joueur: game.joueur, nouveau: { prenom, metier: $('metier').value, couleur } });
+});
+$('autre-joueur').addEventListener('click', () => { $('choix').hidden = true; $('entrer').hidden = false; setNotice(''); });
+
+// Changer de personnage : on quitte proprement la contrée (le personnage retourne au village),
+// puis on revient à l'écran de choix.
+async function switchCharacter() {
+  const q = new URLSearchParams(location.search);
+  q.set('joueur', game.joueur ?? '');
+  try { await game.room?.leave(); } catch { /* déjà parti */ }
+  location.href = `${location.pathname}?${q}`;
+}
+
+try { $('nom').value = params.get('joueur') ?? localStorage.getItem('contree.nom') ?? ''; } catch { /* rien */ }
+if (params.get('joueur')) showChoice(params.get('joueur'));
 
 // ---------- Messages ----------
 
@@ -159,6 +287,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR') { eat(); e.preventDefault(); }
   if (e.code === 'KeyF' || e.code === 'KeyI') { toggleBag(); e.preventDefault(); }
   if (e.code === 'KeyG') { toggleTree(); e.preventDefault(); }
+  if (e.code === 'KeyP') { switchCharacter(); e.preventDefault(); }
   if (e.code === 'KeyC') toggleSide();
   if (e.code === 'Escape') { $('message').hidden = true; for (const id of ['cote', 'sac', 'arbre']) $(id).classList.remove('ouvert'); }
 });
@@ -518,6 +647,7 @@ function toggleTree() {
   }
 }
 $('btn-arbre').addEventListener('click', toggleTree);
+$('btn-persos').addEventListener('click', switchCharacter);
 $('fermer-arbre').addEventListener('click', toggleTree);
 
 function toggleSide() {

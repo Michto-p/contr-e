@@ -76,6 +76,7 @@ server/
   contree-room.js     la room : horloge du monde, joueurs réels -> simulation, chronique diffusée
   gameplay.js         temps réel : monstres, points de vie, touche E (bois, réparer, bâtir, aider), quêtes jouables
   pnj.js              habitants sur la carte : gardes en patrouille qui combattent, voyageur égaré à ramener
+  personnages.js      joueurs et personnages (3 par joueur) : au village quand on ne les joue pas, abandon
   persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
 client/               index.html, game.js (réseau, entrées, interface), render.js (dessin),
@@ -121,7 +122,9 @@ test/
   avec les ressources rares rapportées par les joueurs. Le jour, les adultes travaillent hors du village
   (champs, bois, mine, pâtures) si la zone n'est pas trop dangereuse, et y dressent des avant-postes ; les
   gardes patrouillent devant les champs et escortent ceux qui travaillent. Des voyageurs s'égarent au loin :
-  ramenés au village (par un joueur ou un habitant curieux), ils s'y installent ; sinon ils repartent. La production des métiers dépend des
+  ramenés au village (par un joueur ou un habitant curieux), ils s'y installent ; sinon ils repartent.
+  Les personnages des joueurs sont aussi des habitants : au village quand on ne les joue pas (ils y
+  travaillent avec un bonus), sans vieillir tant qu'ils appartiennent à un joueur. La production des métiers dépend des
   habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
   (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 
@@ -152,7 +155,7 @@ Scénarios à tester : tous assidus / mixte / tout le monde absent 5 jours.
 ## Commandes
 
 ```
-npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER, RYTHME_VIE, TAILLE)
+npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER, RYTHME_VIE, TAILLE, ABANDON_JOURS)
 npm run sim -- --days 7 --seed 42
 npm run sim -- --days 30 --seed 42 --agents mixte --debug
 npm test

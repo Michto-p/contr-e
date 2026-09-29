@@ -9,6 +9,7 @@ const METIER = {
   eleveur: 'élève les bêtes',
   enseignant: "fait l'école aux enfants",
   garde: 'monte la garde',
+  aventurier: 'court l\'aventure',
   ancien: 'profite de ses vieux jours',
   '': 'joue sur la place',
 };
@@ -77,6 +78,7 @@ export function talk(h, ctx) {
   const lines = [];
   if (!h.metier && h.parents) lines.push(`Je suis l'enfant de ${h.parents}. Plus tard, je ferai comme eux… ou autre chose !`);
   if (h.partenaire && h.metier) lines.push(`Je partage ma vie avec ${h.partenaire}.`);
+  if (h.joueur) lines.push(`Quand ${h.joueur} ne m'emmène pas à l'aventure, je donne un coup de main ici.`);
   if (h.talent && TALENT[h.talent]) lines.push(TALENT[h.talent]);
   if (h.sortie >= 0 && (h.motif === 'travail' || h.motif === 'garde')) lines.push(pick(WORK_LINES[h.metier] ?? ['Du travail, il y en a toujours.']));
   const situation = situationLine(ctx);

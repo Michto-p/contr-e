@@ -3,7 +3,7 @@
 
 const METIER = {
   agriculteur: 'aux champs', boulanger: 'au fournil', forgeron: 'à la forge', bucheron_mineur: 'à la coupe et à la mine',
-  eleveur: 'auprès des bêtes', enseignant: "à l'école", garde: 'à la garde', ancien: 'retraite',
+  eleveur: 'auprès des bêtes', enseignant: "à l'école", garde: 'à la garde', aventurier: 'aventurier', ancien: 'retraite',
 };
 
 // Racines : les fondateurs (sans parents connus). Un conjoint venu d'ailleurs apparaît à côté de

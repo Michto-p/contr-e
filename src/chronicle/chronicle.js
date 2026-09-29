@@ -141,7 +141,7 @@ const QUEST_DONE = {
 const deN = (name) => (/^[AEIOUYÉÈH]/i.test(name) ? `d'${name}` : `de ${name}`);
 const JOB_AT = {
   agriculteur: 'aux champs', boulanger: 'au fournil', forgeron: 'à la forge', bucheron_mineur: 'à la coupe et à la mine',
-  eleveur: 'auprès des bêtes', enseignant: "à l'école", garde: 'à la garde du village', ancien: 'au coin du feu',
+  eleveur: 'auprès des bêtes', enseignant: "à l'école", garde: 'à la garde du village', aventurier: 'toujours prêt au départ', ancien: 'au coin du feu',
 };
 const TALENT_TEXT = {
   forestier: 'saura replanter et choisir ses arbres',
@@ -198,6 +198,16 @@ const RENDERERS = {
   wanderer_gone: {
     priority: () => 5,
     text: (evs) => `Personne n'est allé chercher ${evs[0].data.prenom} dans ${evs[0].data.label} : sa route l'a mené ailleurs. D'autres voyageurs passeront.`,
+  },
+  hero_arrives: {
+    priority: () => 6,
+    text: (evs) => evs.map((e) => (e.data.job === 'aventurier'
+      ? `Nouveau visage au village : ${e.data.name}, qui ne tient pas en place.`
+      : `Nouveau visage au village : ${e.data.name}. Entre deux aventures, ${e.data.prenom} prête main-forte ${JOB_AT[e.data.job]}.`)).join(' '),
+  },
+  hero_settles: {
+    priority: () => 7,
+    text: (evs) => evs.map((e) => `Voilà longtemps que personne n'a vu ${e.data.prenom} partir à l'aventure : ${e.data.name} fait désormais partie du village pour de bon${e.data.job && e.data.job !== 'aventurier' ? `, ${JOB_AT[e.data.job]}` : ''}.`).join(' '),
   },
   guard_patrol: {
     priority: () => 3,

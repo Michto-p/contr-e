@@ -3,6 +3,7 @@
 import { schema, t } from '@colyseus/schema';
 
 export const Joueur = schema({
+  joueur: t.string(), // le joueur qui incarne ce personnage
   nom: t.string(),
   x: t.float32(),
   y: t.float32(),
@@ -34,6 +35,8 @@ export const Habitant = schema({
   parents: t.string(), // prénoms des parents
   partenaire: t.string(),
   sortie: t.int16(), // zone où l'habitant est parti aujourd'hui (-1 : au village)
+  joueur: t.string(), // personnage d'un joueur ('' sinon)
+  joue: t.boolean(), // incarné en ce moment (il n'est donc pas au village)
   motif: t.string(), // 'travail', 'defense' ou 'exploration'
   blesse: t.boolean(),
 }, 'Habitant');

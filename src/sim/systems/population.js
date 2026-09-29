@@ -111,11 +111,13 @@ export function createPopulation(seed, { yearsPerDay = 1 } = {}) {
 // ---------- Outils ----------
 
 const living = (pop) => pop.people.filter((p) => p.alive);
+// Présents au village : un personnage qu'un joueur incarne en ce moment est parti à l'aventure.
+const present = (pop) => living(pop).filter((p) => !p.played);
 const byId = (pop, id) => pop.people.find((p) => p.id === id);
 export const fullName = (p) => `${p.prenom} ${p.famille}`;
 
 export function workers(pop, job) {
-  return living(pop).filter((p) => p.metier === job);
+  return present(pop).filter((p) => p.metier === job);
 }
 
 // Facteur de production d'un métier selon ceux qui l'exercent (0,6 à 1,5 ; environ 1 au départ).
@@ -128,6 +130,7 @@ export function workforceFactor(state, job) {
     let v = w.skills[skill] / 100;
     if (w.traits.includes('travailleur')) v *= 1.15;
     if (w.talent) v += 0.15;
+    if (w.hero || w.ancienHeros) v += 0.2; // le savoir-faire rapporté de ses aventures
     sum += v;
   }
   let factor = 0.6 + 0.4 * sum;
@@ -210,6 +213,7 @@ function comeOfAge(pop, state, rng, ctx, events) {
 
 function retireAndDie(pop, state, rng, ctx, events) {
   for (const p of living(pop)) {
+    if (p.hero) continue;
     if (p.age >= ELDER && p.metier && p.metier !== 'ancien') {
       p.ancienMetier = p.metier;
       p.metier = 'ancien';
@@ -231,8 +235,9 @@ function retireAndDie(pop, state, rng, ctx, events) {
 function formCouples(pop, rng, ctx, events) {
   const related = (x, y) => (x.parents.length && x.parents.some((id) => y.parents.includes(id))) || x.parents.includes(y.id) || y.parents.includes(x.id);
   for (const a of living(pop)) {
+    if (a.hero) continue;
     if (a.partner || a.age < 18 || a.age > 50 || !rng.chance(0.15)) continue;
-    const others = living(pop).filter((b) => b !== a && !b.partner && b.age >= 18 && b.age <= 50 && Math.abs(a.age - b.age) <= 10 && !related(a, b));
+    const others = living(pop).filter((b) => b !== a && !b.hero && !b.partner && b.age >= 18 && b.age <= 50 && Math.abs(a.age - b.age) <= 10 && !related(a, b));
     if (!others.length) continue;
     const b = rng.pick(others);
     a.partner = b.id;
@@ -323,6 +328,46 @@ function welcome(pop, state, rng, who, ctx, events) {
   const e = ctx.event('wanderer_rescued', null, { who, name: fullName(p), prenom: p.prenom, job: p.metier, talent: p.talent });
   events.push(e);
   return e;
+}
+
+// ---------- Personnages des joueurs ----------
+
+// Chaque joueur peut avoir quelques personnages. Celui qu'il n'incarne pas vit au village comme
+// un habitant (il travaille s'il a un métier, avec le savoir-faire rapporté de ses aventures).
+// Tant qu'il appartient à un joueur, il ne vieillit pas et ne meurt pas. Délaissé trop longtemps,
+// il reste au village pour de bon et vit désormais comme les autres.
+export const HERO_JOBS = ['aventurier', 'agriculteur', 'boulanger', 'forgeron', 'bucheron_mineur', 'eleveur', 'garde'];
+
+export function createHero(state, { prenom, metier = 'aventurier', owner, famille = owner }, ctx) {
+  const pop = state.village.population;
+  if (!pop) return null;
+  const prng = createRng(pop.rng);
+  const job = HERO_JOBS.includes(metier) ? metier : 'aventurier';
+  const skills = newSkills(prng, JOB_SKILL[job] ? job : null);
+  if (JOB_SKILL[job]) skills[JOB_SKILL[job]] = prng.int(55, 65);
+  const p = makePerson(pop, prng, { prenom, famille, age: prng.int(20, 26), metier: job, skills, traits: twoTraits(prng) });
+  p.hero = owner;
+  p.played = false;
+  pop.rng = prng.save();
+  const e = ctx.event('hero_arrives', null, { name: fullName(p), prenom: p.prenom, owner, job });
+  return { person: p, event: e };
+}
+
+export function setPlayed(state, id, played) {
+  const p = state.village.population?.people.find((q) => q.id === id);
+  if (!p) return false;
+  p.played = Boolean(played);
+  if (played) p.outing = null;
+  return true;
+}
+
+export function releaseHero(state, id, ctx) {
+  const p = state.village.population?.people.find((q) => q.id === id);
+  if (!p?.hero) return null;
+  p.ancienHeros = p.hero;
+  p.hero = null;
+  p.played = false;
+  return ctx.event('hero_settles', null, { name: fullName(p), prenom: p.prenom, owner: p.ancienHeros, job: p.metier });
 }
 
 // Appelé par le jeu quand des joueurs ramènent l'égaré au village.
@@ -449,7 +494,7 @@ const OUT_HOUR = 9; // on part le matin
 const BACK_HOUR = 18; // on rentre le soir
 
 function outings(pop, state, rng, ctx, events) {
-  const adults = living(pop).filter((p) => p.age >= ADULT && p.metier !== 'ancien' && !(p.hurtUntil > ctx.day));
+  const adults = present(pop).filter((p) => p.age >= ADULT && p.metier !== 'ancien' && !(p.hurtUntil > ctx.day));
   // L'audacieux va prêter main-forte là où les monstres menacent les champs.
   const fronts = state.zones.filter((z) => z.isField)
     .flatMap((f) => neighbors(state, f).filter((n) => !n.isVillage && !n.isField && !n.closed && n.monsterPressure >= 45))
@@ -528,7 +573,7 @@ function workplaces(state, job) {
 // Les gardes patrouillent là où la menace pèse le plus : devant les champs, là où l'on travaille.
 const GUARD_RANGE = 3;
 function patrol(pop, state, rng, ctx, events) {
-  const guards = living(pop).filter((p) => p.metier === 'garde' && !p.outing && !(p.hurtUntil > ctx.day));
+  const guards = present(pop).filter((p) => p.metier === 'garde' && !p.outing && !(p.hurtUntil > ctx.day));
   if (!guards.length) return;
   // Priorité aux lieux de travail (pour y escorter les habitants) et aux abords des champs ; une zone
   // trop infestée pour un garde seul compte moins.
@@ -597,7 +642,7 @@ function outposts(pop, state, rng, ctx, events) {
 
 // Une année de vie : vieillir, apprendre, grandir, s'unir, naître, s'éteindre.
 function year(pop, state, prng, ctx, events) {
-  for (const p of living(pop)) p.age += 1;
+  for (const p of living(pop)) if (!p.hero) p.age += 1; // un personnage de joueur ne vieillit pas
   learn(pop, state);
   comeOfAge(pop, state, prng, ctx, events);
   retireAndDie(pop, state, prng, ctx, events);

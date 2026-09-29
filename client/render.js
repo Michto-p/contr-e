@@ -7,7 +7,7 @@ import { drawSky } from './ciel.js';
 export const TILE = 16;
 const ZONE_PX = ZONE_TILES * TILE;
 
-const TUNIQUES = ['#d9534f', '#3b7dd8', '#e0a458', '#8e5bd6', '#2fa37a', '#d65c9e', '#5bb7d6', '#b8b84a'];
+export const TUNIQUES = ['#d9534f', '#3b7dd8', '#e0a458', '#8e5bd6', '#2fa37a', '#d65c9e', '#5bb7d6', '#b8b84a'];
 
 // Petit hachage déterministe : le décor d'une tuile ne change jamais.
 function hash(x, y, k = 0) {

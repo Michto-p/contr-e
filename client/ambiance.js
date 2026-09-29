@@ -35,6 +35,7 @@ function syncVillagers(amb, state) {
   const seen = new Set();
   state.habitants?.forEach((h) => {
     if (state.pnj?.has(`g${h.id}`)) return; // un garde en patrouille est dessiné par le serveur
+    if (h.joue) return; // un personnage incarné par un joueur n'est pas au village
     seen.add(h.id);
     let v = amb.villagers.get(h.id);
     if (!v) {

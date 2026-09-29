@@ -10,6 +10,7 @@
     --accent: #e0a458; --danger: #e5635c; --ok: #7cc36a;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; } /* un élément masqué l'est toujours, quel que soit son style */
   html, body { margin: 0; height: 100%; background: #1c1814; color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
   canvas#jeu { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; image-rendering: pixelated; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(3px); }
@@ -103,6 +104,23 @@
   .carte form { display: flex; gap: 8px; flex-wrap: wrap; }
   .carte input { flex: 1 1 200px; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--ink); }
   .erreur { color: var(--danger) !important; }
+  /* Choix et création des personnages */
+  .carte .note { font-size: 13px; color: var(--ink-2); }
+  .persos { display: grid; gap: 8px; margin: 8px 0 14px; }
+  .perso { display: grid; grid-template-columns: 22px 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,0.04); }
+  .perso .pastille { width: 18px; height: 18px; border-radius: 4px; grid-row: 1 / span 2; }
+  .perso .nom { font-weight: 700; }
+  .perso .detail { grid-column: 2; font-size: 13px; color: var(--ink-2); }
+  .perso .detail.alerte { color: var(--accent); }
+  .perso button { grid-column: 3; grid-row: 1 / span 2; }
+  .carte form.creer { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .creer h3 { margin: 0; font-size: 1em; color: var(--accent); }
+  .creer select { font: inherit; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line); background: #2a241e; color: var(--ink); }
+  .creer .note { margin: 0; }
+  .couleurs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .couleurs button { width: 30px; height: 30px; padding: 0; border-radius: 6px; border: 2px solid transparent; }
+  .couleurs button[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--accent); }
+  #autre-joueur { margin-top: 6px; font-size: 13px; }
   #toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 14px; max-width: min(560px, calc(100vw - 24px)); font-family: Georgia, "Times New Roman", serif; }
   #toast[hidden] { display: none; }
 </style>
@@ -124,9 +142,10 @@
   <button type="button" id="btn-chronique" title="Chronique (C)">📜 Chronique</button>
   <button type="button" id="btn-sac" title="Sac et forge (F)">🎒 Sac</button>
   <button type="button" id="btn-arbre" title="Familles (G)">🌳 Familles</button>
+  <button type="button" id="btn-persos" title="Changer de personnage (P)">👥 Personnages</button>
 </div>
 <div class="aide panel" id="aide" hidden>
-  <kbd>←↑↓→</kbd>/<kbd>ZQSD</kbd> marcher · <kbd>Espace</kbd> frapper · <kbd>Maj</kbd> rouler · <kbd>E</kbd> agir · <kbd>R</kbd> manger · <kbd>F</kbd> sac · <kbd>G</kbd> familles · <kbd>C</kbd> chronique · <kbd>M</kbd> son
+  <kbd>←↑↓→</kbd>/<kbd>ZQSD</kbd> marcher · <kbd>Espace</kbd> frapper · <kbd>Maj</kbd> rouler · <kbd>E</kbd> agir · <kbd>R</kbd> manger · <kbd>F</kbd> sac · <kbd>G</kbd> familles · <kbd>C</kbd> chronique · <kbd>P</kbd> personnages · <kbd>M</kbd> son
 </div>
 <button type="button" id="attaque" aria-label="Combattre">⚔</button>
 <button type="button" id="agir" aria-label="Agir">✋</button>
@@ -173,9 +192,24 @@
     <h1>Contrées vivantes</h1>
     <p>Un petit monde qui vit même quand vous n'êtes pas là. Entrez, protégez les champs, et lisez ce qui s'est passé pendant votre absence.</p>
     <form id="entrer">
-      <input id="nom" name="nom" maxlength="16" placeholder="Votre nom" autocomplete="nickname" required>
-      <button class="primaire" type="submit">Entrer</button>
+      <input id="nom" name="nom" maxlength="16" placeholder="Votre nom de joueur" autocomplete="nickname" required>
+      <button class="primaire" type="submit">Continuer</button>
     </form>
+    <div id="choix" hidden>
+      <h2 id="choix-titre">Vos personnages</h2>
+      <p class="note" id="choix-note"></p>
+      <div id="persos" class="persos"></div>
+      <form id="creer" class="creer">
+        <h3>Nouveau personnage</h3>
+        <input id="prenom" maxlength="16" placeholder="Son prénom" autocomplete="off" required>
+        <select id="metier" aria-label="Métier"></select>
+        <p class="note" id="metier-note"></p>
+        <div id="couleurs" class="couleurs" role="radiogroup" aria-label="Couleur de la tunique"></div>
+        <button class="primaire" type="submit">Créer et jouer</button>
+      </form>
+      <p class="note" id="perdus"></p>
+      <button type="button" id="autre-joueur">Changer de joueur</button>
+    </div>
     <p id="accueil-msg" style="margin-top:10px"></p>
   </div>
 </div>

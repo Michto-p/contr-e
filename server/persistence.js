@@ -31,9 +31,9 @@ export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_0
     const sim = createWorld(graine, { width: taille, height: taille, yearsPerDay: rythmeVie ?? 1 });
     const rng = createRng(graine);
     addPlayers(sim, rng, bots);
-    return { sim, rng, events: [], registry: {}, created: true, caughtUp: 0 };
+    return { sim, rng, events: [], registry: {}, players: {}, created: true, caughtUp: 0 };
   }
-  const world = { sim: saved.sim, rng: createRng(saved.rng), events: saved.events ?? [], registry: saved.registry ?? {}, created: false };
+  const world = { sim: saved.sim, rng: createRng(saved.rng), events: saved.events ?? [], registry: saved.registry ?? {}, players: saved.players ?? {}, created: false };
   // Migration : une contrée sauvegardée avant l'arrivée de la population reçoit ses habitants.
   if (!world.sim.village.population) world.sim.village.population = createPopulation(world.sim.seed);
   // Le rythme de vie peut être changé d'un lancement à l'autre (RYTHME_VIE).
@@ -45,7 +45,7 @@ export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_0
 }
 
 export function snapshotWorld(world, now) {
-  return { version: 1, savedAt: now, sim: world.sim, rng: world.rng.save(), events: world.events, registry: world.registry };
+  return { version: 1, savedAt: now, sim: world.sim, rng: world.rng.save(), events: world.events, registry: world.registry, players: world.players };
 }
 
 export function loadWorld(file) {

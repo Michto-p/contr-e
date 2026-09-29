@@ -56,7 +56,18 @@ Réglages du serveur (variables d'environnement) :
 | `FICHIER` | `data/contree.json` | sauvegarde |
 | `RATTRAPAGE_JOURS` | `7` | temps maximal rattrapé au redémarrage |
 | `TAILLE` | `16` | taille d'une nouvelle contrée, en zones de côté (une contrée sauvegardée garde la sienne) |
+| `ABANDON_JOURS` | `30` | jours réels sans être joué au-delà desquels un personnage reste au village pour de bon |
 | `RYTHME_VIE` | `1` | années de vie des habitants par jour de jeu (`0.25` = une saison par jour, générations plus longues) |
+
+## Personnages
+
+On entre avec son **nom de joueur** (pas de mot de passe), puis on choisit ou crée un **personnage** :
+un prénom (libre dans la contrée), un métier et une couleur de tunique. Chaque joueur peut en avoir
+**trois**. Le personnage qu'on ne joue pas **vit au village** comme un habitant : on le croise, on lui
+parle, et s'il a un métier il y travaille, avec le savoir-faire rapporté de ses aventures (un vrai bonus
+pour ce métier). Tant qu'il vous appartient, il ne vieillit pas. On le reprend quand on veut (bouton
+👥 Personnages ou touche **P** en jeu). Mais un personnage **délaissé 30 jours** (réels) est perdu
+pour son joueur : il reste au village pour de bon, vieillit, et vit sa vie comme les autres.
 
 ## Commandes du jeu
 
@@ -87,6 +98,7 @@ Réglages du serveur (variables d'environnement) :
   un **plan** (une lame à 4 dégâts, un talisman +4 PV) que tout le monde pourra ensuite forger.
 - **G** : l'arbre des familles du village, avec les disparus (en gris) et les conjoints (♥).
 - **C** : chronique, quêtes du village, métiers, habitants et familles, joueurs en ligne.
+- **P** : changer de personnage (celui qu'on quitte retourne au village).
 - **M** : couper ou remettre le son (épée, coups, butin, cloche du matin, cor des hordes, pluie).
 - Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
   🌀 rouler, 🍞 manger, 🎒 sac.

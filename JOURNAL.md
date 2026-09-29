@@ -181,3 +181,8 @@
 ## Sons
 - Fait : `client/sons.js` synthétise les sons avec Web Audio, sans fichier : épée, monstre touché, blessure, roulade, butin ramassé, pain mangé, cloche du village au lever du jour, cor d'une horde, fanfare quand elle est repoussée, et une pluie de fond selon la météo. Touche M pour couper le son (retenu dans le navigateur).
 - Décision : le son ne démarre qu'après une première touche ou un premier clic (règle des navigateurs).
+
+## Personnages des joueurs
+- Fait : un joueur (son nom suffit) a jusqu'à 3 personnages, créés sur l'écran d'accueil (prénom libre dans la contrée, métier parmi aventurier, agriculteur, boulanger, forgeron, bûcheron-mineur, éleveur, garde, couleur de tunique). Chaque personnage est un habitant de la simulation (`hero` = son joueur) : joué, il est « parti à l'aventure » ; laissé au village, il y vit et travaille son métier avec un bonus de savoir-faire (+0,2 dans la force de travail). On change de personnage avec P.
+- Décisions : tant qu'il appartient à un joueur, un personnage ne vieillit pas, ne meurt pas et ne se marie pas (sinon, à un an de vie par jour de jeu, il mourrait en quelques heures de jeu). L'abandon se compte en jours réels (`ABANDON_JOURS`, 30 par défaut), décidé par le serveur : le personnage devient un habitant ordinaire (event `hero_settles`). Les anciennes sauvegardes deviennent un joueur avec un personnage du même nom ; se connecter sans choisir de personnage (anciens clients, tests) garde ce fonctionnement.
+- Problème repéré et corrigé : l'attribut `hidden` était annulé par certains styles (boutons du jeu visibles derrière l'accueil) ; une règle globale le fait respecter.

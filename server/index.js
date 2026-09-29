@@ -23,12 +23,18 @@ const require = createRequire(import.meta.url);
 const SDK_BUNDLE = join(dirname(require.resolve('@colyseus/sdk/package.json')), 'dist', 'colyseus.js');
 
 export async function createGameServer({ port = 2567, ...config } = {}) {
+  let room = null;
   const server = new Server({
     transport: new WebSocketTransport(),
     greet: false,
     express: (app) => {
       app.get('/', (req, res) => res.sendFile(join(ROOT, 'client', 'index.html')));
       app.get('/vendor/colyseus.js', (req, res) => res.sendFile(SDK_BUNDLE));
+      // Les personnages d'un joueur, pour l'écran de choix (le nom suffit, pas de compte).
+      app.get('/persos', (req, res) => {
+        if (!room) return res.status(503).json({ erreur: 'La contrée se prépare, réessayez.' });
+        return res.json(room.charactersOf(String(req.query.joueur ?? '')));
+      });
       app.use('/shared', express.static(join(ROOT, 'shared')));
       app.use(express.static(join(ROOT, 'client')));
     },
@@ -37,7 +43,7 @@ export async function createGameServer({ port = 2567, ...config } = {}) {
   await server.listen(port);
   // La contrée est créée au démarrage : elle vit avant même l'arrivée du premier joueur.
   const listing = await matchMaker.createRoom('contree', {});
-  const room = matchMaker.getLocalRoomById(listing.roomId);
+  room = matchMaker.getLocalRoomById(listing.roomId);
   const actualPort = server.transport.server?.address()?.port ?? port;
   return {
     server,
@@ -62,6 +68,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     rattrapageMaxJours: Number(env.RATTRAPAGE_JOURS ?? 7),
     // Années de vie des habitants par jour de jeu (1 par défaut ; 0.25 = une saison par jour).
     rythmeVie: env.RYTHME_VIE ? Number(env.RYTHME_VIE) : null,
+    // Jours réels sans être joué au-delà desquels un personnage reste au village pour de bon.
+    abandonJours: Number(env.ABANDON_JOURS ?? 30),
     // Taille d'une nouvelle contrée, en zones de côté (16 par défaut).
     taille: env.TAILLE ? Number(env.TAILLE) : undefined,
     log: (msg) => console.log(`[contrée] ${msg}`),
