@@ -67,9 +67,12 @@ export function updateAmbiance(amb, dt, me, t, state) {
   const W = amb.monde.largeur;
   // La nuit, chacun rentre chez soi (sauf ceux qui ne sont pas encore revenus de sortie) ; au matin, on ressort.
   const night = state.heure >= 21 || state.heure < 6;
+  // Les maisons en ruine ne logent plus personne : on dort chez ses voisins.
+  const ruined = new Set([...(state.ruines ?? [])].map((s) => s.split('|')).filter(([, k]) => k === 'maison').map(([, , i]) => Number(i)));
+  const homes = VILLAGE_HOUSES.map((_, i) => i).filter((i) => !ruined.has(i));
   for (const p of amb.villagers.values()) {
     if (night && p.h.sortie < 0) {
-      const [hx, hy] = VILLAGE_HOUSES[p.h.id % VILLAGE_HOUSES.length];
+      const [hx, hy] = VILLAGE_HOUSES[homes.length ? homes[p.h.id % homes.length] : p.h.id % VILLAGE_HOUSES.length];
       const dx = amb.village.x0 - 1 + hx + 0.5 - p.x;
       const dy = amb.village.y0 - 1 + hy + 0.9 - p.y;
       const d = Math.hypot(dx, dy);
