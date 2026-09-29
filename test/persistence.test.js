@@ -48,3 +48,17 @@ test('le générateur reprend exactement la même suite après rechargement', ()
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('une ancienne sauvegarde sans population reçoit ses habitants au chargement', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'contree-'));
+  const fichier = join(dir, 'contree.json');
+  try {
+    const w = openWorld({ fichier, graine: 4, bots: 'aucun' });
+    delete w.sim.village.population;
+    saveWorld(fichier, snapshotWorld(w, 0));
+    const again = openWorld({ fichier, heureMs: 1000, now: 0 });
+    assert.ok(again.sim.village.population.people.length >= 12);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -5,6 +5,7 @@ import { createRng } from '../src/sim/rng.js';
 import { createWorld } from '../src/sim/world.js';
 import { advanceHour } from '../src/sim/tick.js';
 import { addPlayers, agentsAct } from '../src/sim/agents.js';
+import { createPopulation } from '../src/sim/systems/population.js';
 
 export const EVENT_DAYS_KEPT = 30; // jours d'events gardés (chronique, résumés d'absence)
 
@@ -31,6 +32,8 @@ export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_0
     return { sim, rng, events: [], registry: {}, created: true, caughtUp: 0 };
   }
   const world = { sim: saved.sim, rng: createRng(saved.rng), events: saved.events ?? [], registry: saved.registry ?? {}, created: false };
+  // Migration : une contrée sauvegardée avant l'arrivée de la population reçoit ses habitants.
+  if (!world.sim.village.population) world.sim.village.population = createPopulation(world.sim.seed);
   const missed = Math.floor((now - saved.savedAt) / heureMs);
   world.caughtUp = Math.max(0, Math.min(missed, rattrapageMaxJours * 24));
   for (let i = 0; i < world.caughtUp; i++) advanceWorld(world);
