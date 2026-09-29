@@ -6,7 +6,7 @@
 // Registre (sauvegardé) : `registry[nom du personnage]` = { owner, hid, metier, couleur, gear, sac,
 // lastPlayedAt, perdu } ; `players[nom du joueur]` = { persos: [noms], lastDay }.
 import { makeCtx } from '../src/sim/tick.js';
-import { createHero, setPlayed, releaseHero, HERO_JOBS } from '../src/sim/systems/population.js';
+import { createHero, setPlayed, releaseHero, setFoyer, HERO_JOBS } from '../src/sim/systems/population.js';
 import { computeSkills, villageBonus, SKILL_KEYS } from '../shared/competences.js';
 import { pushEvent, announce } from './evenements.js';
 
@@ -42,6 +42,8 @@ export function charactersOf(room, joueur, now, abandonMs, playing) {
     const e = room.registry[name];
     const h = person(room, e.hid);
     return {
+      partenaire: h?.partner ? room.sim.village.population.people.find((q) => q.id === h.partner)?.prenom ?? '' : '',
+      enfants: h ? room.sim.village.population.people.filter((q) => q.alive && q.parents.includes(h.id)).length : 0,
       nom: name, metier: e.metier ?? 'aventurier', classe: e.classe, secret: e.secret ?? '', competences: e.competences, couleur: e.couleur ?? 0, age: h?.age ?? null,
       enJeu: playing.has(name), absentDepuis: Math.max(0, now - (e.lastPlayedAt ?? now)),
       resteAvantPerte: Math.max(0, abandonMs - (now - (e.lastPlayedAt ?? now))),
@@ -78,6 +80,7 @@ export function ensureHero(room, name) {
   if (!res) return;
   entry.hid = res.person.id;
   entry.metier = res.person.metier;
+  if (room.players[entry.owner]?.maison != null) setFoyer(room.sim, entry.owner);
   pushEvent(room, res.event.type, null, res.event.data);
 }
 

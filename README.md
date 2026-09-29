@@ -82,6 +82,10 @@ le terrain, avec 4 cuir et 4 minerai rapportés des combats et 10 bois de la ré
 y réapparaît désormais, et son **coffre** (E devant la porte) garde vos affaires, pour tous vos
 personnages. L'équipement, lui, reste propre à chaque personnage.
 
+**Une famille.** Dès que le joueur a sa maison, ses personnages peuvent, quand ils vivent au village,
+se mettre en couple avec un habitant et avoir des enfants, qui portent le nom du joueur et grandissent
+au village (voir l'arbre des familles, touche G). L'écran de choix des personnages indique leur famille.
+
 ## Commandes du jeu
 
 - Flèches, ou **Z Q S D** (AZERTY) / **W A S D** (QWERTY) : se déplacer.

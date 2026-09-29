@@ -195,3 +195,7 @@
 ## L'auberge et les maisons des joueurs
 - Fait : `server/maisons.js`. On commence à l'auberge (dessinée au village) et on y revient à bout de forces ; E devant un des 10 terrains libres bâtit sa maison (4 cuir + 4 minerai du sac, 10 bois du village). La maison devient le point de départ et de relève, et son coffre (E devant la porte, dans le panneau du sac) est commun à tous les personnages du joueur. Les anciennes « maisons de X » données d'office deviennent de vraies maisons sur un terrain.
 - Décision : la maison appartient au joueur, l'équipement au personnage. Problème repéré et corrigé : un habitant qui passait « volait » la touche E (conversation) ; bâtir, ouvrir le coffre et secourir passent désormais avant.
+
+## Famille des personnages
+- Fait : quand un joueur a sa maison, ses personnages (`foyer`) peuvent se mettre en couple avec un habitant et avoir des enfants, qui portent le nom du joueur ; l'écran de choix affiche le conjoint et le nombre d'enfants.
+- Décision : pas de couple entre deux personnages de joueurs (plus simple) ; le rythme des naissances se compte sur le conjoint habitant, puisque le personnage ne vieillit pas.

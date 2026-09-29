@@ -193,3 +193,25 @@ test('des voyageurs s\'égarent : un habitant curieux les ramène, ou ils repren
   assert.ok(outcome.length >= seen.length - 1); // le dernier peut encore attendre
   for (const e of seen) assert.equal(e.data.fix, 'ramener');
 });
+
+test('un personnage de joueur avec une maison fonde une famille ; ses enfants portent son nom', async () => {
+  const { createHero, setFoyer } = await import('../src/sim/systems/population.js');
+  const w = createWorld(42);
+  const h = createHero(w, { prenom: 'Paul', metier: 'forgeron', owner: 'Alix' }, makeCtx(w, 24)).person;
+  const without = simulate(structuredClone(w), createRng(1), { days: 20 }).state.village.population.people.find((p) => p.prenom === 'Paul' && p.hero);
+  assert.equal(without.partner, null, 'sans maison, pas de famille');
+  setFoyer(w, 'Alix');
+  w.village.jobs.boulanger.stock.pain = 100;
+  let state = w;
+  const rng = createRng(1);
+  for (let d = 0; d < 40; d++) {
+    state.village.jobs.boulanger.stock.pain = Math.max(state.village.jobs.boulanger.stock.pain, 40);
+    state = simulate(state, rng, { days: 1 }).state;
+  }
+  const paul = state.village.population.people.find((p) => p.id === h.id);
+  assert.ok(paul.partner, 'en couple');
+  assert.equal(paul.age, h.age, 'il ne vieillit pas');
+  const kids = state.village.population.people.filter((p) => p.parents.includes(paul.id));
+  assert.ok(kids.length >= 1, `${kids.length} enfant(s)`);
+  for (const k of kids) assert.equal(k.famille, 'Alix');
+});

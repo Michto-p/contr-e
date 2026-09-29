@@ -235,7 +235,7 @@ function retireAndDie(pop, state, rng, ctx, events) {
 function formCouples(pop, rng, ctx, events) {
   const related = (x, y) => (x.parents.length && x.parents.some((id) => y.parents.includes(id))) || x.parents.includes(y.id) || y.parents.includes(x.id);
   for (const a of living(pop)) {
-    if (a.hero) continue;
+    if (a.hero && !a.foyer) continue; // un personnage de joueur fonde une famille quand il a une maison
     if (a.partner || a.age < 18 || a.age > 50 || !rng.chance(0.15)) continue;
     const others = living(pop).filter((b) => b !== a && !b.hero && !b.partner && b.age >= 18 && b.age <= 50 && Math.abs(a.age - b.age) <= 10 && !related(a, b));
     if (!others.length) continue;
@@ -258,10 +258,12 @@ function births(pop, state, rng, ctx, events) {
     seen.add(a.id);
     seen.add(b.id);
     if (!b?.alive || a.age < 18 || b.age < 18 || a.age > 45 || b.age > 45) continue;
-    // Au plus un enfant tous les deux ans par couple.
-    if (a.lastChild != null && a.age - a.lastChild < 2) continue;
+    // Au plus un enfant tous les deux ans par couple (compté sur l'habitant qui vieillit :
+    // un personnage de joueur, lui, ne vieillit pas).
+    const clock = a.hero ? b : a;
+    if (clock.lastChild != null && clock.age - clock.lastChild < 2) continue;
     if (!rng.chance(0.2)) continue;
-    a.lastChild = a.age;
+    clock.lastChild = clock.age;
     // Chaque enfant hérite un peu des dons de ses deux parents, et d'un trait de chacun.
     const skills = {};
     for (const k of SKILLS) skills[k] = clamp(Math.round((a.skills[k] + b.skills[k]) * 0.15 + Math.max(a.skills[k], b.skills[k]) * 0.2 + rng.int(0, 6)));
@@ -269,7 +271,8 @@ function births(pop, state, rng, ctx, events) {
     let t2 = rng.chance(0.7) ? rng.pick(b.traits) : rng.pick(TRAITS);
     if (t2 === traits[0]) t2 = TRAITS.find((t) => t !== traits[0]);
     traits.push(t2);
-    const child = makePerson(pop, rng, { famille: a.famille, age: 0, skills, traits, parents: [a.id, b.id] });
+    // L'enfant d'un personnage de joueur porte le nom de sa famille.
+    const child = makePerson(pop, rng, { famille: (b.hero ? b : a).famille, age: 0, skills, traits, parents: [a.id, b.id] });
     events.push(ctx.event('birth', null, { name: fullName(child), prenom: child.prenom, parents: [a.prenom, b.prenom] }));
     if (living(pop).length >= capacityOf(pop, state)) break;
   }
@@ -360,6 +363,11 @@ export function setPlayed(state, id, played) {
   p.played = Boolean(played);
   if (played) p.outing = null;
   return true;
+}
+
+// Un joueur qui a une maison : ses personnages peuvent fonder une famille au village.
+export function setFoyer(state, owner) {
+  for (const p of state.village.population?.people ?? []) if (p.hero === owner) p.foyer = true;
 }
 
 export function releaseHero(state, id, ctx) {

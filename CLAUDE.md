@@ -125,7 +125,8 @@ test/
   gardes patrouillent devant les champs et escortent ceux qui travaillent. Des voyageurs s'égarent au loin :
   ramenés au village (par un joueur ou un habitant curieux), ils s'y installent ; sinon ils repartent.
   Les personnages des joueurs sont aussi des habitants : au village quand on ne les joue pas (ils y
-  travaillent avec un bonus), sans vieillir tant qu'ils appartiennent à un joueur. La production des métiers dépend des
+  travaillent avec un bonus), sans vieillir tant qu'ils appartiennent à un joueur ; quand leur joueur a une
+  maison, ils peuvent fonder une famille (enfants au nom du joueur). La production des métiers dépend des
   habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
   (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 

@@ -6,6 +6,7 @@ import { ZONE_TILES, INN_DOOR, HOUSE_LOTS, houseDoor } from '../shared/monde.js'
 import { clamp } from '../src/sim/world.js';
 import { bagCount, addItem } from './objets.js';
 import { pushEvent, announce } from './evenements.js';
+import { setFoyer } from '../src/sim/systems/population.js';
 
 export const HOUSE_COST = { cuir: 4, minerai: 4 };
 export const HOUSE_WOOD = 10;
@@ -34,6 +35,7 @@ export function initHouses(room) {
 
 export function syncHouses(room) {
   for (const [joueur, account] of Object.entries(room.players)) {
+    if (account.maison != null) setFoyer(room.sim, joueur); // avec une maison, on peut fonder une famille
     if (account.maison != null && room.state.maisons.get(String(account.maison)) !== joueur) room.state.maisons.set(String(account.maison), joueur);
   }
 }

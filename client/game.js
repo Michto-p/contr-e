@@ -214,7 +214,8 @@ async function showChoice(joueurSaisi) {
     d1.textContent = `${CLASSES[c.classe]?.nom ?? ''} · ${METIERS_PERSO[c.metier]?.[0] ?? c.metier}${c.secret ? ` · ✨ ${c.secret}` : ''}${c.age != null ? ` · ${c.age} ans` : ''} · ${c.enJeu ? 'en jeu' : 'au village'}`;
     const d2 = document.createElement('span');
     d2.className = 'detail';
-    d2.textContent = `Joué il y a ${duree(c.absentDepuis)}`;
+    const famille = [c.partenaire ? `en couple avec ${c.partenaire}` : '', c.enfants ? `${c.enfants} enfant${c.enfants > 1 ? 's' : ''}` : ''].filter(Boolean).join(', ');
+    d2.textContent = `${famille ? `${famille} · ` : ''}Joué il y a ${duree(c.absentDepuis)}`;
     if (c.resteAvantPerte < 7 * 24 * 3_600_000) {
       d2.classList.add('alerte');
       d2.textContent += ` · restera au village pour de bon dans ${duree(c.resteAvantPerte)}`;
