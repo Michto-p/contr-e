@@ -60,8 +60,23 @@ export function updateAmbiance(amb, dt, me, t, state) {
   const s = dt / 1000;
   syncVillagers(amb, state);
   // Villageois : marchent d'un point à l'autre de la place, s'arrêtent, repartent.
+  const W = amb.monde.largeur;
   for (const p of amb.villagers.values()) {
-    const speed = p.h.age < 8 ? 1.6 : p.h.age >= 62 ? 0.6 : 1.2; // les enfants courent, les anciens flânent
+    // Un habitant parti en sortie marche jusqu'à la zone visée ; le soir, il rentre au village.
+    if (p.h.sortie >= 0) {
+      const tx = ((p.h.sortie % W) + 0.5) * ZONE_TILES + ((p.h.id % 5) - 2);
+      const ty = (Math.floor(p.h.sortie / W) + 0.5) * ZONE_TILES + ((p.h.id % 3) - 1);
+      const dx = tx - p.x;
+      const dy = ty - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 0.3) { p.x += (dx / d) * 2.6 * s; p.y += (dy / d) * 2.6 * s; }
+      p.wait = 0;
+      p.tx = 0;
+      continue;
+    }
+    const outside = p.x < amb.village.x0 - 1 || p.x > amb.village.x1 + 1 || p.y < amb.village.y0 - 1 || p.y > amb.village.y1 + 1;
+    if (outside && !p.tx) { p.tx = rand(amb.village.x0, amb.village.x1); p.ty = rand(amb.village.y0, amb.village.y1); p.wait = 0; }
+    const speed = outside ? 2.6 : p.h.age < 8 ? 1.6 : p.h.age >= 62 ? 0.6 : 1.2; // les enfants courent, les anciens flânent
     if (p.wait > 0) { p.wait -= dt; continue; }
     if (!p.tx) { p.tx = rand(amb.village.x0, amb.village.x1); p.ty = rand(amb.village.y0, amb.village.y1); }
     const dx = p.tx - p.x;
@@ -131,6 +146,8 @@ export function drawAmbianceGround(ctx, amb, t) {
     px(ctx, '#f1c8a0', x - 3 * k, y - 10 * k, 6 * k, 6 * k);
     px(ctx, elder ? '#d9d4ca' : age < 16 ? '#6b4a2b' : '#c9b27a', x - 4 * k, y - 11 * k, 8 * k, 2); // cheveux blancs, ou chapeau
     if (elder) px(ctx, '#6b4a2b', x + 5, y - 3, 1, 9); // canne
+    if (p.h.sortie >= 0 && p.h.traits.includes('audacieux')) { px(ctx, '#d9d4ca', x + 5, y - 9, 1, 8); px(ctx, '#6b4a2b', x + 4, y - 2, 3, 1); } // une épée
+    if (p.h.blesse) { px(ctx, '#ffffff', x - 3 * k, y - 9 * k, 6 * k, 1); px(ctx, '#e5635c', x, y - 9 * k, 1, 1); } // un bandage
   }
   for (const r of amb.rabbits) {
     const hopping = Math.hypot(r.vx, r.vy) > 0.5;

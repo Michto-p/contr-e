@@ -33,6 +33,8 @@ export const Habitant = schema({
   traits: t.string(), // « curieux, bavard »
   parents: t.string(), // prénoms des parents
   partenaire: t.string(),
+  sortie: t.int16(), // zone où l'habitant est parti aujourd'hui (-1 : au village)
+  blesse: t.boolean(),
 }, 'Habitant');
 
 // Un plan inventé par le forgeron : une recette de plus à la forge.

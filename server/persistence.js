@@ -23,10 +23,10 @@ export function advanceWorld(world) {
 
 // Ouvre la contrée : la recharge si elle existe (en rattrapant le temps passé serveur éteint),
 // sinon la crée à partir de la graine.
-export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_000, rattrapageMaxJours = 7, now = Date.now() }) {
+export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_000, rattrapageMaxJours = 7, rythmeVie = null, now = Date.now() }) {
   const saved = loadWorld(fichier);
   if (!saved) {
-    const sim = createWorld(graine);
+    const sim = createWorld(graine, { yearsPerDay: rythmeVie ?? 1 });
     const rng = createRng(graine);
     addPlayers(sim, rng, bots);
     return { sim, rng, events: [], registry: {}, created: true, caughtUp: 0 };
@@ -34,6 +34,8 @@ export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_0
   const world = { sim: saved.sim, rng: createRng(saved.rng), events: saved.events ?? [], registry: saved.registry ?? {}, created: false };
   // Migration : une contrée sauvegardée avant l'arrivée de la population reçoit ses habitants.
   if (!world.sim.village.population) world.sim.village.population = createPopulation(world.sim.seed);
+  // Le rythme de vie peut être changé d'un lancement à l'autre (RYTHME_VIE).
+  if (rythmeVie != null) world.sim.village.population.yearsPerDay = rythmeVie;
   const missed = Math.floor((now - saved.savedAt) / heureMs);
   world.caughtUp = Math.max(0, Math.min(missed, rattrapageMaxJours * 24));
   for (let i = 0; i < world.caughtUp; i++) advanceWorld(world);

@@ -171,3 +171,11 @@ th { color: var(--muted); font-weight: 600; }
 .tip .t-row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
 .tip .swatch { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
 .tip .t-note { color: var(--fg-2); margin-top: 4px; }
+
+/* Arbre des familles */
+.genealogie { margin-top: 10px; font-size: 14px; }
+.genealogie .arbre, .genealogie .arbre ul { list-style: none; margin: 0; padding-left: 16px; }
+.genealogie .arbre { padding-left: 0; }
+.genealogie .arbre li { margin: 3px 0; border-left: 1px solid var(--line); padding-left: 8px; }
+.genealogie .arbre > li { border-left: none; padding-left: 0; margin-top: 10px; }
+.genealogie .disparu { color: var(--muted); }

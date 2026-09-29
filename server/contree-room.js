@@ -42,7 +42,7 @@ function structuresSummary(zone) {
 export function makeContreeRoom(config) {
   const {
     heureMs = 30_000, bots = 'mixte', graine = 42, fichier = 'data/contree.json',
-    rattrapageMaxJours = 7, now = () => Date.now(), log = () => {},
+    rattrapageMaxJours = 7, rythmeVie = null, now = () => Date.now(), log = () => {},
   } = config;
 
   return class ContreeRoom extends Room {
@@ -70,6 +70,14 @@ export function makeContreeRoom(config) {
       this.onMessage('attaque', (client) => this.attack(client));
       this.onMessage('interagir', (client) => playerInteract(this, client.sessionId));
       this.onMessage('manger', (client) => playerEat(this, client.sessionId));
+      // L'arbre des familles complet (vivants et disparus), envoyé à la demande.
+      this.onMessage('genealogie', (client) => {
+        const pop = this.sim.village.population;
+        client.send('genealogie', (pop?.people ?? []).map((q) => ({
+          id: q.id, prenom: q.prenom, famille: q.famille, parents: q.parents, partenaire: q.partner, age: q.age,
+          vivant: q.alive, ne: q.born ?? null, mort: q.died ?? null, metier: q.alive ? q.metier : (q.ancienMetier ?? q.metier), talent: q.talent,
+        })));
+      });
       this.onMessage('offrir', (client, m) => { playerOffer(this, client.sessionId, String(m?.rare ?? '')); this.syncVillage(); });
       this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
       this.onMessage('roulade', (client) => {
@@ -88,7 +96,7 @@ export function makeContreeRoom(config) {
     // ---------- Monde : chargement, rattrapage, sauvegarde ----------
 
     loadOrCreate() {
-      this.world = openWorld({ fichier, graine, bots, heureMs, rattrapageMaxJours, now: now() });
+      this.world = openWorld({ fichier, graine, bots, heureMs, rattrapageMaxJours, rythmeVie, now: now() });
       const { sim, created, caughtUp } = this.world;
       if (created) log(`Nouvelle contrée : ${sim.name} (graine ${graine}, bots : ${bots}).`);
       else log(`Contrée ${sim.name} rechargée (jour ${sim.day}) ; ${caughtUp} heure(s) rattrapée(s).`);
@@ -176,8 +184,10 @@ export function makeContreeRoom(config) {
         talent: q.talent ?? '', traits: q.traits.join(', '),
         parents: q.parents.map((id) => byId.get(id)?.prenom).filter(Boolean).join(' et '),
         partenaire: q.partner ? byId.get(q.partner)?.prenom ?? '' : '',
+        sortie: q.outing ? q.outing.zone : -1,
+        blesse: (q.hurtUntil ?? 0) > this.sim.day,
       }));
-      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}`).join('|');
+      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}`).join('|');
       if (key(people) !== key([...this.state.habitants])) {
         this.state.habitants.splice(0, this.state.habitants.length);
         for (const h of people) this.state.habitants.push(Object.assign(new Habitant(), h));
@@ -234,6 +244,7 @@ export function makeContreeRoom(config) {
         village: this.sim.villageId,
         zones: this.sim.zones.map((z) => ({ biome: z.biome, label: z.label, village: z.isVillage, champ: z.isField })),
         recettes: RECETTES,
+        anneesParJour: this.sim.village.population?.yearsPerDay ?? 1,
         rares: this.sim.signature.exclusives,
       };
     }

@@ -50,6 +50,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     graine: Number(env.GRAINE ?? 42),
     fichier: env.FICHIER ?? join(ROOT, 'data', 'contree.json'),
     rattrapageMaxJours: Number(env.RATTRAPAGE_JOURS ?? 7),
+    // Années de vie des habitants par jour de jeu (1 par défaut ; 0.25 = une saison par jour).
+    rythmeVie: env.RYTHME_VIE ? Number(env.RYTHME_VIE) : null,
     log: (msg) => console.log(`[contrée] ${msg}`),
   });
   console.log(`[contrée] Serveur prêt sur http://localhost:${game.port} (1 heure de jeu = ${Number(env.HEURE_MS ?? 30_000) / 1000} s)`);

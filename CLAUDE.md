@@ -79,6 +79,7 @@ server/
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
 client/               index.html, game.js (réseau, entrées, interface), render.js (dessin)
 shared/monde.js       géométrie commune serveur/client (tuiles par zone, vitesse)
+shared/genealogie.js  arbre des familles (jeu et page de simulation)
 test/
 ```
 
@@ -111,7 +112,7 @@ test/
   est haute et que personne ne protège, une PARTIE de la récolte est perdue.
 - **Saisons** : cycle de 28 jours (7 par saison). L'hiver réduit la croissance et ferme certaines zones.
 - **Population** (validée par le développeur) : des habitants nommés (âge, métier, compétences,
-  deux traits de caractère). Un jour de jeu = une année de vie. Couples, naissances si le pain le
+  deux traits de caractère). Un jour de jeu = une année de vie (réglable : `--vie`, `RYTHME_VIE`). Couples, naissances si le pain le
   permet, enfants qui apprennent de leurs parents, grands-parents et de l'enseignant, métier choisi
   à 16 ans (souvent celui de la famille), talents (forestier, agronome, inventeur…) qui agissent sur
   le monde : replanter, ouvrir des passages, défricher un champ avec l'éleveur, inventer des plans
@@ -146,7 +147,7 @@ Scénarios à tester : tous assidus / mixte / tout le monde absent 5 jours.
 ## Commandes
 
 ```
-npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER)
+npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER, RYTHME_VIE)
 npm run sim -- --days 7 --seed 42
 npm run sim -- --days 30 --seed 42 --agents mixte --debug
 npm test

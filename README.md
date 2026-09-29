@@ -35,6 +35,7 @@ npm start                                   # serveur du jeu sur http://localhos
 npm test                                    # tous les tests (simulation, chronique, serveur)
 npm run sim -- --days 7 --seed 42           # chronique d'une simulation, sans serveur
 npm run sim -- --days 30 --seed 42 --agents mixte --debug
+npm run sim -- --days 60 --seed 42 --vie 0.25       # habitants : une saison par jour
 ```
 
 Réglages du serveur (variables d'environnement) :
@@ -47,6 +48,7 @@ Réglages du serveur (variables d'environnement) :
 | `GRAINE` | `42` | graine de la contrée (utilisée seulement à la création) |
 | `FICHIER` | `data/contree.json` | sauvegarde |
 | `RATTRAPAGE_JOURS` | `7` | temps maximal rattrapé au redémarrage |
+| `RYTHME_VIE` | `1` | années de vie des habitants par jour de jeu (`0.25` = une saison par jour, générations plus longues) |
 
 ## Commandes du jeu
 
@@ -68,6 +70,7 @@ Réglages du serveur (variables d'environnement) :
   caractère et parfois un talent ; il parle de sa vie et de ce qui inquiète le village.
 - Dans le sac (**F**), au village : **offrir** une ressource rare. Un forgeron savant peut en tirer
   un **plan** (une lame à 4 dégâts, un talisman +4 PV) que tout le monde pourra ensuite forger.
+- **G** : l'arbre des familles du village, avec les disparus (en gris) et les conjoints (♥).
 - **C** : chronique, quêtes du village, métiers, habitants et familles, joueurs en ligne.
 - Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
   🌀 rouler, 🍞 manger, 🎒 sac.
@@ -75,7 +78,10 @@ Réglages du serveur (variables d'environnement) :
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
 les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent
 le métier familial avec parfois un talent (forestier qui replante et ouvre des passages, agronome
-qui défriche un nouveau champ avec l'éleveur, inventeur…). Un jour de jeu vaut une année de leur vie.
+qui défriche un nouveau champ avec l'éleveur, inventeur…). Un jour de jeu vaut une année de leur vie
+(réglable avec `RYTHME_VIE`). Selon leur caractère, certains sortent : les audacieux vont défendre
+les champs menacés (et en reviennent parfois blessés), les curieux explorent et rapportent parfois
+une ressource rare. On les voit partir le matin et rentrer le soir.
 
 Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
 escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y

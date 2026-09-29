@@ -223,3 +223,16 @@ test('les habitants du village sont visibles des clients', async () => {
   assert.ok(one.prenom && one.famille && one.traits.includes(','));
   await h.r.leave();
 });
+
+test('l\'arbre des familles est envoyé à la demande, défunts compris', async () => {
+  const i = await join('Isaure');
+  let tree = null;
+  i.r.onMessage('genealogie', (m) => { tree = m; });
+  i.r.send('genealogie');
+  assert.ok(await until(() => tree));
+  assert.ok(tree.length >= 12);
+  const withParents = tree.filter((p) => p.parents.length);
+  for (const p of withParents) for (const id of p.parents) assert.ok(tree.some((q) => q.id === id));
+  assert.ok(tree.every((p) => typeof p.vivant === 'boolean'));
+  await i.r.leave();
+});

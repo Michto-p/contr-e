@@ -5,6 +5,7 @@ import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndex
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
 import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
 import { talk } from './dialogues.js';
+import { buildTrees, renderTrees } from './shared/genealogie.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('jeu');
@@ -72,6 +73,9 @@ async function connect(nom) {
     showMessage(`Pendant votre absence (jours ${m.depuis} à ${m.jusqua})`, m.lignes, '');
   });
   room.onMessage('annonce', (text) => toast(text));
+  room.onMessage('genealogie', (people) => {
+    renderTrees($('arbre-contenu'), buildTrees(people));
+  });
   room.onMessage('info', (text) => info(text));
   room.onLeave(() => {
     toast('Connexion perdue avec la contrée. Rechargez la page pour revenir.');
@@ -143,8 +147,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyL') { dash(); e.preventDefault(); }
   if (e.code === 'KeyR') { eat(); e.preventDefault(); }
   if (e.code === 'KeyF' || e.code === 'KeyI') { toggleBag(); e.preventDefault(); }
+  if (e.code === 'KeyG') { toggleTree(); e.preventDefault(); }
   if (e.code === 'KeyC') toggleSide();
-  if (e.code === 'Escape') { $('message').hidden = true; $('cote').classList.remove('ouvert'); $('sac').classList.remove('ouvert'); }
+  if (e.code === 'Escape') { $('message').hidden = true; for (const id of ['cote', 'sac', 'arbre']) $(id).classList.remove('ouvert'); }
 });
 window.addEventListener('keyup', (e) => { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); });
 window.addEventListener('blur', () => keys.clear());
@@ -483,6 +488,20 @@ function toggleBag() {
 }
 $('btn-sac').addEventListener('click', toggleBag);
 $('fermer-sac').addEventListener('click', toggleBag);
+
+// ---------- Arbre des familles ----------
+
+function toggleTree() {
+  const panel = $('arbre');
+  panel.classList.toggle('ouvert');
+  if (panel.classList.contains('ouvert') && game.room) {
+    const ypd = game.monde?.anneesParJour ?? 1;
+    $('rythme').textContent = ypd === 1 ? 'une année' : ypd === 0.25 ? 'une saison' : `${ypd} année${ypd > 1 ? 's' : ''}`;
+    game.room.send('genealogie');
+  }
+}
+$('btn-arbre').addEventListener('click', toggleTree);
+$('fermer-arbre').addEventListener('click', toggleTree);
 
 function toggleSide() {
   $('cote').classList.toggle('ouvert');

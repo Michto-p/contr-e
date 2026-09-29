@@ -23,6 +23,12 @@
         <option value="absents">tous absents</option>
       </select>
     </label>
+    <label>Vie des habitants
+      <select name="vie">
+        <option value="1">1 an par jour</option>
+        <option value="0.25">1 saison par jour</option>
+      </select>
+    </label>
     <label>Depuis le jour <input name="since" type="number" min="1" placeholder="—"></label>
     <label class="check"><input name="debug" type="checkbox"> chiffres</label>
     <button type="submit">Simuler</button>
@@ -86,6 +92,11 @@
   <details class="card data-table">
     <summary>Données jour par jour</summary>
     <div class="table-wrap"><table id="table"></table></div>
+  </details>
+
+  <details class="card data-table">
+    <summary id="arbre-titre">Les familles</summary>
+    <div id="arbre" class="genealogie"></div>
   </details>
 
   <section class="chronicle" id="out" aria-label="Chronique complète"></section>

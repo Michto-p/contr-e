@@ -8,6 +8,7 @@ import { formatChronicle, dayLines } from '../src/chronicle/chronicle.js';
 import { el, cssVar } from './ui.js';
 import { drawMap, drawMapLegend } from './map.js';
 import { drawLineChart, drawLegend } from './charts.js';
+import { buildTrees, renderTrees } from '../shared/genealogie.js';
 
 const JOBS = [
   { key: 'agriculteur', label: 'Agriculteur', good: 'ble', goodLabel: 'blé', color: '--series-1' },
@@ -43,11 +44,12 @@ function snapshot(state) {
       s: z.structures.filter((s) => !s.protected).map((s) => ({ t: s.type, c: s.condition, b: !!s.building })),
     })),
     jobs: Object.fromEntries(Object.entries(state.village.jobs).map(([k, j]) => [k, { level: j.level, sat: j.satisfaction, stock: { ...j.stock } }])),
+    habitants: state.village.population ? state.village.population.people.filter((p) => p.alive).length : 0,
   };
 }
 
-function runSimulation({ seed, days, agents }) {
-  const world = createWorld(seed);
+function runSimulation({ seed, days, agents, vie }) {
+  const world = createWorld(seed, { yearsPerDay: vie });
   const rng = createRng(seed);
   addPlayers(world, rng, agents);
   const static_ = {
@@ -59,7 +61,11 @@ function runSimulation({ seed, days, agents }) {
     })),
   };
   const snaps = [];
-  const { events } = simulate(world, rng, { days, beforeTick: agentsAct, onDayEnd: (s) => snaps.push(snapshot(s)) });
+  const { events, state: final } = simulate(world, rng, { days, beforeTick: agentsAct, onDayEnd: (s) => snaps.push(snapshot(s)) });
+  const people = (final.village.population?.people ?? []).map((q) => ({
+    id: q.id, prenom: q.prenom, famille: q.famille, parents: q.parents, partenaire: q.partner, age: q.age,
+    vivant: q.alive, ne: q.born, mort: q.died, metier: q.alive ? q.metier : (q.ancienMetier ?? q.metier), talent: q.talent,
+  }));
 
   // Activité des joueurs par jour et par zone, tirée des events.
   const activity = Array.from({ length: days }, () => new Map());
@@ -79,7 +85,7 @@ function runSimulation({ seed, days, agents }) {
     const zs = static_.zones.filter((z) => !z.isVillage && z.dist >= b.min && z.dist <= b.max);
     return Math.round(zs.reduce((sum, z) => sum + s.zones[z.id].p, 0) / zs.length);
   }));
-  return { world: static_, snaps, events, activity, bands, days };
+  return { world: static_, snaps, events, activity, bands, days, people };
 }
 
 // ---------- Rendu ----------
@@ -170,7 +176,7 @@ function renderTable() {
   const table = $('table');
   table.replaceChildren();
   const head = el('tr', {}, el('thead', {}, table));
-  for (const h of ['Jour', 'Saison', ...BANDS.map((b) => `Monstres ${b.label.toLowerCase()}`), ...JOBS.map((j) => `${j.label} (niveau · satisf.)`), 'Blé', 'Pain', 'Outils', 'Minerai']) {
+  for (const h of ['Jour', 'Saison', ...BANDS.map((b) => `Monstres ${b.label.toLowerCase()}`), ...JOBS.map((j) => `${j.label} (niveau · satisf.)`), 'Blé', 'Pain', 'Outils', 'Minerai', 'Habitants']) {
     el('th', { scope: 'col' }, head, h);
   }
   const body = el('tbody', {}, table);
@@ -184,6 +190,7 @@ function renderTable() {
     el('td', {}, tr, String(s.jobs.boulanger.stock.pain));
     el('td', {}, tr, String(s.jobs.forgeron.stock.outils));
     el('td', {}, tr, String(s.jobs.bucheron_mineur.stock.minerai));
+    el('td', {}, tr, String(s.habitants));
   });
 }
 
@@ -204,6 +211,7 @@ function params() {
     agents: data.get('agents'),
     since: data.get('since') ? Number(data.get('since')) : null,
     debug: data.get('debug') === 'on',
+    vie: Number(data.get('vie')) || 1,
   };
 }
 
@@ -212,6 +220,7 @@ function updateUrl() {
   const q = new URLSearchParams({ seed: p.seed, days: p.days, agents: p.agents, jour: view.day, calque: view.layer });
   if (p.since) q.set('since', p.since);
   if (p.debug) q.set('debug', 1);
+  if (p.vie !== 1) q.set('vie', p.vie);
   history.replaceState(null, '', `?${q}`);
 }
 
@@ -232,7 +241,7 @@ function run(startDay = null) {
     return;
   }
   const ms = Math.round(performance.now() - t0);
-  $('meta').textContent = `Équivalent CLI : npm run sim -- --days ${p.days} --seed ${p.seed} --agents ${p.agents}${p.since ? ` --since ${p.since}` : ''}${p.debug ? ' --debug' : ''} · ${view.data.events.length} événements · ${ms} ms`;
+  $('meta').textContent = `Équivalent CLI : npm run sim -- --days ${p.days} --seed ${p.seed} --agents ${p.agents}${p.vie !== 1 ? ` --vie ${p.vie}` : ''}${p.since ? ` --since ${p.since}` : ''}${p.debug ? ' --debug' : ''} · ${view.data.events.length} événements · ${ms} ms`;
   const c = view.data.events.find((e) => e.type === 'contree');
   const BIOME_TERRE = { foret: 'forêts', plaine: 'plaines', colline: 'collines', marais: 'marais', montagne: 'montagnes' };
   const box = $('contree');
@@ -241,6 +250,8 @@ function run(startDay = null) {
   $('slider').max = p.days;
   renderMarkdown($('out'), formatChronicle(view.data.events, { debug: p.debug, since: p.since, days: p.days }));
   renderTable();
+  renderTrees($('arbre'), buildTrees(view.data.people));
+  $('arbre-titre').textContent = `Les familles au jour ${p.days} (${view.data.people.filter((x) => x.vivant).length} habitants, ${view.data.people.filter((x) => !x.vivant).length} disparus)`;
   view.day = Math.max(1, Math.min(p.days, startDay ?? p.since ?? 1));
   renderDay();
 }
@@ -281,7 +292,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 
 // Les paramètres de l'URL permettent de partager une vue précise.
 const q = new URLSearchParams(location.search);
-for (const k of ['seed', 'days', 'agents', 'since']) if (q.has(k)) form.elements[k].value = q.get(k);
+for (const k of ['seed', 'days', 'agents', 'since', 'vie']) if (q.has(k)) form.elements[k].value = q.get(k);
 if (q.has('debug')) form.elements.debug.checked = true;
 if (['monstres', 'chemins', 'terrain'].includes(q.get('calque'))) {
   view.layer = q.get('calque');
