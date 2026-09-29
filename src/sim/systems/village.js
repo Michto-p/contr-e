@@ -2,15 +2,23 @@
 // agriculteur -> blé -> boulanger -> pain ; bûcheron-mineur -> minerai/charbon -> forgeron -> outils ;
 // les outils retournent à l'agriculteur et au bûcheron-mineur.
 import { clamp, neighbors } from '../world.js';
+import { workforceFactor } from './population.js';
 
 const HARVEST_THREAT = 50; // au-delà, un champ non protégé perd une partie de sa récolte
 const QUEST_THREAT = 40; // au-delà, le village demande une patrouille
 const NEGLECT_DAYS = 3; // jours de négligence avant de perdre un niveau
 const BREAD_KEEPS = 30; // le pain ne se garde pas : au-delà, il rassit
 const MAX_QUESTS = 4;
-const BREAD_PER_DAY = 10; // ce que mangent les villageois
+const BREAD_PER_DAY = 10; // ce que mangent les villageois (sans population détaillée)
+// Un pain pour deux habitants par jour : plus de monde demande plus de champs et de boulangers.
+export function breadNeed(state) {
+  const pop = state.village.population;
+  if (!pop) return BREAD_PER_DAY;
+  return Math.max(6, Math.ceil(pop.people.filter((p) => p.alive).length / 2));
+}
 
-const capacity = (job) => 6 + 3 * job.level;
+// Capacité d'un métier : son niveau, et le savoir-faire des habitants qui l'exercent.
+const capacityOf = (state, name) => (6 + 3 * state.village.jobs[name].level) * workforceFactor(state, name);
 const toolNeed = (job) => 1 + Math.floor(job.level / 2);
 
 // Menace sur un champ : le champ lui-même et les terres sauvages qui le bordent.
@@ -140,7 +148,8 @@ function produce(state, rng, ctx) {
     let harvest = 0;
     for (const f of fields) {
       f.pathWear = Math.max(f.pathWear, 50); // les paysans entretiennent le chemin des champs
-      let share = (capacity(job) * growth * toolFactor) / fields.length;
+      // Chaque champ rapporte un quart de la capacité : défricher un champ de plus, c'est récolter plus.
+      let share = (capacityOf(state, 'agriculteur') * growth * toolFactor) / 4;
       const threat = fieldThreat(state, f);
       if (threat >= HARVEST_THREAT && f.today.visits === 0 && share > 0) {
         const lossPct = rng.int(20, 50);
@@ -150,14 +159,14 @@ function produce(state, rng, ctx) {
       harvest += share;
     }
     add(job.stock, 'ble', Math.round(harvest));
-    ratio.agriculteur = harvest / (capacity(job) * Math.max(growth, 0.01));
+    ratio.agriculteur = Math.min(1, harvest / (capacityOf(state, 'agriculteur') * Math.max(growth, 0.01)));
     short.agriculteur = toolFactor < 1 ? { good: 'outils', fix: 'forge' } : null;
   }
 
   // Boulanger : transforme le blé en pain.
   {
     const job = jobs.boulanger;
-    const need = capacity(job);
+    const need = capacityOf(state, 'boulanger');
     job.needs = { ble: need };
     const got = take(jobs.agriculteur.stock, 'ble', need);
     add(job.stock, 'pain', got);
@@ -183,7 +192,7 @@ function produce(state, rng, ctx) {
       if (reason) events.push(ctx.event('mine_unsafe', mine, { label: mine.label, reason, fix: reason === 'monstres' ? 'escorte' : 'printemps' }));
       else events.push(ctx.event('mine_safe', mine, { label: mine.label }));
     }
-    const part = (capacity(job) / 2) * toolFactor * access;
+    const part = (capacityOf(state, 'bucheron_mineur') / 2) * toolFactor * access;
     add(job.stock, 'minerai', Math.round(part));
     add(job.stock, 'charbon', Math.round(part));
     add(job.stock, 'bois', Math.round(part * 0.6));
@@ -194,7 +203,7 @@ function produce(state, rng, ctx) {
   // Forgeron : minerai + charbon -> outils.
   {
     const job = jobs.forgeron;
-    const need = Math.ceil(capacity(job) / 2);
+    const need = Math.ceil(capacityOf(state, 'forgeron') / 2);
     job.needs = { minerai: need, charbon: need };
     const m = take(jobs.bucheron_mineur.stock, 'minerai', need);
     const c = take(jobs.bucheron_mineur.stock, 'charbon', need);
@@ -216,8 +225,9 @@ function produce(state, rng, ctx) {
   }
 
   // Les villageois mangent.
-  const eaten = take(jobs.boulanger.stock, 'pain', BREAD_PER_DAY);
-  const hungry = eaten < BREAD_PER_DAY;
+  const mouths = breadNeed(state);
+  const eaten = take(jobs.boulanger.stock, 'pain', mouths);
+  const hungry = eaten < mouths;
   if (hungry && !state.village.hungry) events.push(ctx.event('bread_shortage', null, { fix: 'champs' }));
   if (!hungry && state.village.hungry) events.push(ctx.event('bread_back', null, {}));
   state.village.hungry = hungry;

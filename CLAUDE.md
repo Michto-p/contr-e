@@ -65,6 +65,7 @@ src/
       monsters.js     pression des monstres par zone, expansion/recul
       village.js      métiers interconnectés, niveaux, stocks, quêtes
       seasons.js      cycle des saisons, effets globaux
+      population.js   habitants, familles, naissances, héritage des savoirs, talents (validé par le développeur)
   chronicle/
     chronicle.js      transforme les events bruts en phrases lisibles, regroupées par jour
 scripts/
@@ -97,7 +98,7 @@ test/
 - Une zone centrale = **village** (zone sûre, monsterPressure bloquée à 0).
 - Signature de contrée tirée de la graine : biome dominant + 2 ou 3 ressources exclusives.
 
-## Systèmes (4 max à l'étape 1)
+## Systèmes (4 à l'étape 1, + population validée à l'étape 2)
 
 - **Nature** : la végétation repousse ; un chemin non emprunté perd de l'usure puis disparaît ;
   une structure hors village sans entretien se dégrade.
@@ -109,6 +110,14 @@ test/
   outils -> agriculteur et mineur. Les champs sont en bordure : si la pression des monstres voisine
   est haute et que personne ne protège, une PARTIE de la récolte est perdue.
 - **Saisons** : cycle de 28 jours (7 par saison). L'hiver réduit la croissance et ferme certaines zones.
+- **Population** (validée par le développeur) : des habitants nommés (âge, métier, compétences,
+  deux traits de caractère). Un jour de jeu = une année de vie. Couples, naissances si le pain le
+  permet, enfants qui apprennent de leurs parents, grands-parents et de l'enseignant, métier choisi
+  à 16 ans (souvent celui de la famille), talents (forestier, agronome, inventeur…) qui agissent sur
+  le monde : replanter, ouvrir des passages, défricher un champ avec l'éleveur, inventer des plans
+  avec les ressources rares rapportées par les joueurs. La production des métiers dépend des
+  habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
+  (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 
 ## Règles anti-punition (non négociables)
 
@@ -145,7 +154,7 @@ npm test
 
 ## Ce qu'il NE faut PAS faire à l'étape 2
 
-- Pas de nouveau système de simulation au-delà des 4 existants sans validation.
+- Pas de nouveau système de simulation au-delà des 5 existants sans validation.
 - Pas de sur-abstraction (ECS, plugins, injection de dépendances) : des fonctions et des objets simples.
 - Le serveur fait autorité : le client prédit son propre déplacement mais ne décide de rien.
 - Pas de base de données ni de comptes pour l'instant (le nom du joueur suffit).

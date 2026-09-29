@@ -1,6 +1,7 @@
 // Génération d'une contrée à partir d'une graine.
 // Une contrée = une grille de zones (pas de tuiles) avec un village au centre.
 import { createRng } from './rng.js';
+import { createPopulation } from './systems/population.js';
 
 export const BIOMES = ['foret', 'plaine', 'colline', 'marais', 'montagne'];
 
@@ -207,6 +208,7 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
       jobs,
       quests: [],
       nextQuestId: 1,
+      population: createPopulation(seed),
     },
     // Le cycle ne commence pas toujours au printemps : chaque contrée a son propre calendrier.
     season: { startOffset: rng.int(0, 27) },

@@ -133,7 +133,118 @@ const QUEST_DONE = {
   aide: (e, w, pl) => `${w} ${pl ? 'ont prêté' : 'a prêté'} main-forte ${JOB_TO[e.data.job]}.`,
 };
 
+// ---------- Vie du village ----------
+
+const deN = (name) => (/^[AEIOUYÉÈH]/i.test(name) ? `d'${name}` : `de ${name}`);
+const JOB_AT = {
+  agriculteur: 'aux champs', boulanger: 'au fournil', forgeron: 'à la forge', bucheron_mineur: 'à la coupe et à la mine',
+  eleveur: 'auprès des bêtes', enseignant: "à l'école", ancien: 'au coin du feu',
+};
+const TALENT_TEXT = {
+  forestier: 'saura replanter et choisir ses arbres',
+  agronome: 'sait lire la terre et agrandir les champs',
+  inventeur: "a l'esprit à inventer",
+  bouvier: 'sait mener les bêtes',
+  'maître des levains': 'a le secret des levains',
+  érudit: 'transmet son savoir mieux que personne',
+};
+const RUMEURS = {
+  menace: {
+    bavard: (e) => `Au lavoir, ${e.data.who} ne parle que des bêtes qui rôdent autour ${deLabel(e.data.label)}.`,
+    prudent: (e) => `${e.data.who} conseille de ne plus s'aventurer seul vers ${e.data.label}.`,
+    audacieux: (e) => `${e.data.who} parle d'aller chasser les monstres ${deLabel(e.data.label).replace(/^de[s]? |^du /, (m) => `près ${m}`)} dès que possible.`,
+    _: (e) => `${e.data.who} s'inquiète des monstres qui rôdent autour ${deLabel(e.data.label)}.`,
+  },
+  faim: {
+    travailleur: (e) => `${e.data.who} promet de redoubler d'efforts pour que le pain revienne.`,
+    _: (e) => `${e.data.who} partage son dernier quignon avec les voisins.`,
+  },
+  rares: {
+    curieux: (e) => `${e.data.who} passe ses soirées à examiner les matériaux rapportés de loin.`,
+    _: (e) => `On se presse devant la forge pour voir les matériaux rapportés de loin.`,
+  },
+  calme: {
+    rêveur: (e) => `${e.data.who} rêve tout haut des contrées au-delà des hauteurs.`,
+    patient: (e) => `${e.data.who} greffe tranquillement les pommiers derrière sa maison.`,
+    bavard: (e) => `${e.data.who} raconte à qui veut l'entendre les histoires des anciens.`,
+    têtu: (e) => `${e.data.who} refuse toujours de changer sa façon de faire, et ça marche.`,
+    travailleur: (e) => `${e.data.who} a travaillé du lever au coucher du soleil, comme toujours.`,
+    _: (e) => `${e.data.who} profite d'une journée tranquille.`,
+  },
+};
+
 const RENDERERS = {
+  birth: {
+    priority: () => 6,
+    text: (evs) => evs.map((e) => `Naissance ${deN(e.data.name)}, enfant ${deN(e.data.parents[0])} et ${deN(e.data.parents[1])}.`).join(' '),
+  },
+  couple: {
+    priority: () => 3,
+    text: (evs) => evs.map((e) => `${e.data.names[0]} et ${e.data.names[1]} ont uni leurs vies.`).join(' '),
+  },
+  coming_of_age: {
+    key: (e) => e.data.name,
+    priority: (e) => (e.data.talent ? 7 : 5),
+    text: (evs) => {
+      const e = evs[0];
+      const where = JOB_AT[e.data.job] ?? '';
+      const base = e.data.heir
+        ? `À seize ans, ${e.data.prenom} reprend le flambeau ${deN(e.data.heir)}, ${where}.`
+        : `À seize ans, ${e.data.prenom} choisit de travailler ${where}.`;
+      return e.data.talent ? `${base} Avec tout ce qu'on lui a transmis, ${e.data.prenom} ${TALENT_TEXT[e.data.talent]}.` : base;
+    },
+  },
+  death: {
+    key: (e) => e.data.name,
+    priority: () => 6,
+    text: (evs, debug) => {
+      const e = evs[0];
+      const heirs = e.data.heirs.length ? ` Son savoir vit en ${joinFr(e.data.heirs)}.` : '';
+      const age = e.data.age >= 80 ? 'à un très grand âge' : e.data.age >= 70 ? 'à un grand âge' : 'à un âge respectable';
+      return `Décès ${deN(e.data.name)}, ${age}.${heirs}${debug ? ` [${e.data.age} ans]` : ''}`;
+    },
+  },
+  house_built: {
+    priority: () => 5,
+    text: () => 'Une nouvelle maison s\'élève au village : la population s\'agrandit.',
+  },
+  newcomers: {
+    priority: () => 7,
+    text: (evs) => `La famille ${evs[0].data.famille} vient s'installer au village : ${joinFr(evs[0].data.names)} apportent des bras bienvenus.`,
+  },
+  replant: {
+    key: (e) => e.data.label,
+    priority: () => 4,
+    text: (evs) => `${evs[0].data.who} a replanté dans ${evs[0].data.label} : la forêt se referme doucement.`,
+  },
+  passage: {
+    key: (e) => e.data.label,
+    priority: () => 4,
+    text: (evs) => `${evs[0].data.who} a ouvert un passage à travers ${evs[0].data.label}, en choisissant les arbres à abattre.`,
+  },
+  new_field: {
+    key: (e) => e.data.label,
+    priority: () => 8,
+    text: (evs) => `${evs[0].data.who[0]}, aux champs, et ${evs[0].data.who[1]}, auprès des bêtes, ont défriché un pré : ${evs[0].data.label} nourriront le village. Il faudra les garder, eux aussi.`,
+  },
+  invention: {
+    key: (e) => e.data.plan,
+    priority: () => 8,
+    text: (evs) => `${evs[0].data.who}, à la forge, a mis au point un nouveau plan grâce ${PARTITIVE[evs[0].data.materiau] ? `au ${evs[0].data.materiau}` : `à ${evs[0].data.materiau}`} rapporté de loin : « ${evs[0].data.plan} ».`,
+  },
+  offering: {
+    key: (e) => e.data.materiau,
+    priority: () => 5,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont rapporté' : 'a rapporté'} ${PARTITIVE[evs[0].data.materiau] ?? evs[0].data.materiau} au village.`,
+  },
+  rumor: {
+    priority: () => 2,
+    text: (evs) => {
+      const e = evs[0];
+      const table = RUMEURS[e.data.topic] ?? RUMEURS.calme;
+      return (table[e.data.trait] ?? table._)(e);
+    },
+  },
   forged: {
     key: (e) => e.data.item,
     priority: () => 5,
