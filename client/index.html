@@ -24,6 +24,13 @@
   .hud .vie { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 14px; }
   .hud .coeurs { color: #e5635c; letter-spacing: 1px; }
   .hud .coeurs .vide { color: rgba(255,255,255,0.25); }
+  .hud .besoins { display: flex; gap: 14px; margin-top: 4px; font-size: 12px; align-items: center; }
+  .hud .besoins > span { display: inline-flex; align-items: center; gap: 5px; }
+  .jauge-mini { display: inline-block; width: 56px; height: 5px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; }
+  .jauge-mini i { display: block; height: 100%; width: 0; background: var(--ok); border-radius: 3px; }
+  .jauge-mini i.haut { background: var(--danger); }
+  #sommeil { position: fixed; inset: 0; background: #0b0a14; opacity: 0; pointer-events: none; transition: opacity 0.6s; display: grid; place-items: center; color: var(--ink-2); font-family: Georgia, serif; font-size: 1.3em; }
+  #sommeil.nuit { opacity: 0.92; }
   .hud .action { margin-top: 6px; font-size: 13px; color: #ffe28a; }
   .hud .action kbd { background: rgba(255,255,255,0.14); border-radius: 4px; padding: 0 5px; font: inherit; color: var(--ink); }
   .hud .quetes { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; }
@@ -146,6 +153,7 @@
   <div class="danger"><span id="danger-mot">Monstres</span><span class="jauge"><i id="jauge" style="width:0%"></i></span></div>
   <div class="structs" id="structs"></div>
   <div class="vie"><span class="coeurs" id="coeurs" aria-label="Points de vie"></span><span id="bois" title="Réserve de bois du village"></span><span id="pain" title="Pain au village (R pour manger)"></span></div>
+  <div class="besoins"><span title="Faim : au-delà de 70, on ne reprend plus de forces (R : manger)">🍖 <span class="jauge-mini"><i id="faim"></i></span></span><span title="Fatigue : au-delà de 70, on marche moins vite et on frappe moins fort (dormir à l'auberge ou chez soi)">💤 <span class="jauge-mini"><i id="fatigue"></i></span></span></div>
   <div class="action" id="action" hidden></div>
   <ul class="quetes" id="hud-quetes" aria-label="Quêtes du village"></ul>
 </div>
@@ -246,6 +254,7 @@
   </div>
 </div>
 <div id="toast" class="panel" hidden></div>
+<div id="sommeil" aria-hidden="true">Zzz…</div>
 
 <script src="vendor/colyseus.js"></script>
 <script type="module" src="game.js"></script>

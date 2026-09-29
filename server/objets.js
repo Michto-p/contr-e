@@ -139,7 +139,7 @@ export function playerEat(room, sid, t = Date.now()) {
   const p = room.state.joueurs.get(sid);
   if (!p || p.aTerre) return;
   if (t - (room.objets.lastEat.get(sid) ?? 0) < EAT_COOLDOWN_MS) return;
-  if (p.pv >= p.pvMax) return tell(room, sid, 'Vous êtes en pleine forme.');
+  if (p.pv >= p.pvMax && p.faim < 15) return tell(room, sid, 'Vous n\'avez pas faim.');
   const stock = room.sim.village.jobs.boulanger.stock;
   if ((stock.pain ?? 0) < 1) return tell(room, sid, 'Plus de pain au village : il faut des champs bien gardés.');
   room.objets.lastEat.set(sid, t);
@@ -147,7 +147,8 @@ export function playerEat(room, sid, t = Date.now()) {
   room.state.pain = stock.pain;
   const heal = breadHeal(p.metier, p);
   p.pv = Math.min(p.pvMax, p.pv + heal);
-  return tell(room, sid, `Un morceau de pain : +${heal} PV`);
+  p.faim = Math.max(0, p.faim - 35);
+  return tell(room, sid, `Un morceau de pain : +${heal} PV, la faim s'apaise`);
 }
 
 // ---------- Gisements rares ----------
@@ -224,6 +225,9 @@ export function savePlayer(room, p) {
   const entry = room.registry[p.nom] ?? { lastDay: room.sim.day };
   entry.gear = { epee: p.epee, armure: p.armure, bottes: p.bottes, talisman: p.talisman };
   entry.sac = Object.fromEntries(p.sac.entries());
+  entry.faim = p.faim;
+  entry.fatigue = p.fatigue;
+  entry.savedAt = Date.now();
   room.registry[p.nom] = entry;
 }
 
@@ -236,6 +240,10 @@ export function restorePlayer(room, p) {
   for (const [item, n] of Object.entries(entry?.sac ?? {})) p.sac.set(item, n);
   applyGear(p);
   p.pv = p.pvMax;
+  // Resté longtemps au village, le personnage y a mangé et dormi.
+  const rested = Date.now() - (entry?.savedAt ?? 0) > 10 * 60_000;
+  p.faim = rested ? 0 : entry?.faim ?? 0;
+  p.fatigue = rested ? 0 : entry?.fatigue ?? 0;
 }
 
 export function updateObjets(room, t = Date.now()) {

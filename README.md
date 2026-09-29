@@ -97,7 +97,10 @@ au village (voir l'arbre des familles, touche G). L'écran de choix des personna
   structure abîmée (2 bois), bâtir une tour de guet demandée par le village (3 bois), donner un
   coup de main au village.
 - **Maj** : roulade. On file quelques pas et les coups (et les crachats) ne portent pas.
-- **R** : manger un morceau de pain du village (+4 PV). Pas de champs gardés, pas de pain.
+- **R** : manger un morceau de pain du village (+4 PV, et la faim s'apaise).
+- **Faim et fatigue** (🍖 et 💤 sous les cœurs) montent en jouant, la fatigue aussi à l'effort. Au-delà
+  de 70 : affamé, on ne reprend plus de forces tout seul ; fatigué, on marche moins vite et on frappe
+  moins fort. On mange du pain (R) et on dort à l'auberge (E devant la porte). Jamais mortel. Pas de champs gardés, pas de pain.
 - **F** : sac et forge. Les monstres lâchent minerai, cuir et parfois une ressource rare de la
   contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
   lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.

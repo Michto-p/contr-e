@@ -8,7 +8,7 @@ import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
 import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
-import { speedFactor } from '../shared/competences.js';
+import { speedFactor, needsSpeed } from '../shared/competences.js';
 import { initHouses, spawnPoint, refreshChests, chestMove } from './maisons.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
@@ -374,7 +374,7 @@ export function makeContreeRoom(config) {
       this.inputs.delete(client.sessionId);
       this.activity.delete(client.sessionId);
       this.lastAttack.delete(client.sessionId);
-      for (const m of ['downAt', 'regenAt', 'lastInteract']) this.play[m].delete(client.sessionId);
+      for (const m of ['downAt', 'regenAt', 'lastInteract', 'needs']) this.play[m].delete(client.sessionId);
       for (const m of ['lastEat', 'lastDash', 'dashUntil', 'dashDir']) this.objets[m].delete(client.sessionId);
     }
 
@@ -388,7 +388,7 @@ export function makeContreeRoom(config) {
         const moving = input.x !== 0 || input.y !== 0;
         if (p.bouge !== moving) p.bouge = moving;
         if (!moving) continue;
-        const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1) * speedFactor(p);
+        const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1) * speedFactor(p) * needsSpeed(p);
         const next = stepPosition(p.x, p.y, input, dt, factor);
         next.x = Math.max(0.4, Math.min(W - 0.4, next.x));
         next.y = Math.max(0.4, Math.min(H - 0.4, next.y));

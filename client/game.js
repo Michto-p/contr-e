@@ -2,7 +2,7 @@
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
-import { COMPETENCES, SKILL_KEYS, CLASSES, FREE_POINTS, basePoints, computeSkills, speedFactor } from './shared/competences.js';
+import { COMPETENCES, SKILL_KEYS, CLASSES, FREE_POINTS, basePoints, computeSkills, speedFactor, needsSpeed } from './shared/competences.js';
 import { createSky } from './ciel.js';
 import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor, TUNIQUES } from './render.js';
@@ -90,6 +90,11 @@ async function connect(options) {
     renderTrees($('arbre-contenu'), buildTrees(people));
   });
   room.onMessage('info', (text) => info(text));
+  // Une nuit de sommeil : l'écran s'assombrit un instant.
+  room.onMessage('dormi', () => {
+    $('sommeil').classList.add('nuit');
+    setTimeout(() => $('sommeil').classList.remove('nuit'), 1400);
+  });
   // E devant chez soi : le sac s'ouvre avec le coffre de la maison.
   room.onMessage('coffre', () => {
     if (!$('sac').classList.contains('ouvert')) toggleBag();
@@ -509,6 +514,11 @@ function renderHud() {
     vide.textContent = '♥'.repeat(Math.max(0, me.pvMax - me.pv));
     coeurs.append(plein, vide);
     coeurs.setAttribute('aria-label', `${me.pv} points de vie sur ${me.pvMax}`);
+    for (const k of ['faim', 'fatigue']) {
+      const bar = $(k);
+      bar.style.width = `${me[k]}%`;
+      bar.classList.toggle('haut', me[k] >= 70);
+    }
     const action = $('action');
     const near = game.nearVillager;
     const label = near && talkTarget() ? `parler à ${near.prenom}` : me.action;
@@ -796,7 +806,7 @@ function frame(t) {
     if (!game.meInit) { game.me = { x: mine.x, y: mine.y }; game.meInit = true; }
     // Prédiction locale, bloquée par les zones fermées comme sur le serveur.
     const dashing = game.dash && t < game.dash.until;
-    const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1) * speedFactor(mine);
+    const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1) * speedFactor(mine) * needsSpeed(mine);
     const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, dashing ? game.dash.dir : input, dt, factor);
     if (input.x || input.y) game.facing = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
     const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;

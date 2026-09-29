@@ -203,3 +203,7 @@
 ## Le travail selon le métier
 - Fait : E propose le travail du métier du personnage : récolter (agriculteur, champs), miner (bûcheron-mineur, zones à minerai, une part pour son sac), soigner et tondre les bêtes (éleveur, prés : cuir ou fumier), cuire le pain (boulanger, 2 blé → pain) et forger des outils (forgeron, minerai + charbon). Couper du bois reste ouvert à tous. Le rendement dépend du savoir-faire.
 - Décision : ces actions passent avant le coup de main aux quêtes du village, mais après les réparations et chantiers.
+
+## Faim et fatigue
+- Fait : deux jauges par personnage (0–100) : la faim monte d'un point toutes les 18 s de jeu, la fatigue toutes les 25 s et à l'effort (coups, travail). Affamé (≥ 70) : plus de récupération naturelle ; fatigué (≥ 70) : vitesse × 0,85 (prédite aussi par le client) et un dégât de moins. Le pain (R) retire 35 de faim ; dormir à l'auberge remet la fatigue à zéro et les PV au maximum.
+- Décision : jamais mortel (pilier « des revers ») ; un personnage laissé plus de dix minutes au village y a mangé et dormi (jauges à zéro en revenant).

@@ -12,7 +12,7 @@ import { houseActionAt, buildHouse, spawnPoint } from './maisons.js';
 import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD, addItem } from './objets.js';
 
-import { damageBonus, regenFactor, woodPerCut } from '../shared/competences.js';
+import { damageBonus, regenFactor, woodPerCut, TIRED, HUNGRY } from '../shared/competences.js';
 export const PLAYER_PV = 10;
 const ATTACK_RANGE = 1.8; // tuiles
 const ATTACK_ARC_COS = Math.cos(1.25); // environ 70° de part et d'autre du regard
@@ -107,6 +107,8 @@ export function initGameplay(room) {
     questProgress: new Map(), // id de quête -> { points, who: Set }
     repairers: new Map(), // "zone|type" -> Set de noms
     projectiles: new Map(), // id -> { vx, vy, until, degats }
+    needs: new Map(), // sessionId -> prochaines hausses de faim et de fatigue
+    fatigueAcc: new WeakMap(), // joueur -> fatigue accumulée (fractions)
     hordes: new Map(), // id -> horde en marche (voir startHorde)
   };
 }
@@ -422,9 +424,38 @@ function villageSpawn(room, p) {
   p.y = s.y;
 }
 
+// Faim et fatigue montent avec le temps de jeu ; l'effort fatigue aussi (voir addFatigue).
+const HUNGER_MS = 18_000; // +1 de faim : environ une demi-heure de jeu pour avoir très faim
+const TIREDNESS_MS = 25_000;
+export function addFatigue(room, p, amount) {
+  const acc = (room.play.fatigueAcc.get(p) ?? 0) + amount;
+  const whole = Math.floor(acc);
+  room.play.fatigueAcc.set(p, acc - whole);
+  if (whole) setNeed(room, p, 'fatigue', p.fatigue + whole);
+}
+// Prévenir une fois quand une jauge franchit son seuil.
+function setNeed(room, p, key, value) {
+  const before = p[key];
+  p[key] = Math.max(0, Math.min(100, value));
+  const limit = key === 'faim' ? HUNGRY : TIRED;
+  if (before < limit && p[key] >= limit) {
+    const sid = [...room.state.joueurs.entries()].find(([, q]) => q === p)?.[0];
+    const client = room.clients.find((c) => c.sessionId === sid);
+    client?.send('info', key === 'faim' ? 'Vous avez faim : mangez un morceau de pain (R).' : 'Vous êtes fatigué : allez dormir (auberge ou maison).');
+  }
+}
+
+function updateNeeds(room, p, sid, t) {
+  const n = room.play.needs.get(sid) ?? { faim: t + HUNGER_MS, fatigue: t + TIREDNESS_MS };
+  room.play.needs.set(sid, n);
+  if (t >= n.faim) { n.faim = t + HUNGER_MS; setNeed(room, p, 'faim', p.faim + 1); }
+  if (t >= n.fatigue) { n.fatigue = t + TIREDNESS_MS; setNeed(room, p, 'fatigue', p.fatigue + 1); }
+}
+
 function updatePlayers(room, t) {
   const { play } = room;
   room.state.joueurs.forEach((p, sid) => {
+    updateNeeds(room, p, sid, t);
     if (p.aTerre) {
       // Revers, jamais de point de non-retour : on se relève au village, rien n'est perdu.
       if (t - (play.downAt.get(sid) ?? t) >= RESPAWN_MS) {
@@ -435,7 +466,8 @@ function updatePlayers(room, t) {
       }
       return;
     }
-    if (p.pv < p.pvMax && t >= (play.regenAt.get(sid) ?? 0)) {
+    // Le ventre creux, on ne reprend plus de forces tout seul (le pain, lui, soigne toujours).
+    if (p.pv < p.pvMax && p.faim < HUNGRY && t >= (play.regenAt.get(sid) ?? 0)) {
       p.pv += 1;
       const safe = zoneOfPos(room, p.x, p.y) === room.sim.villageId || nearOutpost(room, p.x, p.y);
       play.regenAt.set(sid, t + (safe ? REGEN_VILLAGE_MS : REGEN_WILD_MS * regenFactor(p)));
@@ -461,6 +493,7 @@ export function playerAttack(room, sid, t = Date.now()) {
   const p = room.state.joueurs.get(sid);
   if (!p || p.aTerre) return;
   p.attaque = (p.attaque + 1) % 65536;
+  addFatigue(room, p, 0.15);
   const [fx, fy] = FACING[p.dir] ?? [0, 1];
   for (const [id, data] of room.play.monsters) {
     const m = room.state.monstres.get(id);
@@ -470,7 +503,8 @@ export function playerAttack(room, sid, t = Date.now()) {
     const d = Math.hypot(dx, dy);
     if (d > ATTACK_RANGE) continue;
     if (d > 0.4 && (dx * fx + dy * fy) / d < ATTACK_ARC_COS) continue;
-    m.pv = Math.max(0, m.pv - (DAMAGE_BY_SWORD[p.epee] ?? 1) - damageBonus(p));
+    const tired = p.fatigue >= TIRED ? 1 : 0; // fatigué, on frappe moins fort (jamais moins de 1)
+    m.pv = Math.max(0, m.pv - Math.max(1, (DAMAGE_BY_SWORD[p.epee] ?? 1) + damageBonus(p) - tired));
     m.touche = (m.touche + 1) % 65536;
     // Recul : le monstre est repoussé, dans les limites de sa zone.
     if (d > 0.01) {
@@ -579,6 +613,15 @@ function outpostSite(zone) {
   if (zone.isVillage || zone.isField || zone.closed) return false;
   const s = zone.structures.find((st) => st.type === OUTPOST);
   return !s || s.building;
+}
+
+// Dormir (à l'auberge, ou dans son lit) : la fatigue s'efface, et l'on reprend quelques forces.
+export function sleep(room, p, sid, tell) {
+  if (p.fatigue < 10) return tell('Vous n\'avez pas sommeil.');
+  p.fatigue = 0;
+  p.pv = p.pvMax;
+  room.clients.find((c) => c.sessionId === sid)?.send('dormi', true);
+  return tell('Une bonne nuit de sommeil : vous voilà reposé.');
 }
 
 // ---------- Le travail de chacun, selon son métier ----------
@@ -697,8 +740,10 @@ export function playerInteract(room, sid, t = Date.now()) {
     return tell(`${e.prenom} vous suit. Direction le village, à l'abri des monstres !`);
   }
 
-  if (['recolter', 'miner', 'tondre', 'cuire', 'forger-outils'].includes(a.kind)) return doJob(room, p, a, tell);
+  if (a.kind === 'dormir') return sleep(room, p, sid, tell);
+  if (['recolter', 'miner', 'tondre', 'cuire', 'forger-outils'].includes(a.kind)) { addFatigue(room, p, 0.4); return doJob(room, p, a, tell); }
 
+  if (a.kind === 'bois') addFatigue(room, p, 0.4);
   if (a.kind === 'bois') {
     if ((stock.bois ?? 0) >= 100) return tell('La réserve de bois du village est pleine.');
     const n = woodPerCut(p.metier, p);

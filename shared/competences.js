@@ -82,5 +82,9 @@ export const regenFactor = (c) => 1 - Math.min(0.6, (c?.survie ?? 0) / 100); // 
 export const lootFactor = (c) => 1 + (c?.flair ?? 0) / 60;
 export const woodPerCut = (metier, c) => (metier === 'bucheron_mineur' ? 1 + Math.floor((c?.savoirFaire ?? 0) / 20) : 1);
 export const breadHeal = (metier, c) => 4 + (metier === 'boulanger' ? Math.floor((c?.savoirFaire ?? 0) / 10) : 0) + Math.floor((c?.survie ?? 0) / 30);
+// Faim et fatigue (0–100) : jamais mortelles, mais elles pèsent.
+export const TIRED = 70; // au-delà : on marche moins vite et on frappe moins fort
+export const HUNGRY = 70; // au-delà : on ne reprend plus de forces tout seul
+export const needsSpeed = (p) => ((p?.fatigue ?? 0) >= TIRED ? 0.85 : 1) * ((p?.faim ?? 0) >= 90 ? 0.9 : 1);
 // Au village, quand on ne le joue pas : le bonus de savoir-faire dans son métier (0,1 à ~0,4).
 export const villageBonus = (c) => 0.1 + Math.min(80, c?.savoirFaire ?? 30) / 100 * 0.4;

@@ -57,6 +57,8 @@ export function spawnPoint(room, joueur) {
 // Action de la touche E près d'une maison : entrer chez soi (coffre), ou bâtir sur un terrain libre.
 export function houseActionAt(room, p) {
   const c = villageCorner(room);
+  // L'auberge : on peut toujours y dormir.
+  if (Math.hypot(c.x + INN_DOOR[0] - p.x, c.y + INN_DOOR[1] - 0.6 - p.y) <= REACH && p.fatigue >= 10) return { kind: 'dormir', label: 'dormir à l\'auberge' };
   const account = room.players[p.joueur];
   if (!account) return null;
   if (account.maison != null) {

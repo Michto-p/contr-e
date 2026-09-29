@@ -198,3 +198,30 @@ test('chacun travaille selon son métier : l\'agriculteur récolte, le boulanger
   assert.equal(room().sim.village.jobs.agriculteur.stock.ble, 8);
   await r2.leave();
 });
+
+test('faim et fatigue : le pain apaise la faim, une nuit à l\'auberge efface la fatigue', async () => {
+  const { ZONE_TILES, INN_DOOR } = await import('../shared/monde.js');
+  const sim = room().sim;
+  const v = sim.zones[sim.villageId];
+  const r = await join({ joueur: 'Eli', nouveau: { prenom: 'Nox', metier: 'garde', classe: 'gardien' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Nox'));
+  const p = room().state.joueurs.get(r.sessionId);
+  assert.equal(p.faim, 0);
+  // Affamé : pas de récupération naturelle.
+  p.faim = 85;
+  p.pv = p.pvMax - 2;
+  room().play.regenAt.set(r.sessionId, 0);
+  await sleep(1300);
+  assert.equal(p.pv, p.pvMax - 2, 'le ventre creux, on ne récupère pas');
+  sim.village.jobs.boulanger.stock.pain = 5;
+  r.send('manger');
+  assert.ok(await until(() => p.faim === 50), `faim ${p.faim}`);
+  // Fatigué : on dort à l'auberge.
+  p.fatigue = 80;
+  p.x = v.x * ZONE_TILES + INN_DOOR[0];
+  p.y = v.y * ZONE_TILES + INN_DOOR[1];
+  assert.ok(await until(() => p.action === 'dormir à l\'auberge'), p.action);
+  r.send('interagir');
+  assert.ok(await until(() => p.fatigue === 0), 'reposé');
+  await r.leave();
+});
