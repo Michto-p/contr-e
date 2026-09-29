@@ -11,6 +11,7 @@ import { Monstre, Projectile } from './schema.js';
 import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
 
+import { damageBonus, regenFactor, woodPerCut } from '../shared/competences.js';
 export const PLAYER_PV = 10;
 const ATTACK_RANGE = 1.8; // tuiles
 const ATTACK_ARC_COS = Math.cos(1.25); // environ 70° de part et d'autre du regard
@@ -435,7 +436,7 @@ function updatePlayers(room, t) {
     if (p.pv < p.pvMax && t >= (play.regenAt.get(sid) ?? 0)) {
       p.pv += 1;
       const safe = zoneOfPos(room, p.x, p.y) === room.sim.villageId || nearOutpost(room, p.x, p.y);
-      play.regenAt.set(sid, t + (safe ? REGEN_VILLAGE_MS : REGEN_WILD_MS));
+      play.regenAt.set(sid, t + (safe ? REGEN_VILLAGE_MS : REGEN_WILD_MS * regenFactor(p)));
     }
   });
 }
@@ -467,7 +468,7 @@ export function playerAttack(room, sid, t = Date.now()) {
     const d = Math.hypot(dx, dy);
     if (d > ATTACK_RANGE) continue;
     if (d > 0.4 && (dx * fx + dy * fy) / d < ATTACK_ARC_COS) continue;
-    m.pv = Math.max(0, m.pv - (DAMAGE_BY_SWORD[p.epee] ?? 1));
+    m.pv = Math.max(0, m.pv - (DAMAGE_BY_SWORD[p.epee] ?? 1) - damageBonus(p));
     m.touche = (m.touche + 1) % 65536;
     // Recul : le monstre est repoussé, dans les limites de sa zone.
     if (d > 0.01) {
@@ -496,7 +497,7 @@ export function defeatMonster(room, id, t, who = null) {
 function killMonster(room, sid, p, id, data, t) {
   const m = room.state.monstres.get(id);
   if (data.horde) hordeMemberDown(room, data, p.nom);
-  dropLoot(room, data.kind.sorte, data.zone, m.x, m.y, t);
+  dropLoot(room, data.kind.sorte, data.zone, m.x, m.y, t, p);
   room.state.monstres.delete(id);
   room.play.monsters.delete(id);
   room.play.spawnAt.set(data.zone, t + RESPAWN_AFTER_KILL_MS);
@@ -627,10 +628,11 @@ export function playerInteract(room, sid, t = Date.now()) {
 
   if (a.kind === 'bois') {
     if ((stock.bois ?? 0) >= 100) return tell('La réserve de bois du village est pleine.');
-    stock.bois = clamp((stock.bois ?? 0) + 1);
+    const n = woodPerCut(p.metier, p);
+    stock.bois = clamp((stock.bois ?? 0) + n);
     a.zone.vegetation = clamp(a.zone.vegetation - 1);
     room.state.bois = stock.bois;
-    return tell('+1 bois pour le village');
+    return tell(`+${n} bois pour le village`);
   }
 
   if (a.kind === 'aide') {

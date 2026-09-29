@@ -7,7 +7,8 @@ import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
 import { initPnj, updatePnj } from './pnj.js';
-import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon } from './personnages.js';
+import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
+import { speedFactor } from '../shared/competences.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -323,6 +324,7 @@ export function makeContreeRoom(config) {
       p.action = '';
       p.roulade = 0;
       p.talisman = 0;
+      applyCharacter(p, entry);
       restorePlayer(this, p);
       this.state.joueurs.set(client.sessionId, p);
       this.inputs.set(client.sessionId, { x: 0, y: 0 });
@@ -378,7 +380,7 @@ export function makeContreeRoom(config) {
         const moving = input.x !== 0 || input.y !== 0;
         if (p.bouge !== moving) p.bouge = moving;
         if (!moving) continue;
-        const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1);
+        const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1) * speedFactor(p);
         const next = stepPosition(p.x, p.y, input, dt, factor);
         next.x = Math.max(0.4, Math.min(W - 0.4, next.x));
         next.y = Math.max(0.4, Math.min(H - 0.4, next.y));

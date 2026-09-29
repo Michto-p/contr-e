@@ -130,7 +130,7 @@ export function workforceFactor(state, job) {
     let v = w.skills[skill] / 100;
     if (w.traits.includes('travailleur')) v *= 1.15;
     if (w.talent) v += 0.15;
-    if (w.hero || w.ancienHeros) v += 0.2; // le savoir-faire rapporté de ses aventures
+    if (w.hero || w.ancienHeros) v += w.heroBonus ?? 0.2; // le savoir-faire rapporté de ses aventures
     sum += v;
   }
   let factor = 0.6 + 0.4 * sum;
@@ -338,7 +338,7 @@ function welcome(pop, state, rng, who, ctx, events) {
 // il reste au village pour de bon et vit désormais comme les autres.
 export const HERO_JOBS = ['aventurier', 'agriculteur', 'boulanger', 'forgeron', 'bucheron_mineur', 'eleveur', 'garde'];
 
-export function createHero(state, { prenom, metier = 'aventurier', owner, famille = owner }, ctx) {
+export function createHero(state, { prenom, metier = 'aventurier', owner, famille = owner, bonus = 0.2 }, ctx) {
   const pop = state.village.population;
   if (!pop) return null;
   const prng = createRng(pop.rng);
@@ -347,6 +347,7 @@ export function createHero(state, { prenom, metier = 'aventurier', owner, famill
   if (JOB_SKILL[job]) skills[JOB_SKILL[job]] = prng.int(55, 65);
   const p = makePerson(pop, prng, { prenom, famille, age: prng.int(20, 26), metier: job, skills, traits: twoTraits(prng) });
   p.hero = owner;
+  p.heroBonus = bonus;
   p.played = false;
   pop.rng = prng.save();
   const e = ctx.event('hero_arrives', null, { name: fullName(p), prenom: p.prenom, owner, job });

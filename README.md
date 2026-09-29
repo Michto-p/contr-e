@@ -69,6 +69,13 @@ pour ce métier). Tant qu'il vous appartient, il ne vieillit pas. On le reprend 
 👥 Personnages ou touche **P** en jeu). Mais un personnage **délaissé 30 jours** (réels) est perdu
 pour son joueur : il reste au village pour de bon, vieillit, et vit sa vie comme les autres.
 
+**Classe, métier et compétences.** Chaque personnage a une classe (guerrier, gardien, éclaireur,
+herboriste) et un métier. La classe apporte 60 points de compétences, le métier 40 : 100 points
+répartis d'office entre Force (dégâts), Endurance (vie), Agilité (vitesse), Survie (récupération hors
+du village, soin du pain), Savoir-faire (le métier rapporte plus : bois par coupe, pain qui soigne,
+bonus au village) et Flair (butin). On place ensuite **10 points libres**. Certaines paires classe +
+métier vont bien ensemble et révèlent un **secret de classe** : des points en plus. À vous de les trouver.
+
 ## Commandes du jeu
 
 - Flèches, ou **Z Q S D** (AZERTY) / **W A S D** (QWERTY) : se déplacer.

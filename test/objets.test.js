@@ -1,4 +1,5 @@
 // Butin, forge, pain, roulade, cracheurs et ressources rares, avec de vrais clients.
+import { pvBonus } from '../shared/competences.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -113,12 +114,13 @@ test('l\'armure augmente la vie, et l\'équipement est gardé d\'une connexion �
   c.p().sac.set('cuir', 4);
   c.r.send('fabriquer', { recette: 'armure2' });
   assert.ok(await until(() => c.p().armure === 2));
-  assert.equal(c.p().pvMax, 14);
+  const endurance = pvBonus(c.p()); // un guerrier par défaut : +2 PV d'endurance
+  assert.equal(c.p().pvMax, 14 + endurance);
   c.p().sac.set('minerai', 7);
   await c.r.leave();
   const again = await join('Cyan');
   assert.equal(again.p().armure, 2);
-  assert.equal(again.p().pvMax, 14);
+  assert.equal(again.p().pvMax, 14 + endurance);
   assert.equal(again.p().sac.get('minerai'), 7);
   await again.r.leave();
 });

@@ -7,6 +7,7 @@
 // lastPlayedAt, perdu } ; `players[nom du joueur]` = { persos: [noms], lastDay }.
 import { makeCtx } from '../src/sim/tick.js';
 import { createHero, setPlayed, releaseHero, HERO_JOBS } from '../src/sim/systems/population.js';
+import { computeSkills, villageBonus, SKILL_KEYS } from '../shared/competences.js';
 import { pushEvent, announce } from './evenements.js';
 
 export const MAX_PERSOS = 3;
@@ -18,6 +19,11 @@ const DAY_MS = 24 * 3600 * 1000;
 export function initAccounts(world, now) {
   world.players ??= {};
   for (const [name, entry] of Object.entries(world.registry)) {
+    // Personnages créés avant les classes : guerrier, sans points libres.
+    if (!entry.classe) {
+      const { skills, secret } = computeSkills('guerrier', entry.metier ?? 'aventurier');
+      Object.assign(entry, { classe: 'guerrier', competences: skills, secret });
+    }
     if (entry.owner) continue;
     entry.owner = name;
     entry.lastPlayedAt ??= now;
@@ -36,7 +42,7 @@ export function charactersOf(room, joueur, now, abandonMs, playing) {
     const e = room.registry[name];
     const h = person(room, e.hid);
     return {
-      nom: name, metier: e.metier ?? 'aventurier', couleur: e.couleur ?? 0, age: h?.age ?? null,
+      nom: name, metier: e.metier ?? 'aventurier', classe: e.classe, secret: e.secret ?? '', competences: e.competences, couleur: e.couleur ?? 0, age: h?.age ?? null,
       enJeu: playing.has(name), absentDepuis: Math.max(0, now - (e.lastPlayedAt ?? now)),
       resteAvantPerte: Math.max(0, abandonMs - (now - (e.lastPlayedAt ?? now))),
     };
@@ -47,14 +53,15 @@ export function charactersOf(room, joueur, now, abandonMs, playing) {
 
 // Nouveau personnage : un prénom libre dans la contrée, un métier, une couleur de tunique.
 // `famille` : le nom du joueur (ses personnages forment une même famille au village).
-export function createCharacter(room, joueur, { prenom, metier, couleur }, now, cleanName) {
+export function createCharacter(room, joueur, { prenom, metier, couleur, classe = 'guerrier', libres = {} }, now, cleanName) {
   const account = room.players[joueur] ?? (room.players[joueur] = { persos: [], lastDay: null });
   if (account.persos.length >= MAX_PERSOS) throw new Error(`Vous avez déjà ${MAX_PERSOS} personnages.`);
   const name = cleanName(prenom);
   if (room.registry[name]) throw new Error(`Le prénom « ${name} » est déjà pris dans cette contrée.`);
   const job = HERO_JOBS.includes(metier) ? metier : 'aventurier';
+  const { skills, secret } = computeSkills(classe, job, libres);
   room.registry[name] = {
-    owner: joueur, metier: job, couleur: Number.isInteger(couleur) ? ((couleur % COULEURS) + COULEURS) % COULEURS : null,
+    owner: joueur, metier: job, classe, competences: skills, secret, couleur: Number.isInteger(couleur) ? ((couleur % COULEURS) + COULEURS) % COULEURS : null,
     lastDay: room.sim.day, lastPlayedAt: now,
   };
   account.persos.push(name);
@@ -67,11 +74,19 @@ export function ensureHero(room, name) {
   const entry = room.registry[name];
   if (entry.hid != null && person(room, entry.hid)) return;
   const famille = entry.owner && entry.owner !== name ? entry.owner : 'des Chemins';
-  const res = createHero(room.sim, { prenom: name, metier: entry.metier ?? 'aventurier', owner: entry.owner, famille }, makeCtx(room.sim, 24));
+  const res = createHero(room.sim, { prenom: name, metier: entry.metier ?? 'aventurier', owner: entry.owner, famille, bonus: villageBonus(entry.competences) }, makeCtx(room.sim, 24));
   if (!res) return;
   entry.hid = res.person.id;
   entry.metier = res.person.metier;
   pushEvent(room, res.event.type, null, res.event.data);
+}
+
+// Le personnage incarné porte sa classe, son métier et ses compétences.
+export function applyCharacter(p, entry) {
+  p.classe = entry.classe ?? 'guerrier';
+  p.metier = entry.metier ?? 'aventurier';
+  p.secret = entry.secret ?? '';
+  for (const k of SKILL_KEYS) p[k] = Math.min(255, entry.competences?.[k] ?? 0);
 }
 
 export function startPlaying(room, name, now) {

@@ -4,6 +4,15 @@ import { schema, t } from '@colyseus/schema';
 
 export const Joueur = schema({
   joueur: t.string(), // le joueur qui incarne ce personnage
+  classe: t.string(),
+  metier: t.string(),
+  secret: t.string(), // secret de classe découvert ('' sinon)
+  force: t.uint8(),
+  endurance: t.uint8(),
+  agilite: t.uint8(),
+  survie: t.uint8(),
+  savoirFaire: t.uint8(),
+  flair: t.uint8(),
   nom: t.string(),
   x: t.float32(),
   y: t.float32(),

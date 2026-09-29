@@ -2,6 +2,7 @@
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
+import { COMPETENCES, SKILL_KEYS, CLASSES, FREE_POINTS, basePoints, computeSkills, speedFactor } from './shared/competences.js';
 import { createSky } from './ciel.js';
 import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor, TUNIQUES } from './render.js';
@@ -113,6 +114,54 @@ const METIERS_PERSO = {
   garde: ['Garde', 'Laissé au village : patrouilles et combats contre les monstres.'],
 };
 let couleur = 0;
+let libres = {}; // points libres placés par le joueur
+
+function renderSkills() {
+  const classe = $('classe').value;
+  const metier = $('metier').value;
+  if (!classe || !metier) return;
+  const base = basePoints(classe, metier);
+  const { skills, secret } = computeSkills(classe, metier, libres);
+  const spent = Object.values(libres).reduce((a, b) => a + b, 0);
+  const box = $('competences');
+  box.replaceChildren();
+  for (const k of SKILL_KEYS) {
+    const lib = libres[k] ?? 0;
+    const bonus = skills[k] - base[k] - lib;
+    const label = document.createElement('span');
+    label.textContent = COMPETENCES[k].nom;
+    label.title = COMPETENCES[k].effet;
+    const barre = document.createElement('span');
+    barre.className = 'barre';
+    barre.title = COMPETENCES[k].effet;
+    for (const [cls, v] of [['base', base[k]], ['libre', lib], ['bonus', bonus]]) {
+      if (!v) continue;
+      const i = document.createElement('i');
+      i.className = cls;
+      i.style.width = `${(v / 70) * 100}%`;
+      barre.appendChild(i);
+    }
+    const val = document.createElement('span');
+    val.className = 'val';
+    val.textContent = skills[k];
+    const pm = document.createElement('span');
+    pm.className = 'pm';
+    for (const [txt, d] of [['−', -1], ['+', 1]]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = txt;
+      b.setAttribute('aria-label', `${d > 0 ? 'Ajouter' : 'Retirer'} un point en ${COMPETENCES[k].nom}`);
+      b.disabled = d > 0 ? spent >= FREE_POINTS : lib <= 0;
+      b.addEventListener('click', () => { libres[k] = lib + d; renderSkills(); });
+      pm.appendChild(b);
+    }
+    box.append(label, barre, val, pm);
+  }
+  $('points-libres').textContent = `Points libres : ${FREE_POINTS - spent} sur ${FREE_POINTS}. (Survolez une compétence pour voir son effet.)`;
+  const sec = $('secret');
+  sec.hidden = !secret;
+  if (secret) sec.textContent = `✨ Secret de classe découvert : « ${secret} » ! ${CLASSES[classe].nom} et ce métier vont bien ensemble : des points en plus (en vert).`;
+}
 
 function duree(ms) {
   const h = ms / 3_600_000;
@@ -158,7 +207,7 @@ async function showChoice(joueurSaisi) {
     nom.textContent = c.nom;
     const d1 = document.createElement('span');
     d1.className = 'detail';
-    d1.textContent = `${METIERS_PERSO[c.metier]?.[0] ?? c.metier}${c.age != null ? ` · ${c.age} ans` : ''} · ${c.enJeu ? 'en jeu' : 'au village'}`;
+    d1.textContent = `${CLASSES[c.classe]?.nom ?? ''} · ${METIERS_PERSO[c.metier]?.[0] ?? c.metier}${c.secret ? ` · ✨ ${c.secret}` : ''}${c.age != null ? ` · ${c.age} ans` : ''} · ${c.enJeu ? 'en jeu' : 'au village'}`;
     const d2 = document.createElement('span');
     d2.className = 'detail';
     d2.textContent = `Joué il y a ${duree(c.absentDepuis)}`;
@@ -185,8 +234,19 @@ async function showChoice(joueurSaisi) {
       o.textContent = METIERS_PERSO[m]?.[0] ?? m;
       sel.appendChild(o);
     }
-    sel.addEventListener('change', () => { $('metier-note').textContent = METIERS_PERSO[sel.value]?.[1] ?? ''; });
+    sel.addEventListener('change', () => { $('metier-note').textContent = METIERS_PERSO[sel.value]?.[1] ?? ''; renderSkills(); });
     $('metier-note').textContent = METIERS_PERSO[sel.value]?.[1] ?? '';
+    const cl = $('classe');
+    for (const [id, c] of Object.entries(CLASSES)) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = `Classe : ${c.nom}`;
+      cl.appendChild(o);
+    }
+    const noteClasse = () => { $('classe-note').textContent = CLASSES[cl.value].texte; };
+    cl.addEventListener('change', () => { noteClasse(); renderSkills(); });
+    noteClasse();
+    renderSkills();
     const cols = $('couleurs');
     TUNIQUES.forEach((c, i) => {
       const b = document.createElement('button');
@@ -216,7 +276,7 @@ $('entrer').addEventListener('submit', (e) => {
 $('creer').addEventListener('submit', (e) => {
   e.preventDefault();
   const prenom = $('prenom').value.trim();
-  if (prenom) connect({ joueur: game.joueur, nouveau: { prenom, metier: $('metier').value, couleur } });
+  if (prenom) connect({ joueur: game.joueur, nouveau: { prenom, metier: $('metier').value, classe: $('classe').value, libres, couleur } });
 });
 $('autre-joueur').addEventListener('click', () => { $('choix').hidden = true; $('entrer').hidden = false; setNotice(''); });
 
@@ -562,6 +622,8 @@ function renderBag() {
   const me = room?.state.joueurs.get(room.sessionId);
   if (!me || !game.monde) return;
   $('equip').textContent = `Équipement : ${SLOT_NOM.epee[me.epee]} (${me.epee} dégât${me.epee > 1 ? 's' : ''}), ${SLOT_NOM.armure[me.armure]} (${me.pvMax} PV), ${SLOT_NOM.bottes[me.bottes]}${me.talisman ? ', un talisman' : ''}.`;
+  $('fiche').textContent = `${me.nom} — ${CLASSES[me.classe]?.nom ?? ''}, ${METIERS_PERSO[me.metier]?.[0] ?? ''}${me.secret ? ` · ✨ ${me.secret}` : ''}. `
+    + SKILL_KEYS.map((k) => `${COMPETENCES[k].nom} ${me[k]}`).join(' · ');
   const box = $('objets');
   const items = [...me.sac.entries()].filter(([, n]) => n > 0);
   const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}${me.talisman}|${room.state.outils}|${inVillage(me)}|${room.state.plans?.length}`;
@@ -694,7 +756,7 @@ function frame(t) {
     if (!game.meInit) { game.me = { x: mine.x, y: mine.y }; game.meInit = true; }
     // Prédiction locale, bloquée par les zones fermées comme sur le serveur.
     const dashing = game.dash && t < game.dash.until;
-    const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1);
+    const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1) * speedFactor(mine);
     const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, dashing ? game.dash.dir : input, dt, factor);
     if (input.x || input.y) game.facing = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
     const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;

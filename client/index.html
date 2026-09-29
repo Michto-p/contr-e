@@ -93,7 +93,7 @@
   #sac .offrir { margin-left: 6px; font-size: 12px; padding: 2px 8px; }
 
   /* Écrans d'accueil et messages */
-  .voile { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(12, 10, 8, 0.6); padding: 16px; }
+  .voile { position: fixed; inset: 0; display: grid; place-items: center; place-items: safe center; overflow-y: auto; background: rgba(12, 10, 8, 0.6); padding: 16px; }
   .voile[hidden] { display: none; }
   .carte { max-width: 520px; width: 100%; padding: 20px 22px; }
   .carte h1 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 6px; font-size: 1.7em; }
@@ -121,6 +121,18 @@
   .couleurs button { width: 30px; height: 30px; padding: 0; border-radius: 6px; border: 2px solid transparent; }
   .couleurs button[aria-checked="true"] { border-color: var(--ink); box-shadow: 0 0 0 2px var(--accent); }
   #autre-joueur { margin-top: 6px; font-size: 13px; }
+  .competences { display: grid; grid-template-columns: 110px 1fr 34px auto; gap: 4px 8px; align-items: center; font-size: 13px; }
+  .competences .barre { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; display: flex; }
+  .competences .barre i { display: block; height: 100%; }
+  .competences .barre .base { background: var(--ink-2); }
+  .competences .barre .libre { background: var(--accent); }
+  .competences .barre .bonus { background: #9ad06a; }
+  .competences .val { text-align: right; font-variant-numeric: tabular-nums; }
+  .competences .pm { display: flex; gap: 4px; }
+  .competences .pm button { padding: 0 8px; line-height: 22px; }
+  .competences .pm button:disabled { opacity: 0.35; cursor: default; }
+  .secret { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(154, 208, 106, 0.15); color: #cfe9b4; font-size: 13px; }
+  #sac .fiche { font-size: 13px; color: var(--ink-2); margin: 4px 0 0; }
   #toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 14px; max-width: min(560px, calc(100vw - 24px)); font-family: Georgia, "Times New Roman", serif; }
   #toast[hidden] { display: none; }
 </style>
@@ -163,6 +175,7 @@
   <button type="button" class="fermer" id="fermer-sac" aria-label="Fermer" style="float:right">✕</button>
   <h2>Sac et forge</h2>
   <div class="equip" id="equip"></div>
+  <p class="fiche" id="fiche"></p>
   <h3>Dans le sac</h3>
   <div class="objets" id="objets"></div>
   <h3>La forge du village</h3>
@@ -202,8 +215,13 @@
       <form id="creer" class="creer">
         <h3>Nouveau personnage</h3>
         <input id="prenom" maxlength="16" placeholder="Son prénom" autocomplete="off" required>
+        <select id="classe" aria-label="Classe"></select>
+        <p class="note" id="classe-note"></p>
         <select id="metier" aria-label="Métier"></select>
         <p class="note" id="metier-note"></p>
+        <div id="competences" class="competences" aria-label="Compétences"></div>
+        <p class="note" id="points-libres"></p>
+        <p class="secret" id="secret" hidden></p>
         <div id="couleurs" class="couleurs" role="radiogroup" aria-label="Couleur de la tunique"></div>
         <button class="primaire" type="submit">Créer et jouer</button>
       </form>

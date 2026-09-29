@@ -11,6 +11,7 @@ import { pushEvent, announce } from './evenements.js';
 export const LOOT_LIFETIME_MS = 60_000;
 const PICKUP_RADIUS = 0.9;
 export const EAT_COOLDOWN_MS = 2500;
+import { pvBonus, breadHeal, lootFactor } from '../shared/competences.js';
 export const EAT_HEAL = 4;
 export const DASH_COOLDOWN_MS = 1200;
 export const EXTRACT_MAX_PRESSURE = 40; // un gisement ne s'exploite que dans une zone dégagée
@@ -77,10 +78,12 @@ export function raresIn(room, p) {
 
 // ---------- Butin ----------
 
-export function dropLoot(room, sorte, zoneId, x, y, t = Date.now()) {
+// `killer` : le joueur qui a vaincu le monstre (son flair rend le butin plus fréquent).
+export function dropLoot(room, sorte, zoneId, x, y, t = Date.now(), killer = null) {
   const r = room.play.rng;
   const items = [];
-  for (const [item, chance] of DROPS[sorte] ?? []) if (r.next() < chance) items.push(item);
+  const luck = lootFactor(killer);
+  for (const [item, chance] of DROPS[sorte] ?? []) if (r.next() < Math.min(0.95, chance * luck)) items.push(item);
   const zone = room.sim.zones[zoneId];
   const rares = room.sim.signature.exclusives.filter((res) => zone.resources[res] > 0);
   if (rares.length && r.next() < RARE_DROP) items.push(r.pick(rares));
@@ -142,8 +145,9 @@ export function playerEat(room, sid, t = Date.now()) {
   room.objets.lastEat.set(sid, t);
   stock.pain -= 1;
   room.state.pain = stock.pain;
-  p.pv = Math.min(p.pvMax, p.pv + EAT_HEAL);
-  return tell(room, sid, `Un morceau de pain : +${EAT_HEAL} PV`);
+  const heal = breadHeal(p.metier, p);
+  p.pv = Math.min(p.pvMax, p.pv + heal);
+  return tell(room, sid, `Un morceau de pain : +${heal} PV`);
 }
 
 // ---------- Gisements rares ----------
@@ -171,7 +175,7 @@ export function extractRare(room, sid, zone, rare) {
 // ---------- Forge ----------
 
 export function applyGear(p) {
-  p.pvMax = (PV_BY_ARMOR[p.armure] ?? 10) + (p.talisman ? TALISMAN_PV : 0);
+  p.pvMax = (PV_BY_ARMOR[p.armure] ?? 10) + (p.talisman ? TALISMAN_PV : 0) + pvBonus(p);
   if (p.pv > p.pvMax) p.pv = p.pvMax;
 }
 

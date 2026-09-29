@@ -103,3 +103,30 @@ test('une ancienne sauvegarde : chaque nom devient un joueur avec un personnage 
   assert.equal(world.registry.Lou.lastPlayedAt, 1000, 'le compte à rebours part du chargement');
   assert.equal(world.sim.village.population.people[0].played, false, 'personne n\'est en jeu au démarrage');
 });
+
+test('compétences : 100 points par la classe et le métier, 10 points libres, secret de classe', async () => {
+  const { computeSkills, FREE_POINTS } = await import('../shared/competences.js');
+  const sum = (s) => Object.values(s).reduce((a, b) => a + b, 0);
+  const plain = computeSkills('eclaireur', 'forgeron');
+  assert.equal(sum(plain.skills), 100);
+  assert.equal(plain.secret, '');
+  const free = computeSkills('eclaireur', 'forgeron', { force: 6, flair: 4 });
+  assert.equal(sum(free.skills), 100 + FREE_POINTS);
+  assert.throws(() => computeSkills('eclaireur', 'forgeron', { force: 11 }), /10 points libres/);
+  assert.throws(() => computeSkills('eclaireur', 'forgeron', { force: -2 }), /invalides/);
+  const secret = computeSkills('guerrier', 'garde');
+  assert.equal(secret.secret, 'Rempart du village');
+  assert.ok(sum(secret.skills) > 100);
+});
+
+test('à la création, la classe, les points libres et le secret sont appliqués au personnage', async () => {
+  const r = await join({ joueur: 'Bea', nouveau: { prenom: 'Rune', metier: 'garde', classe: 'guerrier', libres: { force: 10 } } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Rune'));
+  const p = room().state.joueurs.get(r.sessionId);
+  assert.equal(p.classe, 'guerrier');
+  assert.equal(p.secret, 'Rempart du village');
+  assert.equal(p.force, 25 + 15 + 10 + 10);
+  assert.ok(p.pvMax > 10, `${p.pvMax} PV`);
+  await assert.rejects(join({ joueur: 'Bea', nouveau: { prenom: 'Triche', metier: 'garde', classe: 'guerrier', libres: { force: 50 } } }), /10 points libres/);
+  await r.leave();
+});
