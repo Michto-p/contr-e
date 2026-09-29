@@ -116,3 +116,46 @@ test('l\'agronome et l\'éleveur défrichent un pré voisin quand le pain manque
   assert.ok(e);
   assert.match(s.zones[e.zone].label, /^les champs/);
 });
+
+test('le rythme de vie se règle : à une saison par jour, on vieillit quatre fois moins vite', () => {
+  const run2 = (yearsPerDay) => {
+    const w = createWorld(42, { yearsPerDay });
+    const rng = createRng(42);
+    addPlayers(w, rng, 'aucun');
+    return simulate(w, rng, { days: 8 });
+  };
+  const fast = run2(1).state.village.population.people.find((p) => p.id === 1);
+  const slow = run2(0.25).state.village.population.people.find((p) => p.id === 1);
+  const start = createPopulation(42).people.find((p) => p.id === 1).age;
+  assert.equal(fast.age - start, 8);
+  assert.equal(slow.age - start, 2);
+});
+
+test('les habitants gardent leurs dates de naissance et de décès (pour l\'arbre des familles)', () => {
+  const { state } = run('mixte', 60);
+  const pop = state.village.population;
+  const dead = pop.people.filter((p) => !p.alive);
+  assert.ok(dead.length > 0);
+  for (const p of dead) assert.ok(Number.isInteger(p.died) && p.died > p.born);
+  for (const p of pop.people.filter((q) => q.parents.length && q.born > 1)) {
+    for (const id of p.parents) assert.ok(pop.people.find((q) => q.id === id).born < p.born);
+  }
+});
+
+test('l\'audacieux part défendre les champs, le curieux explore', () => {
+  const s = createWorld(42);
+  const pop = s.village.population;
+  for (const p of pop.people) if (p.age >= ADULT && p.metier !== 'ancien') p.traits = ['audacieux', 'curieux'];
+  for (const z of s.zones) if (!z.isVillage && !z.isField && z.dist === 2) z.monsterPressure = 60;
+  let events = [];
+  for (let d = 0; d < 10; d++) {
+    const ctx = { ...makeCtx(s, 24), hour: 9, dayEnd: false };
+    events = events.concat(population(s, createRng(d + 1), ctx));
+  }
+  assert.ok(events.some((e) => e.type === 'villager_defense' || e.type === 'villager_hurt'));
+  assert.ok(events.some((e) => e.type === 'villager_explore' || e.type === 'villager_found'));
+  const out = pop.people.find((p) => p.outing);
+  assert.ok(out, 'un habitant est dehors');
+  population(s, createRng(99), { ...makeCtx(s, 24), hour: 18, dayEnd: false });
+  assert.ok(!pop.people.some((p) => p.outing), 'tout le monde est rentré le soir');
+});

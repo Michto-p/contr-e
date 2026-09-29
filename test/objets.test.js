@@ -60,6 +60,11 @@ function clearMonsters() {
   for (const id of [...room().play.monsters.keys()]) { room().play.monsters.delete(id); room().state.monstres.delete(id); }
 }
 const wildZone = () => room().sim.zones.find((z) => z.dist === 2 && !z.closed && !z.isField);
+// Pas de vrais monstres autour : ils fausseraient les points de vie mesurés.
+function calm() {
+  for (const z of room().sim.zones) z.monsterPressure = 0;
+  clearMonsters();
+}
 
 test('une brute vaincue lâche du cuir, qu\'on ramasse en marchant dessus', async () => {
   clearMonsters();
@@ -119,6 +124,7 @@ test('l\'armure augmente la vie, et l\'équipement est gardé d\'une connexion �
 });
 
 test('le pain du boulanger soigne', async () => {
+  calm();
   const d = await join('Dany');
   place(d.p(), wildZone()); // hors du village, la vie ne remonte que lentement
   const stock = room().sim.village.jobs.boulanger.stock;
@@ -137,7 +143,7 @@ test('le pain du boulanger soigne', async () => {
 });
 
 test('un cracheur tire des projectiles ; la roulade les esquive', async () => {
-  clearMonsters();
+  calm();
   const e = await join('Eden');
   const zone = wildZone();
   place(e.p(), zone, -3, 0);

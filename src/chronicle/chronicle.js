@@ -174,6 +174,25 @@ const RUMEURS = {
 };
 
 const RENDERERS = {
+  villager_defense: {
+    key: (e) => e.data.label,
+    priority: () => 4,
+    text: (evs) => `D'un naturel audacieux, ${who(evs)} ${plural(evs) ? 'ont' : 'a'} prêté main-forte contre les monstres ${deLabel(evs[0].data.label)}.`,
+  },
+  villager_hurt: {
+    key: (e) => e.data.who,
+    priority: () => 5,
+    text: (evs) => `${evs[0].data.who} revient avec une vilaine blessure, reçue face aux monstres ${deLabel(evs[0].data.label)}. Quelques jours de repos suffiront ; la prochaine fois, mieux vaut y aller à plusieurs.`,
+  },
+  villager_found: {
+    key: (e) => e.data.who,
+    priority: () => 6,
+    text: (evs) => `Par curiosité, ${evs[0].data.who} a exploré ${evs[0].data.label} et en a rapporté ${PARTITIVE[evs[0].data.materiau] ?? evs[0].data.materiau} pour la forge.`,
+  },
+  villager_explore: {
+    priority: () => 2,
+    text: (evs) => `Par curiosité, ${joinFr(evs.map((e) => `${e.data.who} a exploré ${e.data.label}`))}.`,
+  },
   birth: {
     priority: () => 6,
     text: (evs) => evs.map((e) => `Naissance ${deN(e.data.name)}, enfant ${deN(e.data.parents[0])} et ${deN(e.data.parents[1])}.`).join(' '),

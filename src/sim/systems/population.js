@@ -4,8 +4,9 @@
 // parfois un talent en plus. Les talents agissent sur le monde : replanter, ouvrir un passage,
 // défricher un nouveau champ, inventer un plan à partir des ressources rares rapportées de loin.
 //
-// Un jour de jeu = une année de vie. Le système a son propre générateur (sauvegardé dans l'état)
-// pour ne pas bouleverser le tirage des autres systèmes.
+// Par défaut, un jour de jeu = une année de vie ; `yearsPerDay` règle ce rythme (0,25 = une saison
+// par jour). Le système a son propre générateur (sauvegardé dans l'état) pour ne pas bouleverser
+// le tirage des autres systèmes.
 import { createRng } from '../rng.js';
 import { clamp, neighbors, zoneLabel } from '../world.js';
 
@@ -62,15 +63,16 @@ function makePerson(pop, rng, { prenom, famille, age, metier = null, skills, tra
   const p = {
     id: pop.nextId++, prenom: prenom ?? freeName(rng, pop), famille, age, metier, skills, traits,
     parents, partner: null, alive: true, talent: null, mood: 70,
+    born: (pop.day ?? 1) - age, died: null, outing: null,
   };
   pop.people.push(p);
   return p;
 }
 
 // Village de départ : cinq foyers, des enfants, deux anciens.
-export function createPopulation(seed) {
+export function createPopulation(seed, { yearsPerDay = 1 } = {}) {
   const rng = createRng((seed ^ 0x5bd1e995) >>> 0);
-  const pop = { people: [], nextId: 1, houses: BASE_HOUSES, rares: {}, plans: [], nextPlanId: 1, rng: 0 };
+  const pop = { people: [], nextId: 1, houses: BASE_HOUSES, rares: {}, plans: [], nextPlanId: 1, rng: 0, day: 1, yearsPerDay, yearClock: 0 };
   const jobs = ['agriculteur', 'agriculteur', 'boulanger', 'boulanger', 'forgeron', 'forgeron', 'bucheron_mineur', 'bucheron_mineur', 'eleveur', 'enseignant'];
   // Mélange déterministe des métiers.
   for (let i = jobs.length - 1; i > 0; i--) {
@@ -207,6 +209,8 @@ function retireAndDie(pop, state, rng, ctx, events) {
     }
     if (p.age >= 65 && rng.chance((p.age - 60) * 0.02)) {
       p.alive = false;
+      p.died = ctx.day;
+      p.outing = null;
       const partner = byId(pop, p.partner);
       if (partner) partner.partner = null;
       const job = p.ancienMetier ?? p.metier;
@@ -376,26 +380,85 @@ function rumor(pop, state, rng, ctx, events) {
   events.push(ctx.event('rumor', threatened[0] ?? null, { who: p.prenom, trait: rng.pick(p.traits), job: p.metier, topic, label: threatened[0]?.label ?? null }));
 }
 
-export function population(state, rng, ctx) {
-  if (!ctx.dayEnd) return [];
-  const pop = state.village.population;
-  if (!pop) return [];
-  const prng = createRng(pop.rng);
-  const events = [];
+// ---------- Sorties : les habitants agissent selon leur caractère ----------
+
+const OUT_HOUR = 9; // on part le matin
+const BACK_HOUR = 18; // on rentre le soir
+
+function outings(pop, state, rng, ctx, events) {
+  const adults = living(pop).filter((p) => p.age >= ADULT && p.metier !== 'ancien' && !(p.hurtUntil > ctx.day));
+  // L'audacieux va prêter main-forte là où les monstres menacent les champs.
+  const fronts = state.zones.filter((z) => z.isField)
+    .flatMap((f) => neighbors(state, f).filter((n) => !n.isVillage && !n.isField && !n.closed && n.monsterPressure >= 45))
+    .sort((a, b) => b.monsterPressure - a.monsterPressure);
+  for (const p of adults.filter((a) => a.traits.includes('audacieux'))) {
+    if (!fronts.length || !rng.chance(0.35)) continue;
+    const z = fronts[0];
+    p.outing = { zone: z.id, kind: 'defense' };
+    z.today.fights += 1;
+    z.today.fighters.push(p.prenom);
+    // Seul face à une zone infestée, on revient blessé : quelques jours de repos, rien de plus.
+    if (z.monsterPressure >= 75 && rng.chance(0.4)) {
+      p.hurtUntil = ctx.day + 2;
+      events.push(ctx.event('villager_hurt', z, { who: p.prenom, label: z.label, fix: 'groupe' }));
+    } else {
+      events.push(ctx.event('villager_defense', z, { who: [p.prenom], label: z.label }));
+    }
+  }
+  // Le curieux part explorer les terres lointaines, et en rapporte parfois une ressource rare.
+  const far = state.zones.filter((z) => !z.closed && z.dist >= 3 && z.dist <= 5);
+  for (const p of adults.filter((a) => a.traits.includes('curieux') && !a.outing)) {
+    if (!far.length || !rng.chance(0.15)) continue;
+    const z = rng.pick(far);
+    p.outing = { zone: z.id, kind: 'exploration' };
+    z.today.visits += 1;
+    const rare = state.signature.exclusives.find((r) => z.resources[r] > 0);
+    if (rare && rng.chance(0.4)) {
+      pop.rares[rare] = (pop.rares[rare] ?? 0) + 1;
+      events.push(ctx.event('villager_found', z, { who: p.prenom, label: z.label, materiau: rare }));
+    } else {
+      events.push(ctx.event('villager_explore', z, { who: p.prenom, label: z.label }));
+    }
+  }
+}
+
+// Une année de vie : vieillir, apprendre, grandir, s'unir, naître, s'éteindre.
+function year(pop, state, prng, ctx, events) {
   for (const p of living(pop)) p.age += 1;
   learn(pop, state);
   comeOfAge(pop, state, prng, ctx, events);
   retireAndDie(pop, state, prng, ctx, events);
   formCouples(pop, prng, ctx, events);
   births(pop, state, prng, ctx, events);
-  build(pop, state, ctx, events);
-  immigration(pop, state, prng, ctx, events);
-  forestier(pop, state, prng, ctx, events);
-  clearing(pop, state, prng, ctx, events);
-  invent(pop, state, prng, ctx, events);
-  rumor(pop, state, prng, ctx, events);
-  // Les talents se révèlent aussi chez les adultes qui ont beaucoup appris.
-  for (const p of living(pop)) if (!p.talent && p.age >= ADULT) p.talent = talentFor(p);
+}
+
+export function population(state, rng, ctx) {
+  const pop = state.village.population;
+  if (!pop) return [];
+  const morning = ctx.hour === OUT_HOUR;
+  const evening = ctx.hour === BACK_HOUR;
+  if (!ctx.dayEnd && !morning && !evening) return [];
+  const prng = createRng(pop.rng);
+  const events = [];
+  pop.day = ctx.day;
+  if (morning) outings(pop, state, prng, ctx, events);
+  if (evening) for (const p of pop.people) p.outing = null;
+  if (ctx.dayEnd) {
+    // Le rythme de vie : une année par jour par défaut, moins si l'on veut des générations plus longues.
+    pop.yearClock = (pop.yearClock ?? 0) + (pop.yearsPerDay ?? 1);
+    while (pop.yearClock >= 1) {
+      pop.yearClock -= 1;
+      year(pop, state, prng, ctx, events);
+    }
+    build(pop, state, ctx, events);
+    immigration(pop, state, prng, ctx, events);
+    forestier(pop, state, prng, ctx, events);
+    clearing(pop, state, prng, ctx, events);
+    invent(pop, state, prng, ctx, events);
+    rumor(pop, state, prng, ctx, events);
+    // Les talents se révèlent aussi chez les adultes qui ont beaucoup appris.
+    for (const p of living(pop)) if (!p.talent && p.age >= ADULT) p.talent = talentFor(p);
+  }
   pop.rng = prng.save();
   return events;
 }

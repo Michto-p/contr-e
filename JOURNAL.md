@@ -126,3 +126,8 @@
 - Fait : dans le sac, au village, « Offrir au village » confie une ressource rare au forgeron (`population.rares`), avec une annonce et une ligne de chronique. Quand un forgeron savant invente un plan, il devient une recette de forge pour tous : lame (4 dégâts, épée niv. 2 requise, 3 minerai + 1 du matériau) ou talisman (+4 PV, 2 cuir + 1 du matériau). Le panneau Chronique montre les habitants, les familles, les talents, les plans et les offrandes.
 - Décision : un plan garde le nom de sa contrée d'origine et de son auteur ; c'est la base pour les échanger entre contrées à l'étape 4.
 - Migration : une contrée sauvegardée avant la population (ex. celle du Codespace) reçoit ses habitants au chargement, sans rien perdre d'autre.
+
+## Rythme de vie réglable, sorties des habitants, dates pour la généalogie
+- Fait : `yearsPerDay` dans la population (1 par défaut, 0,25 = une saison par jour) ; les étapes « annuelles » (vieillir, apprendre, s'unir, naître, s'éteindre) avancent à ce rythme, les talents agissent chaque jour. CLI : `--vie 0.25`.
+- Fait : sorties selon le caractère. À 9 h, l'audacieux part défendre la terre la plus menaçante autour des champs ; son combat compte pour la simulation et son nom apparaît dans la chronique. Face à une zone très infestée, il peut revenir blessé et se reposer deux jours (jamais pire). Le curieux explore une terre lointaine et rapporte parfois une ressource rare à la forge. Tout le monde rentre à 18 h.
+- Fait : chaque habitant garde `born` et `died` (jour de jeu), pour l'arbre des familles. Tests fragiles stabilisés : les tests d'objets calment la zone pour qu'aucun vrai monstre ne fausse les PV mesurés.

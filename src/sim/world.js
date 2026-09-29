@@ -102,7 +102,7 @@ function biomeMap(rng, width, height, dominant) {
   };
 }
 
-export function createWorld(seed, { width = 12, height = 12 } = {}) {
+export function createWorld(seed, { width = 12, height = 12, yearsPerDay = 1 } = {}) {
   const rng = createRng(seed);
   const dominant = rng.weighted(BIOME_WEIGHTS);
   const nbExclusives = rng.int(2, 3);
@@ -208,7 +208,7 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
       jobs,
       quests: [],
       nextQuestId: 1,
-      population: createPopulation(seed),
+      population: createPopulation(seed, { yearsPerDay }),
     },
     // Le cycle ne commence pas toujours au printemps : chaque contrée a son propre calendrier.
     season: { startOffset: rng.int(0, 27) },
