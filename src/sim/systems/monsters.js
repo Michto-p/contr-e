@@ -1,19 +1,19 @@
 // Monstres : la pression monte là où personne ne passe, déborde sur les zones voisines au-delà
 // d'un seuil, et recule quand des joueurs y combattent (bien mieux à plusieurs).
-import { clamp, neighbors } from '../world.js';
+import { clamp, neighbors, standing, OUTPOST } from '../world.js';
 
 // Chaque zone tend vers un plafond naturel : les terres lointaines sont plus infestées.
 const BIOME_BONUS = { plaine: -2, foret: 2, colline: 0, marais: 5, montagne: 5 };
-export const capacity = (zone) => clamp(30 + zone.dist * 12 + BIOME_BONUS[zone.biome]);
+// Un avant-poste debout abaisse ce plafond : la zone est tenue.
+export const OUTPOST_RELIEF = 20;
+export const capacity = (zone) => clamp(30 + zone.dist * 12 + BIOME_BONUS[zone.biome] - (standing(zone, OUTPOST) ? OUTPOST_RELIEF : 0));
 export const OVERFLOW = 70; // au-delà, les monstres débordent chez les voisins
 const CALM = 45; // en dessous, une zone débordante est considérée comme calmée
 const HORDE = 95; // à ce niveau, une horde se forme et part vers les zones voisines
 export const SOLO_LIMIT = 80; // au-delà, un joueur seul ne fait presque rien
 const FIELD_ALERT = 50;
 
-function hasIntactWatchtower(zone) {
-  return zone.structures.some((s) => s.type === 'tour de guet' && !s.building && s.condition >= 50);
-}
+const hasIntactWatchtower = (zone) => standing(zone, 'tour de guet');
 
 export function monsters(state, rng, ctx) {
   const village = state.zones[state.villageId];
@@ -46,12 +46,13 @@ export function monsters(state, rng, ctx) {
         }
       }
     } else if (z.today.visits === 0) {
-      // Personne : la pression monte vers le plafond (moins vite sous l'œil d'une tour de guet),
-      // ou reflue lentement si un débordement l'a poussée au-dessus.
+      // Aucun joueur : la pression monte vers le plafond (moins vite sous l'œil d'une tour de guet,
+      // ou là où des habitants sont venus travailler), ou reflue si elle l'a dépassé.
       const cap = capacity(z);
       if (z.monsterPressure < cap) {
         let growth = (Math.max(1, (cap - z.monsterPressure) * 0.3) + rng.int(0, 1)) * rate;
         if (hasIntactWatchtower(z)) growth /= 2;
+        if ((z.today.workers ?? 0) > 0) growth *= 0.6;
         z.monsterPressure = clamp(Math.min(cap, z.monsterPressure + growth));
       } else if (z.monsterPressure > cap) {
         z.monsterPressure = clamp(z.monsterPressure - 2);

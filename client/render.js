@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE } from './shared/monde.js';
 
 export const TILE = 16;
 const ZONE_PX = ZONE_TILES * TILE;
@@ -222,9 +222,32 @@ export function drawMonster(ctx, m, t, hitAge, lungeAge) {
   }
 }
 
-const STRUCT_SPOT = { 'tour de guet': [8, 3], pont: [5, 8], 'cabane de chasseur': [3, 3], palissade: [3, 8], 'vieux moulin': [8, 8] };
+const STRUCT_SPOT = { 'tour de guet': [8, 3], pont: [5, 8], 'cabane de chasseur': [3, 3], palissade: [3, 8], 'vieux moulin': [8, 8], 'avant-poste': OUTPOST_SPOT };
 
-function drawStructure(ctx, zx, zy, type, cond, building) {
+function drawOutpost(ctx, x, y, cond, t) {
+  // Cercle de sécurité : les monstres n'y entrent pas.
+  if (cond >= 50) {
+    ctx.strokeStyle = 'rgba(255, 214, 120, 0.35)';
+    ctx.setLineDash([4, 6]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x + 8, y + 8, OUTPOST_SAFE * TILE, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Tente, feu de camp et fanion.
+  ctx.fillStyle = '#c9a66b';
+  ctx.beginPath(); ctx.moveTo(x - 6, y + 12); ctx.lineTo(x + 3, y - 4); ctx.lineTo(x + 12, y + 12); ctx.closePath(); ctx.fill();
+  px(ctx, '#8a6a3a', x + 2, y + 4, 3, 8);
+  px(ctx, '#6b4a2b', x + 3, y - 12, 1, 9);
+  px(ctx, '#e5635c', x + 4, y - 12, 5, 3);
+  px(ctx, '#6b4a2b', x + 14, y + 11, 8, 2);
+  if (cond >= 25) {
+    const f = Math.sin(t / 90) > 0 ? 1 : 0;
+    px(ctx, '#ffb347', x + 15, y + 6 + f, 6, 5 - f);
+    px(ctx, '#ffe07a', x + 17, y + 8, 2, 3);
+  }
+}
+
+function drawStructure(ctx, zx, zy, type, cond, building, t = 0) {
   const [tx, ty] = STRUCT_SPOT[type] ?? [6, 3];
   const x = (zx * ZONE_TILES + tx) * TILE;
   const y = (zy * ZONE_TILES + ty) * TILE;
@@ -246,6 +269,9 @@ function drawStructure(ctx, zx, zy, type, cond, building) {
     return;
   }
   switch (type) {
+    case 'avant-poste':
+      drawOutpost(ctx, x, y, cond, t);
+      break;
     case 'tour de guet':
       px(ctx, '#a0968a', x + 3, y - 6, 10, 20);
       px(ctx, '#8a8478', x + 3, y - 6, 2, 20);
@@ -408,7 +434,15 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
       if (!info.village && z.p > 0) px(ctx, `rgba(70, 20, 80, ${(z.p / 100) * 0.28})`, zx * ZONE_PX, zy * ZONE_PX, ZONE_PX, ZONE_PX);
       for (const part of (z.s || '').split(';').filter(Boolean)) {
         const [type, cond, b] = part.split('|');
-        drawStructure(ctx, zx, zy, type, Number(cond), b === '1');
+        drawStructure(ctx, zx, zy, type, Number(cond), b === '1', t);
+      }
+      // Emplacement libre pour un avant-poste, dans une terre sauvage dégagée : un piquet et son fanion.
+      if (!info.village && !info.champ && !z.c && z.p < 30 && !(z.s || '').includes('avant-poste')) {
+        const x = (zx * ZONE_TILES + OUTPOST_SPOT[0]) * TILE + 8;
+        const y = (zy * ZONE_TILES + OUTPOST_SPOT[1]) * TILE + 8;
+        px(ctx, 'rgba(0,0,0,0.2)', x - 2, y + 6, 5, 2);
+        px(ctx, '#8a6a3a', x, y - 6, 1, 13);
+        px(ctx, '#f2d06b', x + 1, y - 6, 4, 3);
       }
       if (z.c) {
         // Zone fermée : hachures de neige.

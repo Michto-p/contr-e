@@ -129,6 +129,7 @@ test('le pain du boulanger soigne', async () => {
   place(d.p(), wildZone()); // hors du village, la vie ne remonte que lentement
   const stock = room().sim.village.jobs.boulanger.stock;
   stock.pain = 5;
+  room().play.regenAt.set(d.r.sessionId, Date.now() + 60_000); // pas de point de vie regagné pendant le test
   d.p().pv = 3;
   d.r.send('manger');
   assert.ok(await until(() => d.p().pv === 3 + EAT_HEAL));
@@ -145,6 +146,8 @@ test('le pain du boulanger soigne', async () => {
 test('un cracheur tire des projectiles ; la roulade les esquive', async () => {
   calm();
   const e = await join('Eden');
+  // Le joueur du test précédent doit être parti : sinon le cracheur pourrait le viser, lui.
+  assert.ok(await until(() => room().state.joueurs.size === 1), 'seul dans la contrée');
   const zone = wildZone();
   place(e.p(), zone, -3, 0);
   e.p().pv = 10;

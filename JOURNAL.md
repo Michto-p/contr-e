@@ -140,3 +140,8 @@
 ## Mettre à jour le serveur du Codespace
 - Fait : `npm run relancer` (scripts/relancer.sh) récupère le dernier code, réinstalle, arrête proprement l'ancien serveur (SIGINT : la contrée est sauvegardée) puis relance `codespace.sh`. La version (commit court + date) est affichée dans le panneau Chronique et au démarrage du serveur.
 - Problème repéré : `codespace.sh` ne relançait pas un serveur déjà en marche, d'où l'ancienne version servie après un `git pull`.
+
+## Moins de monstres, habitants au travail, avant-postes
+- Fait : en jeu, 1 à 4 monstres par zone (au lieu de 6), une zone voisine ne se peuple que si l'on approche de son bord, apparitions plus espacées. Une tour de guet en retire un, un avant-poste deux ; autour de sa tente, pas de monstre et l'on se soigne comme au village.
+- Fait : chaque matin, agriculteurs, bûcherons-mineurs et éleveurs partent travailler (champs, bois, mine, pâtures) si la zone est assez sûre selon leur caractère ; leur présence ralentit la montée des monstres et entretient chemins et structures. Là où ils travaillent, ils dressent des avant-postes (bois du village, 4 au plus) ; les joueurs peuvent en dresser aussi (touche E près du piquet jaune, 3 × 4 bois). Choix : pas de nouveau système, tout passe par population, monstres et le gameplay.
+- Problème repéré : deux tests d'objets étaient instables (un point de vie regagné pendant le test du pain, un joueur du test précédent visé par le cracheur) ; corrigés à la source.

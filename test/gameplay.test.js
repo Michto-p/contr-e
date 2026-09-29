@@ -7,8 +7,8 @@ import { join as pathJoin } from 'node:path';
 import { Client } from '@colyseus/sdk';
 import { createGameServer } from '../server/index.js';
 import { Monstre } from '../server/schema.js';
-import { ZONE_TILES } from '../shared/monde.js';
-import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, monsterCountFor, kindFor } from '../server/gameplay.js';
+import { ZONE_TILES, OUTPOST_SPOT } from '../shared/monde.js';
+import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, OUTPOST_STEP_WOOD, monsterCountFor, monsterTarget, kindFor, nearOutpost } from '../server/gameplay.js';
 
 const dir = mkdtempSync(pathJoin(tmpdir(), 'contree-'));
 let game;
@@ -63,7 +63,7 @@ function clearMonsters() {
 test('le nombre et la force des monstres suivent la pression', () => {
   assert.equal(monsterCountFor(5), 0);
   assert.ok(monsterCountFor(60) > monsterCountFor(30));
-  assert.ok(monsterCountFor(100) <= 6);
+  assert.ok(monsterCountFor(100) <= 4);
   assert.equal(kindFor(20).sorte, 'gluant');
   assert.equal(kindFor(85).sorte, 'brute');
   assert.ok(kindFor(85).pv > kindFor(20).pv);
@@ -160,4 +160,39 @@ test('une patrouille est validée en vainquant des monstres autour du champ', as
   assert.equal(room().sim.village.jobs.agriculteur.helpedDay, room().sim.day);
   assert.ok(await until(() => f.inbox.annonce.some((l) => /gardés par Fanny/.test(l))), f.inbox.annonce.join(' / '));
   await f.r.leave();
+});
+
+test('ce qui est bâti retient les monstres : une tour en retire un, un avant-poste deux', () => {
+  const zone = { monsterPressure: 90, structures: [] };
+  const base = monsterTarget(zone);
+  zone.structures.push({ type: 'tour de guet', condition: 80 });
+  assert.equal(monsterTarget(zone), base - 1);
+  zone.structures.push({ type: 'avant-poste', condition: 80 });
+  assert.equal(monsterTarget(zone), base - 3);
+  zone.structures[1].condition = 20; // en ruine, il ne protège plus
+  assert.equal(monsterTarget(zone), base - 1);
+});
+
+test('touche E : dresser un avant-poste dans une zone dégagée, sûre ensuite', async () => {
+  clearMonsters();
+  const g = await join('Gaby');
+  const zone = room().sim.zones.find((z) => z.dist === 2 && !z.closed && !z.isField && z.structures.length === 0);
+  const stock = room().sim.village.jobs.bucheron_mineur.stock;
+  stock.bois = 20;
+  const spot = { x: zone.x * ZONE_TILES + OUTPOST_SPOT[0] + 0.5, y: zone.y * ZONE_TILES + OUTPOST_SPOT[1] + 0.5 };
+  // Trop de monstres : il faut d'abord dégager la zone.
+  zone.monsterPressure = 60;
+  g.p().x = spot.x;
+  g.p().y = spot.y;
+  assert.ok(await until(() => g.p().action.includes('dégagez')), g.p().action);
+  zone.monsterPressure = 10;
+  assert.ok(await until(() => g.p().action.startsWith('dresser un avant-poste')), g.p().action);
+  for (let i = 0; i < 3; i++) { g.r.send('interagir'); await sleep(INTERACT_COOLDOWN_MS + 30); }
+  const s = zone.structures.find((st) => st.type === 'avant-poste');
+  assert.ok(await until(() => s && !s.building), 'avant-poste debout');
+  assert.equal(stock.bois, 20 - 3 * OUTPOST_STEP_WOOD);
+  assert.ok(room().world.events.some((e) => e.type === 'outpost_built' && e.data.who.includes('Gaby')));
+  assert.ok(nearOutpost(room(), spot.x + 2, spot.y));
+  assert.ok(!nearOutpost(room(), spot.x + 8, spot.y));
+  await g.r.leave();
 });

@@ -28,7 +28,7 @@ export function nature(state, rng, ctx) {
 
   for (const z of state.zones) {
     if (z.isVillage) continue;
-    const visited = z.today.visits > 0;
+    const visited = z.today.visits > 0 || (z.today.workers ?? 0) > 0; // joueurs ou habitants au travail
 
     // Végétation : repousse vers le maximum du biome, piétinée là où l'on passe beaucoup.
     const max = BIOME_MAX_VEGETATION[z.biome];

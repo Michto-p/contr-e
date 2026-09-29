@@ -34,6 +34,7 @@ export const Habitant = schema({
   parents: t.string(), // prénoms des parents
   partenaire: t.string(),
   sortie: t.int16(), // zone où l'habitant est parti aujourd'hui (-1 : au village)
+  motif: t.string(), // 'travail', 'defense' ou 'exploration'
   blesse: t.boolean(),
 }, 'Habitant');
 

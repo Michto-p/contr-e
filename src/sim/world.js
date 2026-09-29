@@ -42,6 +42,11 @@ const JOB_STOCK = {
 
 export const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(v)));
 
+// Un avant-poste bâti hors du village rend une zone plus sûre (moins de monstres, on y travaille).
+export const OUTPOST = 'avant-poste';
+// Structure debout et en état (au moins à moitié) dans une zone.
+export const standing = (zone, type) => zone.structures.some((s) => s.type === type && !s.building && s.condition >= 50);
+
 // Direction d'une zone vue depuis le village (8 secteurs).
 export function regionOf(dx, dy) {
   if (dx === 0 && dy === 0) return 'Centre';
@@ -148,7 +153,7 @@ export function createWorld(seed, { width = 12, height = 12, yearsPerDay = 1 } =
         resources,
         closed: false,
         overflowing: false,
-        today: { visits: 0, fights: 0, visitors: [], fighters: [] },
+        today: { visits: 0, fights: 0, visitors: [], fighters: [], workers: 0 },
       };
       zone.label = zoneLabel(zone);
       zones.push(zone);

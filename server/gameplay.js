@@ -3,10 +3,10 @@
 // Tout ce qui se passe ici retombe dans la simulation : un monstre tué compte comme un combat
 // dans sa zone, une réparation remet la structure en état, une quête terminée aide son métier.
 import { createRng } from '../src/sim/rng.js';
-import { clamp, neighbors } from '../src/sim/world.js';
+import { clamp, neighbors, standing, OUTPOST } from '../src/sim/world.js';
 import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
-import { ZONE_TILES, zoneIndexAt, stepPosition } from '../shared/monde.js';
+import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
 
@@ -17,7 +17,9 @@ const RESPAWN_MS = 3000;
 const REGEN_VILLAGE_MS = 1000;
 const REGEN_WILD_MS = 10_000;
 const SPAWN_CHECK_MS = 500;
-const SPAWN_GAP_MS = 3000; // entre deux apparitions dans une même zone
+const SPAWN_GAP_MS = 5000; // entre deux apparitions dans une même zone
+const SPAWN_REACH = 5; // tuiles : une zone voisine ne se peuple que si l'on s'approche de son bord
+const KEEP_REACH = 10; // tuiles : au-delà, ses monstres retournent dans la pression de la zone
 const RESPAWN_AFTER_KILL_MS = 15_000; // une zone nettoyée reste tranquille un moment
 const AGGRO = 5; // tuiles
 const REACH = 0.9;
@@ -26,6 +28,9 @@ export const INTERACT_COOLDOWN_MS = 600;
 
 export const REPAIR_WOOD = 2;
 export const BUILD_WOOD = 3;
+export const OUTPOST_STEP_WOOD = 4;
+const OUTPOST_STEP = 25;
+export const OUTPOST_MAX_PRESSURE = 30; // on ne s'installe que dans une zone dégagée
 const REPAIR_STEP = 10;
 const BUILD_STEP = 8;
 export const TOWER_DONE = 75;
@@ -47,7 +52,28 @@ const KINDS = [
   { sorte: 'gluant', min: 0, pv: 2, degats: 1, vitesse: 2.2, cadence: 1000 },
 ];
 
-export const monsterCountFor = (p) => (p < 12 ? 0 : Math.min(6, Math.round(p / 15)));
+// Peu de monstres à la fois : de 1 (zone peu infestée) à 4 (zone saturée).
+export const monsterCountFor = (p) => (p < 20 ? 0 : Math.min(4, Math.round(p / 22)));
+
+// Ce qui est bâti dans une zone y retient les monstres.
+export function monsterTarget(zone) {
+  let n = monsterCountFor(zone.monsterPressure);
+  if (standing(zone, 'tour de guet')) n -= 1;
+  if (standing(zone, OUTPOST)) n -= 2;
+  return Math.max(0, n);
+}
+
+export function outpostPos(zone) {
+  return { x: zone.x * ZONE_TILES + OUTPOST_SPOT[0] + 0.5, y: zone.y * ZONE_TILES + OUTPOST_SPOT[1] + 0.5 };
+}
+
+// Près d'un avant-poste debout : pas de monstre, et l'on reprend des forces comme au village.
+export function nearOutpost(room, x, y) {
+  const z = room.sim.zones[zoneOfPos(room, x, y)];
+  if (!standing(z, OUTPOST)) return false;
+  const o = outpostPos(z);
+  return Math.hypot(o.x - x, o.y - y) <= OUTPOST_SAFE;
+}
 export const kindFor = (p) => KINDS.find((k) => p >= k.min);
 
 // Sorte d'un monstre qui apparaît : les marais, collines et hauteurs abritent aussi des cracheurs.
@@ -96,6 +122,16 @@ function zoneBounds(room, zoneId) {
   return { x0: z.x * ZONE_TILES + 0.5, x1: (z.x + 1) * ZONE_TILES - 0.5, y0: z.y * ZONE_TILES + 0.5, y1: (z.y + 1) * ZONE_TILES - 0.5 };
 }
 
+// Distance d'un point au carré d'une zone (0 dedans).
+function distToZone(room, zoneId, p) {
+  const z = room.sim.zones[zoneId];
+  const x0 = z.x * ZONE_TILES;
+  const y0 = z.y * ZONE_TILES;
+  const dx = Math.max(x0 - p.x, 0, p.x - (x0 + ZONE_TILES));
+  const dy = Math.max(y0 - p.y, 0, p.y - (y0 + ZONE_TILES));
+  return Math.hypot(dx, dy);
+}
+
 function randomPointIn(room, zoneId) {
   const b = zoneBounds(room, zoneId);
   const r = room.play.rng;
@@ -105,16 +141,22 @@ function randomPointIn(room, zoneId) {
 function spawnMonsters(room, t) {
   const { play, sim } = room;
   const players = livingPlayers(room);
-  // Zones actives : celle de chaque joueur et ses voisines.
+  // Zones actives : celle de chaque joueur, et les voisines dont il approche du bord.
   const active = new Set();
+  const kept = new Set();
   for (const [, p] of players) {
     const z = sim.zones[zoneOfPos(room, p.x, p.y)];
     active.add(z.id);
-    for (const n of neighbors(sim, z)) active.add(n.id);
+    kept.add(z.id);
+    for (const n of neighbors(sim, z)) {
+      const d = distToZone(room, n.id, p);
+      if (d <= SPAWN_REACH) active.add(n.id);
+      if (d <= KEEP_REACH) kept.add(n.id);
+    }
   }
   const counts = new Map();
   for (const [id, m] of play.monsters) {
-    if (!active.has(m.zone)) { // plus personne autour : le monstre retourne dans la pression de sa zone
+    if (!kept.has(m.zone)) { // plus personne autour : le monstre retourne dans la pression de sa zone
       play.monsters.delete(id);
       room.state.monstres.delete(id);
       continue;
@@ -124,7 +166,7 @@ function spawnMonsters(room, t) {
   for (const zoneId of active) {
     const z = sim.zones[zoneId];
     if (z.isVillage || z.closed) continue;
-    const target = monsterCountFor(z.monsterPressure);
+    const target = monsterTarget(z);
     const have = counts.get(zoneId) ?? 0;
     if (have >= target) continue;
     if ((play.spawnAt.get(zoneId) ?? 0) > t) continue;
@@ -132,7 +174,7 @@ function spawnMonsters(room, t) {
     let pos = null;
     for (let i = 0; i < 6 && !pos; i++) {
       const cand = randomPointIn(room, zoneId);
-      if (players.every(([, p]) => dist(p, cand) >= 5)) pos = cand;
+      if (players.every(([, p]) => dist(p, cand) >= 5) && !nearOutpost(room, cand.x, cand.y)) pos = cand;
     }
     if (!pos) continue;
     const kind = pickKind(room, z);
@@ -199,9 +241,10 @@ function moveMonsters(room, dt, t) {
     }
     if (goal) {
       const next = stepPosition(m.x, m.y, { x: goal.x - m.x, y: goal.y - m.y }, dt * (speed / 5));
-      // Chaque monstre reste sur son territoire (sa zone).
-      m.x = Math.max(b.x0, Math.min(b.x1, next.x));
-      m.y = Math.max(b.y0, Math.min(b.y1, next.y));
+      // Chaque monstre reste sur son territoire (sa zone), et n'approche pas d'un avant-poste.
+      const nx = Math.max(b.x0, Math.min(b.x1, next.x));
+      const ny = Math.max(b.y0, Math.min(b.y1, next.y));
+      if (!nearOutpost(room, nx, ny) || nearOutpost(room, m.x, m.y)) { m.x = nx; m.y = ny; }
     }
   }
 }
@@ -277,8 +320,8 @@ function updatePlayers(room, t) {
     }
     if (p.pv < p.pvMax && t >= (play.regenAt.get(sid) ?? 0)) {
       p.pv += 1;
-      const inVillage = zoneOfPos(room, p.x, p.y) === room.sim.villageId;
-      play.regenAt.set(sid, t + (inVillage ? REGEN_VILLAGE_MS : REGEN_WILD_MS));
+      const safe = zoneOfPos(room, p.x, p.y) === room.sim.villageId || nearOutpost(room, p.x, p.y);
+      play.regenAt.set(sid, t + (safe ? REGEN_VILLAGE_MS : REGEN_WILD_MS));
     }
   });
 }
@@ -399,6 +442,14 @@ function progressKillQuests(room, name, zoneId) {
 
 // ---------- Touche E : ce qu'on peut faire ici ----------
 
+// Un avant-poste peut se dresser dans une terre sauvage qui n'en a pas encore (ou dont le chantier
+// est commencé). Il rend la zone plus sûre : moins de monstres, et l'on s'y soigne.
+function outpostSite(zone) {
+  if (zone.isVillage || zone.isField || zone.closed) return false;
+  const s = zone.structures.find((st) => st.type === OUTPOST);
+  return !s || s.building;
+}
+
 // Renvoie l'action possible à cet endroit (sans l'exécuter), ou null.
 export function actionAt(room, p) {
   const { sim } = room;
@@ -414,6 +465,13 @@ export function actionAt(room, p) {
   }
   const rare = zone.isVillage || zone.isField ? null : rareAt(room, zone);
   if (rare && zone.resources[rare] > 0) return { kind: 'rare', zone, rare, label: `extraire : ${rare}${zone.monsterPressure >= 40 ? ' (zone à dégager)' : ''}` };
+  if (outpostSite(zone)) {
+    const o = outpostPos(zone);
+    if (Math.hypot(o.x - p.x, o.y - p.y) <= 2.5) {
+      const label = zone.monsterPressure >= OUTPOST_MAX_PRESSURE ? 'avant-poste : dégagez d\'abord la zone' : `dresser un avant-poste (${OUTPOST_STEP_WOOD} bois)`;
+      return { kind: 'avant-poste', zone, label };
+    }
+  }
   if (zone.biome === 'foret' && !zone.isField) return { kind: 'bois', zone, label: 'couper du bois' };
   return null;
 }
@@ -473,6 +531,31 @@ export function playerInteract(room, sid, t = Date.now()) {
     room.syncZone(a.zone.id);
     room.syncQuests();
     return tell(`${s.type} : réparé à ${s.condition} %`);
+  }
+
+  if (a.kind === 'avant-poste') {
+    if (a.zone.monsterPressure >= OUTPOST_MAX_PRESSURE) return tell('Trop de monstres rôdent ici : dégagez la zone avant de vous y installer.');
+    if ((stock.bois ?? 0) < OUTPOST_STEP_WOOD) return tell(`Il faut ${OUTPOST_STEP_WOOD} bois : allez en couper en forêt.`);
+    stock.bois -= OUTPOST_STEP_WOOD;
+    room.state.bois = stock.bois;
+    let s = a.zone.structures.find((st) => st.type === OUTPOST);
+    if (!s) {
+      s = { type: OUTPOST, condition: 0, building: true, warned: null };
+      a.zone.structures.push(s);
+    }
+    s.condition = clamp(s.condition + OUTPOST_STEP);
+    s.maintainedDay = room.sim.day;
+    const key = `${a.zone.id}|${OUTPOST}`;
+    if (!room.play.repairers.has(key)) room.play.repairers.set(key, new Set());
+    room.play.repairers.get(key).add(p.nom);
+    if (s.condition >= TOWER_DONE) {
+      s.building = false;
+      const who = [...room.play.repairers.get(key)];
+      room.play.repairers.delete(key);
+      announce(room, pushEvent(room, 'outpost_built', a.zone.id, { who, label: a.zone.label, dist: a.zone.dist }));
+    }
+    room.syncZone(a.zone.id);
+    return tell(s.building ? `Avant-poste : ${Math.round((s.condition / TOWER_DONE) * 100)} %` : 'L\'avant-poste est dressé : la zone est plus sûre.');
   }
 
   if (a.kind === 'construire') {

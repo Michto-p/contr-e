@@ -185,6 +185,7 @@ export function makeContreeRoom(config) {
         parents: q.parents.map((id) => byId.get(id)?.prenom).filter(Boolean).join(' et '),
         partenaire: q.partner ? byId.get(q.partner)?.prenom ?? '' : '',
         sortie: q.outing ? q.outing.zone : -1,
+        motif: q.outing?.kind ?? '',
         blesse: (q.hurtUntil ?? 0) > this.sim.day,
       }));
       const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}`).join('|');

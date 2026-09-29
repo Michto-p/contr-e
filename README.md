@@ -71,6 +71,9 @@ Réglages du serveur (variables d'environnement) :
   contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
   lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.
 - **E** sur un gisement rare (le bandeau l'indique) : l'extraire, une fois la zone dégagée.
+- **E** près du piquet à fanion jaune d'une zone sauvage dégagée : dresser un **avant-poste** (4 bois, trois fois).
+  Autour de sa tente, les monstres n'approchent pas et l'on reprend des forces comme au village ;
+  la zone abrite moins de monstres et les habitants y travaillent plus loin. Il s'abîme sans entretien.
 - **E** près d'un habitant : lui parler. Chacun a son nom, son âge, son métier, sa famille, son
   caractère et parfois un talent ; il parle de sa vie et de ce qui inquiète le village.
 - Dans le sac (**F**), au village : **offrir** une ressource rare. Un forgeron savant peut en tirer
@@ -86,7 +89,11 @@ le métier familial avec parfois un talent (forestier qui replante et ouvre des 
 qui défriche un nouveau champ avec l'éleveur, inventeur…). Un jour de jeu vaut une année de leur vie
 (réglable avec `RYTHME_VIE`). Selon leur caractère, certains sortent : les audacieux vont défendre
 les champs menacés (et en reviennent parfois blessés), les curieux explorent et rapportent parfois
-une ressource rare. On les voit partir le matin et rentrer le soir.
+une ressource rare. Chaque matin, les autres partent travailler hors du village quand l'endroit
+n'est pas trop dangereux : l'agriculteur aux champs (fourche), le bûcheron-mineur aux bois et à la
+mine (hache), l'éleveur aux pâtures avec son troupeau. Leur présence ralentit les monstres et
+entretient chemins et bâtisses ; là où ils travaillent, ils dressent eux-mêmes des avant-postes
+avec le bois du village. On les voit partir le matin et rentrer le soir.
 
 Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
 escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y

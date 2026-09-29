@@ -61,6 +61,13 @@ function situationLine(ctx) {
   return null;
 }
 
+// Au travail, loin du village.
+const WORK_LINES = {
+  agriculteur: ['Il faut surveiller ces champs : une nuit de bêtes, et la moitié de la récolte y passe.', 'La terre est bonne ici. Tant qu\'on la garde, elle nous nourrira.'],
+  bucheron_mineur: ['Chaque arbre abattu ici, c\'est une maison ou un avant-poste au village.', 'On ne s\'aventure pas plus loin sans un avant-poste pour se replier.'],
+  eleveur: ['Les bêtes aiment ce pré. Tant que les monstres restent loin, elles engraissent.', 'Un avant-poste par ici, et je pourrais mener le troupeau plus loin.'],
+};
+
 // Réplique complète d'un habitant (plusieurs phrases).
 export function talk(h, ctx) {
   const who = `${h.prenom} ${h.famille}, ${h.age} an${h.age > 1 ? 's' : ''}, ${METIER[h.metier] ?? METIER['']}`;
@@ -68,6 +75,7 @@ export function talk(h, ctx) {
   if (!h.metier && h.parents) lines.push(`Je suis l'enfant de ${h.parents}. Plus tard, je ferai comme eux… ou autre chose !`);
   if (h.partenaire && h.metier) lines.push(`Je partage ma vie avec ${h.partenaire}.`);
   if (h.talent && TALENT[h.talent]) lines.push(TALENT[h.talent]);
+  if (h.sortie >= 0 && h.motif === 'travail') lines.push(pick(WORK_LINES[h.metier] ?? ['Du travail, il y en a toujours.']));
   const situation = situationLine(ctx);
   if (situation && Math.random() < 0.6) lines.push(situation);
   lines.push(traitLine(h, ctx));

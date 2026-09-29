@@ -159,3 +159,28 @@ test('l\'audacieux part défendre les champs, le curieux explore', () => {
   population(s, createRng(99), { ...makeCtx(s, 24), hour: 18, dayEnd: false });
   assert.ok(!pop.people.some((p) => p.outing), 'tout le monde est rentré le soir');
 });
+
+test('les habitants partent travailler hors du village et y dressent des avant-postes', () => {
+  const rng = createRng(42);
+  const { state, events } = simulate(createWorld(42), rng, { days: 30 });
+  assert.ok(events.some((e) => e.type === 'outpost_built'), 'au moins un avant-poste en un mois');
+  // Le matin suivant, à 9 h : des habitants partent aux champs, aux bois ou aux pâtures.
+  const ctx = { ...makeCtx(state, 24), hour: 9, dayEnd: false };
+  population(state, rng, ctx);
+  const out = alive(state).filter((p) => p.outing?.kind === 'travail');
+  assert.ok(out.length >= 2, `${out.length} au travail`);
+  for (const p of out) {
+    const z = state.zones[p.outing.zone];
+    assert.ok(!z.isVillage);
+    assert.ok(['agriculteur', 'bucheron_mineur', 'eleveur'].includes(p.metier));
+    assert.ok(z.today.workers >= 1);
+  }
+});
+
+test('un avant-poste abaisse le plafond de monstres de sa zone', async () => {
+  const { capacity } = await import('../src/sim/systems/monsters.js');
+  const z = createWorld(42).zones.find((x) => x.dist === 3);
+  const before = capacity(z);
+  z.structures.push({ type: 'avant-poste', condition: 80 });
+  assert.ok(capacity(z) < before);
+});

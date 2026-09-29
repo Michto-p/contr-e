@@ -38,7 +38,7 @@ export function tick(state, rng, { ticksPerDay = 24 } = {}) {
   next.tick += 1;
   if (ctx.dayEnd) {
     next.day += 1;
-    for (const z of next.zones) z.today = { visits: 0, fights: 0, visitors: [], fighters: [] };
+    for (const z of next.zones) z.today = { visits: 0, fights: 0, visitors: [], fighters: [], workers: 0 };
   }
   return { state: next, events };
 }

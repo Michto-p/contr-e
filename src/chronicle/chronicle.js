@@ -48,9 +48,12 @@ export function deLabel(label) {
 
 // Articles des structures (« le pont », « la tour de guet »).
 const STRUCTURE_ARTICLE = {
-  'tour de guet': 'la', pont: 'le', 'cabane de chasseur': 'la', palissade: 'la', 'vieux moulin': 'le',
+  'tour de guet': 'la', pont: 'le', 'cabane de chasseur': 'la', palissade: 'la', 'vieux moulin': 'le', 'avant-poste': "l'",
 };
-const theStructure = (t) => `${STRUCTURE_ARTICLE[t] ?? 'la'} ${t}`;
+const theStructure = (t) => {
+  const art = STRUCTURE_ARTICLE[t] ?? 'la';
+  return art.endsWith("'") ? `${art}${t}` : `${art} ${t}`;
+};
 
 // Comment réparer chaque perte : la chronique le dit toujours.
 const FIX = {
@@ -283,6 +286,15 @@ const RENDERERS = {
     key: (e) => e.data.label,
     priority: () => 8,
     text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont achevé' : 'a achevé'} une tour de guet dans ${evs[0].data.label} : les monstres y proliféreront moins vite. Exposée aux intempéries et aux hordes, elle demandera de l'entretien.`,
+  },
+  outpost_built: {
+    key: (e) => e.data.label,
+    priority: () => 8,
+    text: (evs) => {
+      const e = evs[0];
+      const by = e.data.who.length ? `${cap(joinFr(e.data.who))} ${e.data.who.length > 1 ? 'ont dressé' : 'a dressé'}` : 'Les habitants ont dressé';
+      return `${by} un avant-poste dans ${e.data.label} : on y travaillera plus sûrement, et les monstres s'y installeront moins. Il faudra l'entretenir.`;
+    },
   },
   structure_raided: {
     key: (e) => e.data.label,

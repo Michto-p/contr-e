@@ -116,7 +116,8 @@ test/
   permet, enfants qui apprennent de leurs parents, grands-parents et de l'enseignant, métier choisi
   à 16 ans (souvent celui de la famille), talents (forestier, agronome, inventeur…) qui agissent sur
   le monde : replanter, ouvrir des passages, défricher un champ avec l'éleveur, inventer des plans
-  avec les ressources rares rapportées par les joueurs. La production des métiers dépend des
+  avec les ressources rares rapportées par les joueurs. Le jour, les adultes travaillent hors du village
+  (champs, bois, mine, pâtures) si la zone n'est pas trop dangereuse, et y dressent des avant-postes. La production des métiers dépend des
   habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
   (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 

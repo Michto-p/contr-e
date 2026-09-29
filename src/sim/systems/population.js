@@ -8,7 +8,7 @@
 // par jour). Le système a son propre générateur (sauvegardé dans l'état) pour ne pas bouleverser
 // le tirage des autres systèmes.
 import { createRng } from '../rng.js';
-import { clamp, neighbors, zoneLabel } from '../world.js';
+import { clamp, neighbors, zoneLabel, standing, OUTPOST } from '../world.js';
 
 export const ADULT = 16;
 export const ELDER = 62;
@@ -419,7 +419,73 @@ function outings(pop, state, rng, ctx, events) {
     } else {
       events.push(ctx.event('villager_explore', z, { who: p.prenom, label: z.label }));
     }
+  }  goToWork(pop, state, rng, adults);
+}
+
+// ---------- Travail hors du village ----------
+
+// Chacun part travailler là où son métier l'appelle, si l'endroit n'est pas trop dangereux :
+// champs pour l'agriculteur, bois et mine pour le bûcheron-mineur, pâtures pour l'éleveur.
+// Le boulanger, le forgeron et l'enseignant travaillent au village.
+const WORK_LIMIT = 45;
+const WORK_WEAR = 3; // usure du chemin par travailleur et par jour : un lieu fréquenté garde son chemin
+const MAX_OUTPOSTS = 4;
+const OUTPOST_WOOD = 12;
+const OUTPOST_GAP = 4; // jours entre deux avant-postes
+
+function workLimit(p, z) {
+  let limit = WORK_LIMIT;
+  if (p.traits.includes('prudent')) limit -= 15;
+  if (p.traits.includes('audacieux')) limit += 15;
+  if (standing(z, OUTPOST)) limit += 25; // un avant-poste permet de travailler plus loin
+  if (standing(z, 'tour de guet')) limit += 10;
+  return limit;
+}
+
+function workplaces(state, job) {
+  const open = state.zones.filter((z) => !z.isVillage && !z.closed);
+  switch (job) {
+    case 'agriculteur': return open.filter((z) => z.isField);
+    case 'bucheron_mineur': return open.filter((z) => !z.isField && z.dist <= 4 && (z.biome === 'foret' || (z.resources.minerai ?? 0) > 0));
+    case 'eleveur': return open.filter((z) => !z.isField && z.dist <= 3 && (z.biome === 'plaine' || z.biome === 'colline'));
+    default: return [];
   }
+}
+
+function goToWork(pop, state, rng, adults) {
+  const places = {};
+  for (const p of adults) {
+    if (p.outing) continue;
+    places[p.metier] ??= workplaces(state, p.metier);
+    // Les plus proches d'abord, avec un peu de hasard ; un avant-poste attire du monde.
+    const ok = places[p.metier].filter((z) => z.monsterPressure < workLimit(p, z));
+    if (!ok.length || !rng.chance(0.85)) continue;
+    const score = (z) => z.dist + (standing(z, OUTPOST) ? -1.5 : 0) + rng.next() * 2;
+    const z = ok.map((zone) => [zone, score(zone)]).sort((a, b) => a[1] - b[1])[0][0];
+    p.outing = { zone: z.id, kind: 'travail' };
+    z.today.workers = (z.today.workers ?? 0) + 1;
+    z.pathWear = clamp(z.pathWear + WORK_WEAR);
+    // On entretient ce qui est bâti là où l'on travaille.
+    for (const st of z.structures) if (!st.protected && !st.building && st.condition >= 25) st.maintainedDay = state.day;
+  }
+}
+
+// Là où plusieurs habitants travaillent, ils bâtissent un avant-poste avec le bois du village.
+function outposts(pop, state, rng, ctx, events) {
+  const wood = state.village.jobs.bucheron_mineur.stock;
+  if ((wood.bois ?? 0) < OUTPOST_WOOD + 5) return;
+  if (ctx.day - (pop.outpostDay ?? -99) < OUTPOST_GAP) return;
+  if (state.zones.filter((z) => z.structures.some((st) => st.type === OUTPOST)).length >= MAX_OUTPOSTS) return;
+  const site = state.zones
+    .filter((z) => !z.isField && !z.isVillage && !z.closed && (z.today.workers ?? 0) >= 1 && z.monsterPressure < 55
+      && !z.structures.some((st) => st.type === OUTPOST))
+    .sort((a, b) => b.today.workers - a.today.workers || b.dist - a.dist || a.id - b.id)[0];
+  if (!site || !rng.chance(0.5)) return;
+  const team = living(pop).filter((p) => p.outing?.zone === site.id || (p.lastWork === site.id)).map((p) => p.prenom).slice(0, 3);
+  wood.bois -= OUTPOST_WOOD;
+  pop.outpostDay = ctx.day;
+  site.structures.push({ type: OUTPOST, condition: 80, warned: null, maintainedDay: ctx.day });
+  events.push(ctx.event('outpost_built', site, { who: team, label: site.label, dist: site.dist }));
 }
 
 // Une année de vie : vieillir, apprendre, grandir, s'unir, naître, s'éteindre.
@@ -442,7 +508,12 @@ export function population(state, rng, ctx) {
   const events = [];
   pop.day = ctx.day;
   if (morning) outings(pop, state, prng, ctx, events);
-  if (evening) for (const p of pop.people) p.outing = null;
+  if (evening) {
+    for (const p of pop.people) {
+      if (p.outing?.kind === 'travail') p.lastWork = p.outing.zone;
+      p.outing = null;
+    }
+  }
   if (ctx.dayEnd) {
     // Le rythme de vie : une année par jour par défaut, moins si l'on veut des générations plus longues.
     pop.yearClock = (pop.yearClock ?? 0) + (pop.yearsPerDay ?? 1);
@@ -454,6 +525,7 @@ export function population(state, rng, ctx) {
     immigration(pop, state, prng, ctx, events);
     forestier(pop, state, prng, ctx, events);
     clearing(pop, state, prng, ctx, events);
+    outposts(pop, state, prng, ctx, events);
     invent(pop, state, prng, ctx, events);
     rumor(pop, state, prng, ctx, events);
     // Les talents se révèlent aussi chez les adultes qui ont beaucoup appris.

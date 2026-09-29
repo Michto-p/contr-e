@@ -2,6 +2,10 @@
 // Une zone de la simulation = un carré de ZONE_TILES × ZONE_TILES tuiles à l'écran.
 
 export const ZONE_TILES = 12;
+// Un avant-poste se dresse à l'écart du centre de sa zone (en tuiles depuis le coin de la zone) ; autour de
+// lui, les monstres n'apparaissent pas et l'on reprend des forces.
+export const OUTPOST_SPOT = [9, 5];
+export const OUTPOST_SAFE = 4.5; // tuiles
 export const SPEED = 5; // tuiles par seconde
 export const MOVE_STEP_MS = 50; // pas de simulation des déplacements côté serveur
 

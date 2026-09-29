@@ -63,17 +63,33 @@ export function updateAmbiance(amb, dt, me, t, state) {
   const W = amb.monde.largeur;
   for (const p of amb.villagers.values()) {
     // Un habitant parti en sortie marche jusqu'à la zone visée ; le soir, il rentre au village.
+    // Arrivé au travail, il s'affaire autour de son coin (champ, coupe, pâture).
     if (p.h.sortie >= 0) {
-      const tx = ((p.h.sortie % W) + 0.5) * ZONE_TILES + ((p.h.id % 5) - 2);
-      const ty = (Math.floor(p.h.sortie / W) + 0.5) * ZONE_TILES + ((p.h.id % 3) - 1);
-      const dx = tx - p.x;
-      const dy = ty - p.y;
+      const cx = ((p.h.sortie % W) + 0.5) * ZONE_TILES + ((p.h.id % 5) - 2);
+      const cy = (Math.floor(p.h.sortie / W) + 0.5) * ZONE_TILES + ((p.h.id % 3) - 1);
+      if (p.out !== p.h.sortie) { p.out = p.h.sortie; p.tx = 0; p.arrived = false; }
+      if (!p.arrived && Math.hypot(cx - p.x, cy - p.y) < 0.5) { p.arrived = true; p.wait = rand(500, 2500); }
+      let gx = cx;
+      let gy = cy;
+      let speed = 2.6;
+      if (p.arrived) {
+        if (p.wait > 0) { p.wait -= dt; continue; }
+        if (!p.tx) { p.tx = cx + rand(-3, 3); p.ty = cy + rand(-2.5, 2.5); }
+        gx = p.tx;
+        gy = p.ty;
+        speed = 1.1;
+      }
+      const dx = gx - p.x;
+      const dy = gy - p.y;
       const d = Math.hypot(dx, dy);
-      if (d > 0.3) { p.x += (dx / d) * 2.6 * s; p.y += (dy / d) * 2.6 * s; }
-      p.wait = 0;
-      p.tx = 0;
+      if (d > 0.2) {
+        p.x += (dx / d) * speed * s;
+        p.y += (dy / d) * speed * s;
+        p.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'droite' : 'gauche') : (dy > 0 ? 'bas' : 'haut');
+      } else if (p.arrived) { p.tx = 0; p.wait = rand(1500, 4000); }
       continue;
     }
+    if (p.out !== undefined) { p.out = undefined; p.tx = 0; p.wait = 0; }
     const outside = p.x < amb.village.x0 - 1 || p.x > amb.village.x1 + 1 || p.y < amb.village.y0 - 1 || p.y > amb.village.y1 + 1;
     if (outside && !p.tx) { p.tx = rand(amb.village.x0, amb.village.x1); p.ty = rand(amb.village.y0, amb.village.y1); p.wait = 0; }
     const speed = outside ? 2.6 : p.h.age < 8 ? 1.6 : p.h.age >= 62 ? 0.6 : 1.2; // les enfants courent, les anciens flânent
@@ -129,6 +145,23 @@ function px(ctx, color, x, y, w = 1, h = 1) {
   ctx.fillRect(x, y, w, h);
 }
 
+// L'outil de son métier : fourche, hache, houlette. Au travail sur place, il s'agite.
+function drawTool(ctx, metier, x, y, t) {
+  const swing = t ? (Math.sin(t / 180) > 0 ? -2 : 0) : 0;
+  if (metier === 'agriculteur') {
+    px(ctx, '#8a6a3a', x + 5, y - 8 + swing, 1, 11);
+    px(ctx, '#bfc4c9', x + 4, y - 10 + swing, 3, 1);
+    px(ctx, '#bfc4c9', x + 4, y - 12 + swing, 1, 2);
+    px(ctx, '#bfc4c9', x + 6, y - 12 + swing, 1, 2);
+  } else if (metier === 'bucheron_mineur') {
+    px(ctx, '#8a6a3a', x + 5, y - 7 + swing, 1, 9);
+    px(ctx, '#bfc4c9', x + 6, y - 7 + swing, 3, 3);
+  } else if (metier === 'eleveur') {
+    px(ctx, '#8a6a3a', x + 5, y - 10, 1, 13);
+    px(ctx, '#8a6a3a', x + 6, y - 11, 2, 1);
+  }
+}
+
 // Dessin au sol (avant les personnages) : villageois et lapins.
 export function drawAmbianceGround(ctx, amb, t) {
   for (const p of amb.villagers.values()) {
@@ -146,7 +179,20 @@ export function drawAmbianceGround(ctx, amb, t) {
     px(ctx, '#f1c8a0', x - 3 * k, y - 10 * k, 6 * k, 6 * k);
     px(ctx, elder ? '#d9d4ca' : age < 16 ? '#6b4a2b' : '#c9b27a', x - 4 * k, y - 11 * k, 8 * k, 2); // cheveux blancs, ou chapeau
     if (elder) px(ctx, '#6b4a2b', x + 5, y - 3, 1, 9); // canne
-    if (p.h.sortie >= 0 && p.h.traits.includes('audacieux')) { px(ctx, '#d9d4ca', x + 5, y - 9, 1, 8); px(ctx, '#6b4a2b', x + 4, y - 2, 3, 1); } // une épée
+    if (p.h.sortie >= 0 && p.h.motif === 'defense') { px(ctx, '#d9d4ca', x + 5, y - 9, 1, 8); px(ctx, '#6b4a2b', x + 4, y - 2, 3, 1); } // une épée
+    if (p.h.sortie >= 0 && p.h.motif === 'travail') drawTool(ctx, p.h.metier, x, y, p.wait > 0 ? t : 0);
+    if (p.arrived && p.h.motif === 'travail' && p.h.metier === 'eleveur') {
+      // Le troupeau paît autour de l'éleveur.
+      for (let k = 0; k < 3; k++) {
+        const sx = x + Math.cos(k * 2.1 + p.h.id) * 22;
+        const sy = p.y * TILE + Math.sin(k * 2.1 + p.h.id) * 14;
+        px(ctx, 'rgba(0,0,0,0.2)', sx - 5, sy + 4, 10, 2);
+        px(ctx, '#f2efe6', sx - 5, sy - 4, 10, 7);
+        px(ctx, '#3a2f28', sx + (k % 2 ? 4 : -7), sy - 3, 3, 3);
+        px(ctx, '#3a2f28', sx - 3, sy + 3, 1, 2);
+        px(ctx, '#3a2f28', sx + 2, sy + 3, 1, 2);
+      }
+    }
     if (p.h.blesse) { px(ctx, '#ffffff', x - 3 * k, y - 9 * k, 6 * k, 1); px(ctx, '#e5635c', x, y - 9 * k, 1, 1); } // un bandage
   }
   for (const r of amb.rabbits) {
