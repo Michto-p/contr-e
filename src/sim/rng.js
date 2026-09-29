@@ -13,5 +13,15 @@ export function createRng(seed) {
     int: (min, max) => min + Math.floor(next() * (max - min + 1)),
     chance: (p) => next() < p,
     pick: (arr) => arr[Math.floor(next() * arr.length)],
+    // Tirage pondéré : { a: 3, b: 1 } -> 'a' trois fois plus souvent que 'b'.
+    weighted: (table) => {
+      const entries = Object.entries(table);
+      let r = next() * entries.reduce((sum, [, w]) => sum + w, 0);
+      for (const [key, w] of entries) {
+        r -= w;
+        if (r < 0) return key;
+      }
+      return entries[entries.length - 1][0];
+    },
   };
 }

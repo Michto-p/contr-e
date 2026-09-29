@@ -4,6 +4,11 @@ import { createRng } from './rng.js';
 
 export const BIOMES = ['foret', 'plaine', 'colline', 'marais', 'montagne'];
 
+// Fréquence des biomes : la plaine est la plus courante, le marais et la montagne plus rares.
+export const BIOME_WEIGHTS = { plaine: 34, foret: 26, colline: 18, marais: 12, montagne: 10 };
+// Biomes repoussés loin du village (on ne fonde pas un village au bord d'un marais ou d'un col).
+const FAR_BIOMES = new Set(['marais', 'montagne']);
+
 // Ressources communes par biome (valeurs 0–100 = abondance).
 const BIOME_RESOURCES = {
   foret: ['bois', 'gibier'],
@@ -68,13 +73,22 @@ function contreeName(rng) {
   return rng.pick(SYLLABES_A) + rng.pick(SYLLABES_B);
 }
 
-// Carte de biomes par cellules de Voronoï : quelques germes, le biome dominant pèse lourd.
+// Carte de biomes par cellules de Voronoï. Le village est dans une plaine ; le biome dominant
+// revient plus souvent que les autres sans tout recouvrir.
 function biomeMap(rng, width, height, dominant) {
-  const seeds = [];
-  const n = 10;
+  const cx = Math.floor(width / 2);
+  const cy = Math.floor(height / 2);
+  const seeds = [{ x: cx, y: cy, biome: 'plaine' }];
+  const n = 16;
   for (let i = 0; i < n; i++) {
-    const biome = rng.chance(0.5) ? dominant : rng.pick(BIOMES);
-    seeds.push({ x: rng.int(0, width - 1), y: rng.int(0, height - 1), biome });
+    const biome = rng.chance(0.3) ? dominant : rng.weighted(BIOME_WEIGHTS);
+    let x = rng.int(0, width - 1);
+    let y = rng.int(0, height - 1);
+    for (let tries = 0; FAR_BIOMES.has(biome) && Math.max(Math.abs(x - cx), Math.abs(y - cy)) < 3 && tries < 10; tries++) {
+      x = rng.int(0, width - 1);
+      y = rng.int(0, height - 1);
+    }
+    seeds.push({ x, y, biome });
   }
   return (x, y) => {
     let best = seeds[0];
@@ -89,7 +103,7 @@ function biomeMap(rng, width, height, dominant) {
 
 export function createWorld(seed, { width = 12, height = 12 } = {}) {
   const rng = createRng(seed);
-  const dominant = rng.pick(BIOMES);
+  const dominant = rng.weighted(BIOME_WEIGHTS);
   const nbExclusives = rng.int(2, 3);
   const pool = [...EXCLUSIVE_RESOURCES];
   const exclusives = [];
@@ -139,6 +153,11 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
   }
   const village = zones.find((z) => z.isVillage);
 
+  // La signature annonce le biome réellement le plus présent (le tirage n'est qu'une tendance).
+  const counts = {};
+  for (const z of zones) if (!z.isVillage && !z.isField) counts[z.biome] = (counts[z.biome] ?? 0) + 1;
+  const mainBiome = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+
   // Ressources exclusives : cachées dans 1 à 2 zones éloignées.
   const far = zones.filter((z) => z.dist >= 3);
   for (const res of exclusives) {
@@ -180,7 +199,7 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
     day: 1,
     tick: 0,
     villageId: village.id,
-    signature: { biome: dominant, exclusives },
+    signature: { biome: mainBiome, exclusives },
     zones,
     village: {
       jobs,

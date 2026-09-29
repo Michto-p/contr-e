@@ -14,3 +14,10 @@ test('int reste dans les bornes', () => {
     assert.ok(v >= 0 && v <= 100);
   }
 });
+
+test('weighted respecte les poids', () => {
+  const r = createRng(3);
+  const n = { a: 0, b: 0 };
+  for (let i = 0; i < 4000; i++) n[r.weighted({ a: 3, b: 1 })] += 1;
+  assert.ok(n.a > n.b * 2.5 && n.a < n.b * 3.5, JSON.stringify(n));
+});
