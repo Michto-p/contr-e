@@ -44,9 +44,9 @@
 - Fait : dans le résumé « pendant votre absence », l'état du monde (saisons, récoltes, mine, monstres) passe avant les exploits des autres joueurs.
 
 ## GitHub Pages
-- Fait : `site/index.html` fait tourner la simulation directement dans le navigateur (le code de `src/` n'a aucune dépendance) avec les réglages graine, jours, scénario, `--since` et chiffres. Les paramètres sont repris dans l'URL, ce qui permet de partager une chronique. Le workflow `.github/workflows/pages.yml` lance `npm test` et la sim à chaque push, puis publie la page.
+- Fait : `index.html` (à la racine) fait tourner la simulation directement dans le navigateur (le code de `src/` n'a aucune dépendance) avec les réglages graine, jours, scénario, `--since` et chiffres. Les paramètres sont repris dans l'URL, ce qui permet de partager une chronique. Le workflow `.github/workflows/tests.yml` lance `npm test` et la sim à chaque push.
 - Décision : ce n'est pas un client de jeu (pas de rendu graphique, pas de réseau), juste une page pour lire la chronique ; elle reste donc dans le périmètre de l'étape 1. Elle a été demandée par le développeur.
-- À faire côté développeur : Settings > Pages > Source = « GitHub Actions ». Par défaut, l'environnement `github-pages` n'accepte que la branche par défaut : le déploiement réussira après la fusion dans `main` (ou en autorisant la branche dans Settings > Environments).
+- Constat : Pages était déjà activé en mode « Deploy from a branch » sur cette branche. La page est donc à la racine (avec `.nojekyll` pour que tout soit servi tel quel), et il n'y a pas de job de déploiement dans le workflow.
 
 ## Bilan de l'étape 1
 - Les 4 systèmes (nature, monstres, village, saisons), les agents et la chronique fonctionnent. `CHRONIQUE-EXEMPLE.md` contient la sortie de `npm run sim -- --days 7 --seed 42`. Arrêt ici, comme demandé : l'étape 2 n'est pas commencée.

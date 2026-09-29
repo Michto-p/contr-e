@@ -1,0 +1,18 @@
+# Tests à chaque push. La page (index.html à la racine) est publiée par GitHub Pages
+# en mode « Deploy from a branch », qui sert directement les fichiers du dépôt.
+name: Tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npm run sim -- --days 7 --seed 42
