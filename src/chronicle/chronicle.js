@@ -55,11 +55,11 @@ const PARTITIVE = {
 
 const labels = (events) => events.map((e) => e.data.label);
 
-// Liste de lieux raccourcie : au-delà de `max`, on résume.
+// Liste de lieux raccourcie : au-delà de `max`, on n'en cite que quelques-uns, précédés de « notamment ».
 function somePlaces(list, max = 3) {
   const uniq = [...new Set(list)];
   if (uniq.length <= max) return joinPlaces(uniq);
-  return `${joinPlaces(uniq.slice(0, max))}, entre autres`;
+  return `notamment ${joinPlaces(uniq.slice(0, max))}`;
 }
 
 const who = (evs) => joinFr(evs.flatMap((e) => e.data.who ?? []));
@@ -70,6 +70,9 @@ const dbg = (events, fields) => ` [${events.map((e) => fields.map((f) => `${f}=$
 
 const JOB_THE = {
   agriculteur: "l'agriculteur", boulanger: 'le boulanger', forgeron: 'le forgeron', bucheron_mineur: 'le bûcheron-mineur',
+};
+const JOB_TO = {
+  agriculteur: "à l'agriculteur", boulanger: 'au boulanger', forgeron: 'au forgeron', bucheron_mineur: 'au bûcheron-mineur',
 };
 const RANK = ['', 'apprenti', 'compagnon', 'artisan confirmé', 'maître', 'grand maître'];
 const deRank = (level) => (/^[aeiou]/.test(RANK[level]) ? `d'${RANK[level]}` : `de ${RANK[level]}`);
@@ -110,7 +113,42 @@ const SEASON_TEXT = {
   hiver: 'L\'hiver est là : la croissance s\'arrête presque et les monstres s\'engourdissent.',
 };
 
+const QUEST_DONE = {
+  patrouille: (e, w, pl) => `${w} ${pl ? 'ont gardé' : 'a gardé'} ${e.data.label} et chassé les bêtes qui les guettaient.`,
+  escorte: (e, w, pl) => `${w} ${pl ? 'ont escorté' : 'a escorté'} les mineurs jusqu'${e.data.label.startsWith('les ') ? 'aux ' + e.data.label.slice(4) : 'à ' + e.data.label}.`,
+  reparer: (e, w, pl) => `${w} ${pl ? 'ont remis' : 'a remis'} en état ${theStructure(e.data.structure)} ${deLabel(e.data.label)}.`,
+  aide: (e, w, pl) => `${w} ${pl ? 'ont prêté' : 'a prêté'} main-forte ${JOB_TO[e.data.job]}.`,
+};
+
 const RENDERERS = {
+  quest_done: {
+    key: (e) => (e.data.kind === 'patrouille' ? 'patrouille' : `${e.data.kind}|${e.data.label}|${e.data.job}`),
+    priority: (e) => (e.data.kind === 'aide' ? 4 : 6),
+    text: (evs) => {
+      if (evs[0].data.kind === 'patrouille') {
+        const pl = evs.length > 1;
+        return `${cap(joinPlaces(labels(evs)))} ${pl ? 'ont été gardés' : 'ont été gardés'} par ${who(evs)}, qui ${plural(evs) ? 'ont' : 'a'} aussi chassé les bêtes alentour.`;
+      }
+      return QUEST_DONE[evs[0].data.kind](evs[0], cap(who(evs)), plural(evs));
+    },
+  },
+  discovery: {
+    key: (e) => e.data.label,
+    priority: () => 7,
+    text: (evs) => `En explorant ${evs[0].data.label}, ${who(evs)} ${plural(evs) ? 'ont' : 'a'} découvert un gisement ${joinFr(evs[0].data.resources.map((r) => (PARTITIVE[r] ?? r).replace(/^(du|de la|des) /, 'de ').replace(/^de l'/, "d'")))}.`,
+  },
+  exploration: {
+    priority: () => 3,
+    text: (evs) => `${cap(joinFr(evs.map((e) => `${who([e])} a exploré ${e.data.label}`)))}, et en a rapporté du bois.`,
+  },
+  hunt: {
+    priority: () => 3,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'sont allés' : 'est allé'} chasser dans ${joinPlaces(labels(evs))}.`,
+  },
+  player_return: {
+    priority: () => 4,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'sont de retour' : 'est de retour'} après une longue absence.`,
+  },
   season_change: {
     priority: () => 10,
     text: (evs) => SEASON_TEXT[evs[0].data.season],
@@ -199,7 +237,7 @@ const RENDERERS = {
   overflow: {
     // Plus c'est proche du village, plus c'est grave.
     priority: (e) => (e.data.dist <= 2 ? 8 : 6),
-    text: (evs, debug) => `Les monstres pullulent dans ${somePlaces(labels(evs))} et débordent sur les terres voisines. ${FIX.groupe}${debug ? dbg(evs, ['pressure']) : ''}`,
+    text: (evs, debug) => `Les monstres pullulent ${somePlaces(labels(evs)).replace(/^(notamment )?/, '$1dans ')} et débordent sur les terres voisines. ${FIX.groupe}${debug ? dbg(evs, ['pressure']) : ''}`,
   },
   horde: {
     priority: (e) => (e.data.dist <= 3 ? 8 : 6),
@@ -273,9 +311,25 @@ function groupEvents(events) {
   return [...groups.values()];
 }
 
+// Une même action ne doit être racontée qu'une fois : le résultat d'un combat l'emporte sur
+// « est allé chasser / a exploré », et la garde d'un champ l'emporte sur le combat dans ce champ.
+const COMBAT = new Set(['zone_cleared', 'monsters_pushed', 'retreat']);
+function dedupe(events) {
+  const key = (e) => `${e.day}|${e.zone}`;
+  const fought = new Set(events.filter((e) => COMBAT.has(e.type)).map(key));
+  const guarded = new Set(events.filter((e) => e.type === 'quest_done' && e.zone != null).map(key));
+  const lostPaths = new Set(events.filter((e) => e.type === 'path_lost').map((e) => `${e.day}|${e.data.label}`));
+  return events.filter((e) => {
+    if (e.type === 'path_fading' && lostPaths.has(`${e.day}|${e.data.label}`)) return false;
+    if ((e.type === 'hunt' || e.type === 'exploration') && fought.has(key(e))) return false;
+    if (COMBAT.has(e.type) && e.type !== 'retreat' && guarded.has(key(e))) return false;
+    return true;
+  });
+}
+
 // Transforme les events d'une période en lignes triées par importance.
 export function linesFor(events, { debug = false, max = MAX_LINES } = {}) {
-  const lines = groupEvents(events.filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
+  const lines = groupEvents(dedupe(events).filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
     .map((g) => ({ ...renderGroup(g.type, g.events, debug), first: g.first }))
     .filter((l) => l.text)
     .sort((a, b) => b.priority - a.priority || a.first - b.first);

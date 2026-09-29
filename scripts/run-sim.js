@@ -7,6 +7,7 @@ import { createRng } from '../src/sim/rng.js';
 import { createWorld } from '../src/sim/world.js';
 import { simulate } from '../src/sim/tick.js';
 import { formatChronicle } from '../src/chronicle/chronicle.js';
+import { addPlayers, agentsAct } from '../src/sim/agents.js';
 
 function parseArgs(argv) {
   const opts = { days: 7, seed: 42, ticksPerDay: 24, agents: 'mixte', out: null, debug: false, since: null };
@@ -44,7 +45,15 @@ function main() {
 
   const world = createWorld(opts.seed);
   const rng = createRng(opts.seed);
-  const { state, events } = simulate(world, rng, { days: opts.days, ticksPerDay: opts.ticksPerDay });
+  try {
+    addPlayers(world, rng, opts.agents);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+  const { state, events } = simulate(world, rng, {
+    days: opts.days, ticksPerDay: opts.ticksPerDay, beforeTick: agentsAct,
+  });
 
   console.log(formatChronicle(events, { debug: opts.debug, since: opts.since, days: opts.days }));
 

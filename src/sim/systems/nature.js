@@ -38,11 +38,13 @@ export function nature(state, rng, ctx) {
     if (visited && z.pathWear >= PATH_THRESHOLD) z.vegetation = clamp(z.vegetation - 2);
 
     // Chemins : sans passage, l'usure diminue ; la végétation dense accélère l'effacement.
-    const before = pathState(z.pathWear);
+    // L'état précédent est mémorisé car les joueurs usent les chemins en dehors de ce système.
+    const before = z.pathState ?? pathState(z.pathWear);
     if (!visited && z.pathWear > 0) {
       z.pathWear = clamp(z.pathWear - (3 + (z.vegetation > 70 ? 2 : 0)));
     }
     const after = pathState(z.pathWear);
+    z.pathState = after;
     if (before !== after) {
       if (after === 'chemin') events.push(ctx.event('path_formed', z, { label: z.label }));
       else if (after === 'trace' && before === 'chemin') {

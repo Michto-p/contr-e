@@ -3,8 +3,8 @@
 // les outils retournent à l'agriculteur et au bûcheron-mineur.
 import { clamp, neighbors } from '../world.js';
 
-const HARVEST_THREAT = 55; // au-delà, un champ non protégé perd une partie de sa récolte
-const QUEST_THREAT = 45; // au-delà, le village demande une patrouille
+const HARVEST_THREAT = 50; // au-delà, un champ non protégé perd une partie de sa récolte
+const QUEST_THREAT = 40; // au-delà, le village demande une patrouille
 const NEGLECT_DAYS = 3; // jours de négligence avant de perdre un niveau
 const BREAD_KEEPS = 30; // le pain ne se garde pas : au-delà, il rassit
 const MAX_QUESTS = 4;
@@ -203,9 +203,9 @@ function evolve(state, ctx, ratio, hungry) {
       }
     }
 
-    // Reprise rapide : 1 jour d'aide pour regagner un niveau perdu, 2 pour un nouveau niveau.
+    // Reprise rapide : 1 jour d'aide pour regagner un niveau perdu ; un nouveau niveau en demande 3.
     if (helped && job.satisfaction >= 55) job.progress += 1;
-    const required = job.level < job.maxLevel ? 1 : 2;
+    const required = job.level < job.maxLevel ? 1 : 3;
     if (job.progress >= required && job.level < 5) {
       job.level += 1;
       job.progress = 0;
