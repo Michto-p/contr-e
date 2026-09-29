@@ -43,7 +43,7 @@ const theStructure = (t) => `${STRUCTURE_ARTICLE[t] ?? 'la'} ${t}`;
 // Comment réparer chaque perte : la chronique le dit toujours.
 const FIX = {
   emprunter: (n) => `Quelques allers-retours suffiraient à ${n > 1 ? 'les' : 'le'} retracer.`,
-  reparer: 'Du bois et une journée de travail suffiront à la remettre en état.',
+  reparer: 'Du bois et une journée de travail suffiront aux réparations.',
   groupe: 'Il faudra y retourner à plusieurs.',
   patrouiller: 'Une patrouille dans les champs protégera la prochaine récolte.',
 };
@@ -66,10 +66,112 @@ const who = (evs) => joinFr(evs.flatMap((e) => e.data.who ?? []));
 const plural = (evs) => new Set(evs.flatMap((e) => e.data.who ?? [])).size > 1;
 const dbg = (events, fields) => ` [${events.map((e) => fields.map((f) => `${f}=${e.data[f]}`).join(' ')).join(' ; ')}]`;
 
+// ---------- Village ----------
+
+const JOB_THE = {
+  agriculteur: "l'agriculteur", boulanger: 'le boulanger', forgeron: 'le forgeron', bucheron_mineur: 'le bûcheron-mineur',
+};
+const RANK = ['', 'apprenti', 'compagnon', 'artisan confirmé', 'maître', 'grand maître'];
+const deRank = (level) => (/^[aeiou]/.test(RANK[level]) ? `d'${RANK[level]}` : `de ${RANK[level]}`);
+const GOOD_DE = { ble: 'de blé', pain: 'de pain', outils: "d'outils", minerai: 'de minerai', charbon: 'de charbon', bois: 'de bois' };
+const NEEDS_FIX = {
+  ble: 'du blé en abondance', outils: 'des outils neufs', minerai: 'du minerai', charbon: 'du charbon',
+};
+const SHORTAGE_FIX = {
+  champs: 'Des champs bien gardés rendront du blé.',
+  forge: 'Le forgeron doit être approvisionné en minerai et en charbon.',
+  mine: 'Il faut remettre la mine en activité.',
+};
+function lossWord(pct) {
+  if (pct <= 27) return 'un quart';
+  if (pct <= 40) return 'un tiers';
+  return 'près de la moitié';
+}
+const CALM_VILLAGE = [
+  'Au village, tout tourne rondement : le four fume et l\'enclume sonne.',
+  'Journée ordinaire au village : on moud, on forge, on fend du bois.',
+  'Au village, les greniers tiennent et les outils ne manquent pas.',
+  'Le village vaque à ses affaires, sans inquiétude.',
+];
+const QUEST_TEXT = {
+  patrouille: (e) => `une patrouille dans ${e.data.label}`,
+  escorte: (e) => `une escorte pour les mineurs dans ${e.data.label}`,
+  reparer: (e) => `des bras pour réparer ${theStructure(e.data.structure)} ${deLabel(e.data.label)}`,
+  aide: (e) => `un coup de main pour ${JOB_THE[e.data.job]}`,
+};
+
 // ---------- Rendus par type d'event ----------
 // key : regroupe les events d'un même jour ; priority : importance (10 = majeur) ; text : phrase.
 
 const RENDERERS = {
+  harvest_loss: {
+    priority: () => 9,
+    text: (evs, debug) => {
+      const worst = Math.max(...evs.map((e) => e.data.lossPct));
+      const where = deLabel(joinPlaces(labels(evs)));
+      const how = evs.length === 1 ? lossWord(worst) : `jusqu'à ${lossWord(worst)}`;
+      return `Les nuisibles ont ravagé ${how} de la récolte ${where}. ${FIX.patrouiller}${debug ? dbg(evs, ['lossPct', 'threat']) : ''}`;
+    },
+  },
+  bread_shortage: {
+    priority: () => 8,
+    text: () => 'Le pain vient à manquer au village : les villageois se serrent la ceinture.',
+  },
+  shortage: {
+    key: (e) => e.data.job,
+    priority: () => 7,
+    text: (evs, debug) => `${cap(JOB_THE[evs[0].data.job])} manque ${GOOD_DE[evs[0].data.good]}. ${SHORTAGE_FIX[evs[0].data.fix]}${debug ? dbg(evs, ['got', 'need']) : ''}`,
+  },
+  shortage_end: {
+    key: (e) => e.data.job,
+    priority: () => 4,
+    text: (evs) => `${cap(JOB_THE[evs[0].data.job])} ne manque plus ${GOOD_DE[evs[0].data.good]}.`,
+  },
+  bread_back: {
+    priority: () => 5,
+    text: () => 'Le pain est revenu sur les tables du village.',
+  },
+  level_down: {
+    key: (e) => e.data.job,
+    priority: () => 9,
+    text: (evs) => {
+      const e = evs[0];
+      return `Faute de soutien, ${JOB_THE[e.data.job]} redescend au rang ${deRank(e.data.level)}. ${cap(joinFr(e.data.needs.map((n) => NEEDS_FIX[n] ?? n)))} et un peu d'aide lui rendront vite son rang.`;
+    },
+  },
+  level_up: {
+    key: (e) => e.data.job,
+    priority: (e) => (e.data.regained ? 7 : 8),
+    text: (evs) => {
+      const e = evs[0];
+      return e.data.regained
+        ? `${cap(JOB_THE[e.data.job])} a retrouvé son rang ${deRank(e.data.level)}.`
+        : `Grâce à l'aide reçue, ${JOB_THE[e.data.job]} devient ${RANK[e.data.level]}.`;
+    },
+  },
+  mine_unsafe: {
+    priority: () => 8,
+    text: (evs) => (evs[0].data.reason === 'monstres'
+      ? `Les mineurs n'osent plus s'aventurer dans ${evs[0].data.label} : les monstres y rôdent. Une escorte leur rendrait courage.`
+      : `La neige a fermé l'accès à la mine ${deLabel(evs[0].data.label)} ; le minerai se fera rare jusqu'au printemps.`),
+  },
+  mine_safe: {
+    priority: () => 5,
+    text: (evs) => `Les mineurs ont repris le chemin ${deLabel(evs[0].data.label)}.`,
+  },
+  quest_open: {
+    priority: () => 2,
+    text: (evs) => `Au village, on cherche ${joinFr(evs.map((e) => QUEST_TEXT[e.data.kind](e)))}.`,
+  },
+  village_status: {
+    priority: () => 1,
+    text: (evs) => {
+      const e = evs[0];
+      const worst = Object.entries(e.data.satisfaction).sort((a, b) => a[1] - b[1])[0];
+      if (worst[1] >= 60) return CALM_VILLAGE[e.day % CALM_VILLAGE.length];
+      return `Au village, ${JOB_THE[worst[0]]} fait grise mine.`;
+    },
+  },
   overflow: {
     // Plus c'est proche du village, plus c'est grave.
     priority: (e) => (e.data.dist <= 2 ? 8 : 6),
@@ -110,7 +212,7 @@ const RENDERERS = {
   },
   path_lost: {
     priority: () => 5,
-    text: (evs) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${deLabel(joinPlaces(labels(evs)))} ${evs.length > 1 ? 'ont disparu' : 'a disparu'} sous la végétation. Il faudra le rouvrir à pied.`,
+    text: (evs) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${deLabel(joinPlaces(labels(evs)))} ${evs.length > 1 ? 'ont disparu' : 'a disparu'} sous la végétation. Il faudra ${evs.length > 1 ? 'les' : 'le'} rouvrir à pied.`,
   },
   structure_decay: {
     key: (e) => `${e.data.level}`,

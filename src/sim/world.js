@@ -28,10 +28,10 @@ export const JOBS = ['agriculteur', 'boulanger', 'forgeron', 'bucheron_mineur'];
 
 // Stock de départ de chaque métier (ce qu'il produit et garde en réserve).
 const JOB_STOCK = {
-  agriculteur: { ble: 40 },
-  boulanger: { pain: 30 },
-  forgeron: { outils: 30 },
-  bucheron_mineur: { minerai: 25, charbon: 25, bois: 30 },
+  agriculteur: { ble: 15 },
+  boulanger: { pain: 20 },
+  forgeron: { outils: 15 },
+  bucheron_mineur: { minerai: 15, charbon: 15, bois: 20 },
 };
 
 export const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(v)));

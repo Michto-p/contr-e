@@ -6,7 +6,8 @@ import { simulate } from '../src/sim/tick.js';
 
 test('un chemin non emprunté finit par disparaître', () => {
   const w = createWorld(42);
-  const withPath = w.zones.filter((z) => z.pathWear > 0).map((z) => z.id);
+  // Les chemins des champs sont entretenus par les paysans.
+  const withPath = w.zones.filter((z) => z.pathWear > 0 && !z.isField).map((z) => z.id);
   const { state, events } = simulate(w, createRng(1), { days: 20 });
   for (const id of withPath) assert.equal(state.zones[id].pathWear, 0);
   assert.ok(events.some((e) => e.type === 'path_lost' && e.data.fix));

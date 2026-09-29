@@ -25,3 +25,8 @@
 - Fait : sans joueurs, chaque zone tend vers un plafond qui dépend de sa distance au village (et du biome). Une zone au-delà de 70 déborde vers une voisine plus proche du village ; au plus une horde par jour part d'une zone saturée. Le combat fait reculer la pression (×1,5 à plusieurs) ; seul face à une zone au-delà de 80, on bat en retraite (pilier coopération).
 - Problème repéré puis corrigé : la première version (croissance linéaire, débordement vers les 8 voisins) saturait toute la carte en 3 jours et noyait la chronique de hordes. Aujourd'hui, sans aucun joueur, la carte est envahie en 30 à 60 jours environ.
 - Décision : on ne signale les débordements qu'à 3 zones du village ou moins ; plus loin, l'infestation est normale.
+
+## systems/village.js
+- Fait : les chaînes blé → pain et minerai/charbon → outils → (agriculteur, mineur). Un champ menacé et non gardé perd 20 à 50 % de sa part de récolte. La mine devient dangereuse au-delà de 70 de pression. Les quêtes (patrouille, escorte, réparation, coup de main) sont générées chaque matin et expirent au bout de 3 jours. Déclin après 3 jours de négligence (jamais sous le niveau 1) ; reprise en 1 jour d'aide pour un niveau déjà atteint, 2 pour un nouveau.
+- Problème repéré puis corrigé : avec les premiers réglages, les stocks absorbaient tout et le village restait « rondement » même en perdant 40 % des récoltes. J'ai réduit les stocks de départ, rendu le pain périssable (30 au plus) et fait dépendre la satisfaction de la production réelle. Sans joueurs, les pénuries arrivent maintenant vers les jours 10 à 12.
+- Décision : une pénurie n'est annoncée qu'au début et à la fin, pas chaque jour.
