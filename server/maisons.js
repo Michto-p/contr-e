@@ -81,6 +81,12 @@ export function houseActionAt(room, p) {
   }
   const account = room.players[p.joueur];
   if (!account) return null;
+  // La porte d'un autre joueur : on frappe.
+  for (const [joueur, other] of Object.entries(room.players)) {
+    if (joueur === p.joueur || other.maison == null) continue;
+    const door = lotDoor(other.maison, geo);
+    if (door && Math.hypot(door[0] - p.x, door[1] - p.y) <= REACH) return { kind: 'frapper', lot: other.maison, hote: joueur, label: `frapper chez ${joueur}` };
+  }
   if (account.maison != null) {
     const door = lotDoor(account.maison, geo);
     if (door && Math.hypot(door[0] - p.x, door[1] - p.y) <= REACH) return { kind: 'entrer', label: 'entrer chez vous' };
@@ -186,9 +192,9 @@ const near = (p, [x, y], r = REACH) => Math.hypot(p.x - x, p.y - y) <= r;
 export function interiorActionAt(room, p) {
   const f = layoutOf(room, p.interieur).meubles;
   if (near(p, ROOM_FURNITURE.porte, 1.2)) return { kind: 'sortir', label: 'sortir' };
-  if (near(p, f.lit)) return { kind: 'dormir', label: 'dormir dans votre lit' };
   const home = room.players[p.joueur]?.maison === p.interieur;
-  if (!home) return null; // en visite : le coffre et le panier sont à l'hôte
+  if (!home) return null; // en visite : le lit, le coffre et le panier sont à l'hôte
+  if (near(p, f.lit)) return { kind: 'dormir', label: 'dormir dans votre lit' };
   if (near(p, f.coffre)) return { kind: 'coffre', label: 'ouvrir le coffre de votre maison' };
   if (near(p, f.panier)) {
     const next = { '': 'chien', chien: 'chat', chat: '' }[p.compagnon ?? ''];
@@ -251,6 +257,18 @@ export function furnish(room, p, m = {}, tell) {
   } else return undefined;
   syncInteriors(room);
   return undefined;
+}
+
+// Frapper chez quelqu'un : si l'un de ses personnages est chez lui, on entre (et il est prévenu).
+export function knock(room, p, lot, hote, tell) {
+  let host = null;
+  room.state.joueurs.forEach((q, sid) => { if (q.joueur === hote && q.interieur === lot) host = [sid, q]; });
+  if (!host) return tell(`Personne ne répond chez ${hote}.`);
+  p.interieur = lot;
+  [p.x, p.y] = [ROOM_FURNITURE.porte[0], ROOM_FURNITURE.porte[1] - 1.8];
+  p.dir = 'haut';
+  room.clients.find((c) => c.sessionId === host[0])?.send('info', `${p.nom} vous rend visite.`);
+  return tell(`${host[1].nom} vous ouvre : bienvenue chez ${hote} !`);
 }
 
 export function enterHouse(room, p) {

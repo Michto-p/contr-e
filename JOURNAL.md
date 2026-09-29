@@ -233,3 +233,7 @@
 
 ## Correctif : le butin certain redevient certain
 - Problème repéré : le plafond de 95 % ajouté avec le Flair s'appliquait aussi au cuir que la brute lâche toujours (100 %) ; un test échouait donc de temps en temps (et ce commit d'aménagement a été poussé malgré cet échec, par erreur). Corrigé : seul un butin incertain profite du Flair.
+
+## Rendre visite
+- Fait : devant la porte d'un autre joueur, E « frapper chez X » : si un de ses personnages est chez lui, on entre (il est prévenu), sinon « personne ne répond ». Le visiteur voit l'aménagement et les occupants ; le lit, le coffre et le panier restent à l'hôte.
+- Décision : pas de clé ni d'invitation pour l'instant, la présence de l'hôte suffit.

@@ -8,7 +8,7 @@ import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
-import { houseActionAt, buildHouse, spawnPoint, interiorActionAt, enterHouse, leaveHouse, geoOf, restoreStep } from './maisons.js';
+import { houseActionAt, buildHouse, spawnPoint, interiorActionAt, enterHouse, leaveHouse, geoOf, restoreStep, knock } from './maisons.js';
 import { ruinTile } from '../shared/monde.js';
 import { RUIN_DANGER } from '../src/sim/systems/population.js';
 import { lostNear, followPlayer } from './pnj.js';
@@ -793,6 +793,7 @@ export function playerInteract(room, sid, t = Date.now()) {
 
   if (a.kind === 'dormir') return sleep(room, p, sid, tell);
   if (a.kind === 'entrer') { enterHouse(room, p); return undefined; }
+  if (a.kind === 'frapper') return knock(room, p, a.lot, a.hote, tell);
   if (a.kind === 'sortir') { leaveHouse(room, p); return undefined; }
   if (a.kind === 'compagnon') return choosePet(room, p, a.next, tell);
   if (['recolter', 'miner', 'tondre', 'cuire', 'forger-outils'].includes(a.kind)) { addFatigue(room, p, 0.4); return doJob(room, p, a, tell); }

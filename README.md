@@ -82,7 +82,8 @@ le terrain, avec 4 cuir et 4 minerai rapportés des combats et 10 bois de la ré
 y réapparaît désormais, et l'on peut **y entrer** (E devant la porte) : une pièce avec un lit (dormir),
 le **coffre** qui garde vos affaires pour tous vos personnages, et un panier où adopter un
 **compagnon** (un chien, qui ajoute du flair, ou un chat, de la survie). Il vous suit partout.
-Chez soi, **🛠 Aménager** (touche **H**) : changer le sol (plancher, dalles, tomettes) et la couleur
+On peut **rendre visite** à un ami : E devant sa porte pour frapper ; s'il est chez lui, on entre
+(le coffre, le lit et le panier restent les siens). Chez soi, **🛠 Aménager** (touche **H**) : changer le sol (plancher, dalles, tomettes) et la couleur
 des murs, déplacer les meubles (on choisit, puis on clique où le poser) et fabriquer des décorations
 (plante, étagère, lanterne, grand tapis, tableau, trophée avec une ressource rare). L'équipement, lui, reste propre à chaque personnage.
 

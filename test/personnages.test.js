@@ -331,3 +331,34 @@ test('chez soi, on aménage : sol, murs, meubles déplacés, décorations fabriq
   assert.ok(await until(() => p.action === 'dormir dans votre lit'), p.action);
   await r.leave();
 });
+
+test('on frappe chez un ami : s\'il est chez lui, on entre ; sinon personne ne répond', async () => {
+  const { lotDoor } = await import('../shared/monde.js');
+  const { geoOf } = await import('../server/maisons.js');
+  const lot = room().players.Gus.maison;
+  const door = lotDoor(lot, geoOf(room()));
+  const v = await join({ joueur: 'Hana', nouveau: { prenom: 'Lou', metier: 'eleveur', classe: 'eclaireur' } });
+  assert.ok(await until(() => room().state.joueurs.get(v.sessionId)?.nom === 'Lou'));
+  const visitor = room().state.joueurs.get(v.sessionId);
+  const info = [];
+  v.onMessage('info', (t) => info.push(t));
+  [visitor.x, visitor.y] = door;
+  assert.ok(await until(() => visitor.action === 'frapper chez Gus'), visitor.action);
+  v.send('interagir');
+  assert.ok(await until(() => info.some((t) => /Personne ne répond/.test(t))), info.join(' / '));
+  // Gus rentre chez lui ; on frappe à nouveau.
+  const g = await join({ joueur: 'Gus', perso: 'Tobie' });
+  assert.ok(await until(() => room().state.joueurs.get(g.sessionId)?.nom === 'Tobie'));
+  const host = room().state.joueurs.get(g.sessionId);
+  host.interieur = lot;
+  await sleep(700);
+  v.send('interagir');
+  assert.ok(await until(() => visitor.interieur === lot), 'Lou est entré');
+  // En visite : pas le coffre de l'hôte.
+  const lay = JSON.parse(room().state.interieurs.get(String(lot)));
+  [visitor.x, visitor.y] = lay.meubles.coffre;
+  await sleep(400);
+  assert.notEqual(visitor.action, 'ouvrir le coffre de votre maison');
+  await v.leave();
+  await g.leave();
+});

@@ -470,7 +470,7 @@ function talkTo(h) {
 
 let lastInteractSent = 0;
 // Certaines actions passent avant la conversation : un habitant qui passe ne doit pas les voler.
-const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir|entrer chez vous|dormir|sortir|adopter|laisser votre compagnon|remettre en état)/;
+const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir|entrer chez vous|frapper chez|dormir|sortir|adopter|laisser votre compagnon|remettre en état)/;
 function talkTarget() {
   const me = game.room?.state.joueurs.get(game.room.sessionId);
   return me && PRIORITY_ACTION.test(me.action) ? null : game.nearVillager;
@@ -510,7 +510,9 @@ function renderHud() {
   const z = s.zones[zi];
   if (!info || !z) return;
   const home = s.joueurs.get(game.room.sessionId)?.interieur >= 0 || z.f; // chez soi ou dans un faubourg : à l'abri
-  const label = home && !z.f ? 'Chez vous' : z.f ? 'Le faubourg' : info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
+  const meNow = s.joueurs.get(game.room.sessionId);
+  const host = meNow?.interieur >= 0 && meNow.maison !== meNow.interieur ? s.maisons?.get(String(meNow.interieur)) : null;
+  const label = host ? `Chez ${host}` : home && !z.f ? 'Chez vous' : z.f ? 'Le faubourg' : info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
   $('ou').textContent = label;
   $('danger-mot').textContent = home || info.village ? 'Zone sûre' : `Monstres : ${PRESSION(z.p)}`;
   $('jauge').style.width = `${home || info.village ? 0 : z.p}%`;
