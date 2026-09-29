@@ -8,6 +8,7 @@ import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
+import { houseActionAt, buildHouse, spawnPoint } from './maisons.js';
 import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
 
@@ -414,10 +415,11 @@ function hurtPlayer(room, sid, p, amount, t) {
   }
 }
 
+// À bout de forces, on se relève devant sa maison, ou à l'auberge.
 function villageSpawn(room, p) {
-  const v = room.sim.zones[room.sim.villageId];
-  p.x = (v.x + 0.5) * ZONE_TILES + (room.play.rng.next() * 2 - 1);
-  p.y = (v.y + 0.5) * ZONE_TILES + 1.5;
+  const s = spawnPoint(room, p.joueur);
+  p.x = s.x + (room.play.rng.next() * 2 - 1) * 0.6;
+  p.y = s.y;
 }
 
 function updatePlayers(room, t) {
@@ -585,6 +587,10 @@ export function actionAt(room, p) {
   const zone = sim.zones[zoneOfPos(room, p.x, p.y)];
   const lost = room.pnj ? lostNear(room, p) : null;
   if (lost) return { kind: 'egare', zone, key: lost[0], label: `secourir ${lost[1].prenom}` };
+  if (zone.isVillage && room.players) {
+    const house = houseActionAt(room, p);
+    if (house) return { ...house, zone };
+  }
   const quests = sim.village.quests;
   const build = quests.find((q) => q.kind === 'construire' && q.zone === zone.id);
   if (build) return { kind: 'construire', zone, quest: build, label: `bâtir la tour de guet (${BUILD_WOOD} bois)` };
@@ -619,6 +625,9 @@ export function playerInteract(room, sid, t = Date.now()) {
   const stock = wood(room);
 
   if (a.kind === 'rare') return extractRare(room, sid, a.zone, a.rare);
+
+  if (a.kind === 'maison') return buildHouse(room, p, a.lot, tell);
+  if (a.kind === 'coffre') { client?.send('coffre', true); return undefined; }
 
   if (a.kind === 'egare') {
     const e = room.state.pnj.get(a.key);

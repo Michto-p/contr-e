@@ -8,6 +8,13 @@ export const ZONE_TILES = 16;
 // lui, les monstres n'apparaissent pas et l'on reprend des forces.
 export const OUTPOST_SPOT = [12, 6];
 export const OUTPOST_SAFE = 4.5; // tuiles
+
+// Au village (en tuiles depuis le coin de la zone) : l'auberge, où tout le monde commence, et les
+// terrains où les joueurs bâtissent leur maison.
+export const INN_SPOT = [10, 4]; // coin haut-gauche, 3 × 2 tuiles
+export const INN_DOOR = [11.5, 6.4];
+export const HOUSE_LOTS = [[4, 3], [7, 4], [14, 4], [3, 7], [11, 8], [5, 9], [14, 9], [8, 12], [6, 14], [12, 14]];
+export const houseDoor = (lot) => [HOUSE_LOTS[lot][0] + 0.5, HOUSE_LOTS[lot][1] + 1.3];
 export const SPEED = 5; // tuiles par seconde
 export const MOVE_STEP_MS = 50; // pas de simulation des déplacements côté serveur
 

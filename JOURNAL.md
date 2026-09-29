@@ -191,3 +191,7 @@
 - Fait : `shared/competences.js` (partagé serveur/client) : 4 classes (60 points) × 7 métiers (40 points) répartis sur 6 compétences, + 10 points libres choisis à la création, + un secret de classe pour 7 paires compatibles (ex. guerrier + garde : « Rempart du village »). Effets en jeu : dégâts, PV, vitesse (prédite aussi par le client), récupération, butin, bois par coupe, soin du pain ; au village, le bonus de métier dépend du savoir-faire.
 - Décision : le serveur recalcule et valide tout (10 points libres au plus) ; les personnages créés avant deviennent guerriers sans points libres. L'équipement reste propre à chaque personnage.
 - Problème repéré et corrigé : l'écran d'accueil ne défilait pas quand le formulaire dépassait la hauteur de l'écran.
+
+## L'auberge et les maisons des joueurs
+- Fait : `server/maisons.js`. On commence à l'auberge (dessinée au village) et on y revient à bout de forces ; E devant un des 10 terrains libres bâtit sa maison (4 cuir + 4 minerai du sac, 10 bois du village). La maison devient le point de départ et de relève, et son coffre (E devant la porte, dans le panneau du sac) est commun à tous les personnages du joueur. Les anciennes « maisons de X » données d'office deviennent de vraies maisons sur un terrain.
+- Décision : la maison appartient au joueur, l'équipement au personnage. Problème repéré et corrigé : un habitant qui passait « volait » la touche E (conversation) ; bâtir, ouvrir le coffre et secourir passent désormais avant.

@@ -199,6 +199,10 @@ const RENDERERS = {
     priority: () => 5,
     text: (evs) => `Personne n'est allé chercher ${evs[0].data.prenom} dans ${evs[0].data.label} : sa route l'a mené ailleurs. D'autres voyageurs passeront.`,
   },
+  house_player: {
+    priority: () => 6,
+    text: (evs) => `${cap(joinFr(evs.map((e) => e.data.who)))} ${evs.length > 1 ? 'ont bâti leur maison' : 'a bâti sa maison'} au village : fini les nuits à l'auberge.`,
+  },
   hero_arrives: {
     priority: () => 6,
     text: (evs) => evs.map((e) => (e.data.job === 'aventurier'

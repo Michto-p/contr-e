@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, HOUSE_LOTS } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
 import { drawSky } from './ciel.js';
 
@@ -137,6 +137,47 @@ function drawVillage(ctx, zx, zy) {
   ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#3f6f78';
   ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+  drawInn(ctx, INN_SPOT[0] * TILE, INN_SPOT[1] * TILE);
+}
+
+// L'auberge : une grande bâtisse à colombages, avec son enseigne (une chope).
+function drawInn(ctx, x, y) {
+  const w = 3 * TILE;
+  px(ctx, 'rgba(0,0,0,0.2)', x + 2, y + 2 * TILE - 2, w, 4);
+  px(ctx, '#efe2c4', x + 2, y + 10, w - 4, 2 * TILE - 12);
+  for (const dx of [2, 16, 30, w - 5]) px(ctx, '#6b4a2b', x + dx, y + 10, 2, 2 * TILE - 12); // colombages
+  px(ctx, '#6b4a2b', x + 2, y + 18, w - 4, 2);
+  ctx.fillStyle = '#7a3b2e';
+  ctx.beginPath(); ctx.moveTo(x - 2, y + 12); ctx.lineTo(x + w / 2, y - 6); ctx.lineTo(x + w + 2, y + 12); ctx.fill();
+  px(ctx, '#5a2b22', x - 2, y + 11, w + 4, 2);
+  px(ctx, '#4a3526', x + w / 2 - 4, y + 2 * TILE - 11, 8, 11); // porte
+  px(ctx, '#ffd98a', x + 7, y + 22, 5, 4); px(ctx, '#ffd98a', x + w - 12, y + 22, 5, 4); // fenêtres
+  px(ctx, '#6b4a2b', x + w - 2, y + 14, 6, 1); // enseigne
+  px(ctx, '#c9a66b', x + w + 1, y + 15, 6, 6);
+  px(ctx, '#f7f2e0', x + w + 2, y + 15, 4, 2);
+  px(ctx, '#c9a66b', x + w + 7, y + 17, 1, 3);
+}
+
+// Terrains du village : libres (clôture et piquet) ou bâtis (la maison d'un joueur).
+function roofOf(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return ['#3b6d8f', '#4f7d4a', '#7d4f8a', '#a4473a', '#b8863a', '#3a8f86'][h % 6];
+}
+function drawLots(ctx, zx, zy, maisons) {
+  HOUSE_LOTS.forEach(([tx, ty], i) => {
+    const x = (zx * ZONE_TILES + tx) * TILE;
+    const y = (zy * ZONE_TILES + ty) * TILE;
+    const owner = maisons?.get(String(i));
+    if (owner) {
+      drawHouse(ctx, x, y, roofOf(owner));
+      px(ctx, '#ffd84a', x + 13, y - 1, 1, 5); px(ctx, roofOf(owner), x + 14, y - 1, 3, 2); // fanion du propriétaire
+      return;
+    }
+    px(ctx, 'rgba(120, 90, 50, 0.35)', x + 1, y + 3, 14, 12);
+    for (let k = 0; k < 4; k++) { px(ctx, '#8a6a3a', x + 1 + k * 4, y + 2, 1, 3); px(ctx, '#8a6a3a', x + 1 + k * 4, y + 14, 1, 3); }
+    px(ctx, '#8a6a3a', x + 1, y + 3, 14, 1); px(ctx, '#8a6a3a', x + 1, y + 15, 14, 1);
+  });
 }
 
 function drawWater(ctx, gx, gy, ox, oy, terrain) {
@@ -641,6 +682,14 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     }
   }
 
+  // Terrains et maisons des joueurs au village.
+  {
+    const vz = monde.village;
+    const vx = vz % W;
+    const vy = Math.floor(vz / W);
+    if (vx >= zx0 && vx <= zx1 && vy >= zy0 && vy <= zy1) drawLots(ctx, vx, vy, state.maisons);
+  }
+
   // Zones de quête : un fanion au centre de la zone.
   for (const zi of questZones) {
     const zx = zi % W;
@@ -703,6 +752,21 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     ctx.fillStyle = p.moi ? '#ffe28a' : '#fdf6e3';
     ctx.fillText(p.nom, sx, sy);
   }
+  // Le nom du propriétaire au-dessus de chaque maison du village.
+  ctx.font = `${Math.max(9, Math.round(3.2 * scale))}px system-ui, sans-serif`;
+  state.maisons?.forEach((owner, lot) => {
+    const [tx, ty] = HOUSE_LOTS[Number(lot)] ?? [];
+    if (tx == null) return;
+    const vz = monde.village;
+    const sx = Math.round(width / 2 + ((vz % W) * ZONE_TILES + tx + 0.5 - cx) * unit);
+    const sy = Math.round(height / 2 + (Math.floor(vz / W) * ZONE_TILES + ty - cy) * unit - 2 * scale);
+    if (sx < -50 || sy < -20 || sx > width + 50 || sy > height + 20) return;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20, 16, 12, 0.8)';
+    ctx.strokeText(owner, sx, sy);
+    ctx.fillStyle = '#ffe9b0';
+    ctx.fillText(owner, sx, sy);
+  });
   // Prénom des gardes et des égarés, plus discret.
   ctx.font = `${Math.max(10, Math.round(3.6 * scale))}px system-ui, sans-serif`;
   for (const g of pnjs) {

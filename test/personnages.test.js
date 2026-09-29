@@ -130,3 +130,42 @@ test('à la création, la classe, les points libres et le secret sont appliqués
   await assert.rejects(join({ joueur: 'Bea', nouveau: { prenom: 'Triche', metier: 'garde', classe: 'guerrier', libres: { force: 50 } } }), /10 points libres/);
   await r.leave();
 });
+
+test('on commence à l\'auberge ; on bâtit sa maison, dont le coffre sert à tous ses personnages', async () => {
+  const { ZONE_TILES, INN_DOOR, houseDoor } = await import('../shared/monde.js');
+  const { HOUSE_COST, HOUSE_WOOD } = await import('../server/maisons.js');
+  const sim = room().sim;
+  const v = sim.zones[sim.villageId];
+  const r = await join({ joueur: 'Cleo', nouveau: { prenom: 'Iris', metier: 'forgeron', classe: 'gardien' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Iris'));
+  const p = room().state.joueurs.get(r.sessionId);
+  assert.ok(Math.hypot(p.x - (v.x * ZONE_TILES + INN_DOOR[0]), p.y - (v.y * ZONE_TILES + INN_DOOR[1])) < 1.5, 'à l\'auberge');
+  // Devant un terrain libre, avec de quoi bâtir.
+  const lot = 0;
+  const [dx, dy] = houseDoor(lot);
+  p.x = v.x * ZONE_TILES + dx;
+  p.y = v.y * ZONE_TILES + dy;
+  p.sac.set('cuir', HOUSE_COST.cuir + 1);
+  p.sac.set('minerai', HOUSE_COST.minerai);
+  sim.village.jobs.bucheron_mineur.stock.bois = HOUSE_WOOD + 5;
+  assert.ok(await until(() => p.action.startsWith('bâtir votre maison')), p.action);
+  r.send('interagir');
+  assert.ok(await until(() => room().players.Cleo.maison === lot), 'maison bâtie');
+  assert.equal(room().state.maisons.get('0'), 'Cleo');
+  assert.equal(p.sac.get('cuir'), 1);
+  assert.ok(room().world.events.some((e) => e.type === 'house_player' && e.data.who === 'Cleo'));
+  // Le coffre : on dépose le cuir restant.
+  assert.ok(await until(() => p.action === 'ouvrir le coffre de votre maison'), p.action);
+  r.send('coffre', { sens: 'deposer', objet: 'cuir' });
+  assert.ok(await until(() => p.coffre.get('cuir') === 1 && !p.sac.has('cuir')), 'déposé');
+  await r.leave();
+  // Un autre personnage de Cléo arrive devant la maison et retrouve le coffre.
+  const r2 = await join({ joueur: 'Cleo', nouveau: { prenom: 'Soren', metier: 'garde' } });
+  assert.ok(await until(() => room().state.joueurs.get(r2.sessionId)?.nom === 'Soren'));
+  const q = room().state.joueurs.get(r2.sessionId);
+  assert.ok(Math.hypot(q.x - (v.x * ZONE_TILES + dx), q.y - (v.y * ZONE_TILES + dy)) < 1.5, 'devant sa maison');
+  assert.equal(q.coffre.get('cuir'), 1);
+  r2.send('coffre', { sens: 'retirer', objet: 'cuir' });
+  assert.ok(await until(() => q.sac.get('cuir') === 1 && !q.coffre.has('cuir')), 'repris');
+  await r2.leave();
+});

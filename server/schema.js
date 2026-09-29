@@ -31,6 +31,8 @@ export const Joueur = schema({
   talisman: t.uint8(), // 0 ou 1 (+4 PV), forgé d'après un plan inventé au village
   roulade: t.uint16(), // compteur : chaque roulade l'incrémente
   sac: t.map('uint16'), // objet -> quantité (minerai, cuir, ressources rares)
+  maison: t.int8(), // terrain de la maison du joueur (-1 : il dort à l'auberge)
+  coffre: t.map('uint16'), // le coffre de sa maison, commun à ses personnages
 }, 'Joueur');
 
 export const Habitant = schema({
@@ -132,6 +134,7 @@ export const EtatContree = schema({
   monstres: t.map(Monstre),
   butins: t.map(Butin),
   projectiles: t.map(Projectile),
+  maisons: t.map('string'), // terrain -> joueur qui y a bâti sa maison
   pnj: t.map(Pnj),
   zones: t.array(Zone),
   metiers: t.map(Metier),

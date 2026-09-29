@@ -90,6 +90,10 @@ async function connect(options) {
     renderTrees($('arbre-contenu'), buildTrees(people));
   });
   room.onMessage('info', (text) => info(text));
+  // E devant chez soi : le sac s'ouvre avec le coffre de la maison.
+  room.onMessage('coffre', () => {
+    if (!$('sac').classList.contains('ouvert')) toggleBag();
+  });
   room.onLeave(() => {
     toast('Connexion perdue avec la contrée. Rechargez la page pour revenir.');
   });
@@ -443,10 +447,18 @@ function talkTo(h) {
 }
 
 let lastInteractSent = 0;
+// Certaines actions passent avant la conversation : un habitant qui passe ne doit pas les voler.
+const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir)/;
+function talkTarget() {
+  const me = game.room?.state.joueurs.get(game.room.sessionId);
+  return me && PRIORITY_ACTION.test(me.action) ? null : game.nearVillager;
+}
+
 function interact() {
   if (!game.room) return;
   // Près d'un habitant, E sert à lui parler.
-  if (game.nearVillager) { talkTo(game.nearVillager); return; }
+  const near = talkTarget();
+  if (near) { talkTo(near); return; }
   const now = performance.now();
   if (now - lastInteractSent < 300) return;
   lastInteractSent = now;
@@ -498,7 +510,7 @@ function renderHud() {
     coeurs.setAttribute('aria-label', `${me.pv} points de vie sur ${me.pvMax}`);
     const action = $('action');
     const near = game.nearVillager;
-    const label = near ? `parler à ${near.prenom}` : me.action;
+    const label = near && talkTarget() ? `parler à ${near.prenom}` : me.action;
     action.hidden = !label;
     if (label && action.dataset.label !== label) {
       action.dataset.label = label;
@@ -626,7 +638,10 @@ function renderBag() {
     + SKILL_KEYS.map((k) => `${COMPETENCES[k].nom} ${me[k]}`).join(' · ');
   const box = $('objets');
   const items = [...me.sac.entries()].filter(([, n]) => n > 0);
-  const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}${me.talisman}|${room.state.outils}|${inVillage(me)}|${room.state.plans?.length}`;
+  // Devant sa maison, le coffre est ouvert : on peut y déposer ou y reprendre ses affaires.
+  const atHome = me.action === 'ouvrir le coffre de votre maison';
+  const chest = [...(me.coffre?.entries() ?? [])].filter(([, n]) => n > 0);
+  const key = items.map(([k, n]) => `${k}${n}`).join('|') + `|${me.epee}${me.armure}${me.bottes}${me.talisman}|${room.state.outils}|${inVillage(me)}|${room.state.plans?.length}|${atHome}|${chest.map(([k, n]) => `${k}${n}`).join(',')}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.replaceChildren();
@@ -646,7 +661,31 @@ function renderBag() {
       give.addEventListener('click', () => room.send('offrir', { rare: item }));
       el.appendChild(give);
     }
+    if (atHome) {
+      const put = document.createElement('button');
+      put.type = 'button';
+      put.className = 'offrir';
+      put.textContent = 'Déposer';
+      put.addEventListener('click', () => room.send('coffre', { sens: 'deposer', objet: item }));
+      el.appendChild(put);
+    }
     box.appendChild(el);
+  }
+  $('coffre-section').hidden = !atHome;
+  const cbox = $('coffre-objets');
+  cbox.replaceChildren();
+  if (atHome && !chest.length) cbox.textContent = 'Le coffre est vide.';
+  for (const [item, n] of atHome ? chest : []) {
+    const el = document.createElement('span');
+    el.className = 'objet';
+    el.textContent = `${item} × ${n}`;
+    const take = document.createElement('button');
+    take.type = 'button';
+    take.className = 'offrir';
+    take.textContent = 'Prendre';
+    take.addEventListener('click', () => room.send('coffre', { sens: 'retirer', objet: item }));
+    el.appendChild(take);
+    cbox.appendChild(el);
   }
   const here = inVillage(me);
   $('forge-note').textContent = here

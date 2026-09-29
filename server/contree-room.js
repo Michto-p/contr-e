@@ -9,6 +9,7 @@ import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndex
 import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor } from '../shared/competences.js';
+import { initHouses, spawnPoint, refreshChests, chestMove } from './maisons.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -66,6 +67,7 @@ export function makeContreeRoom(config) {
 
       this.setState(new EtatContree());
       for (let i = 0; i < this.sim.zones.length; i++) this.state.zones.push(new Zone());
+      initHouses(this);
       this.syncState();
 
       this.onMessage('deplacement', (client, m) => {
@@ -85,6 +87,10 @@ export function makeContreeRoom(config) {
         })));
       });
       this.onMessage('offrir', (client, m) => { playerOffer(this, client.sessionId, String(m?.rare ?? '')); this.syncVillage(); });
+      this.onMessage('coffre', (client, m) => {
+        const p = this.state.joueurs.get(client.sessionId);
+        if (p) chestMove(this, p, m, (text) => client.send('info', text));
+      });
       this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
       this.onMessage('roulade', (client) => {
         const p = this.state.joueurs.get(client.sessionId);
@@ -311,8 +317,11 @@ export function makeContreeRoom(config) {
       const p = new Joueur();
       p.nom = name;
       p.joueur = joueur;
-      p.x = (v.x + 0.5) * ZONE_TILES + (this.clients.length % 3) - 1;
-      p.y = (v.y + 0.5) * ZONE_TILES + 1.5;
+      // On arrive devant sa maison, ou à l'auberge tant qu'on n'en a pas.
+      const spawn = spawnPoint(this, joueur);
+      p.x = spawn.x + ((this.clients.length % 3) - 1) * 0.6;
+      p.y = spawn.y;
+      p.maison = -1;
       p.dir = 'bas';
       p.bouge = false;
       p.attaque = 0;
@@ -336,8 +345,6 @@ export function makeContreeRoom(config) {
       client.send('chronique', recent);
 
       if (firstVisit) {
-        // Première venue du joueur : une maison au village, protégée.
-        if (!v.structures.some((st) => st.type === `maison de ${joueur}`)) v.structures.push({ type: `maison de ${joueur}`, condition: 100, protected: true });
         client.send('bienvenue', { nom: name, contree: this.sim.name });
       } else if (account.lastDay < this.sim.day) {
         client.send('absence', {
@@ -349,6 +356,7 @@ export function makeContreeRoom(config) {
       account.lastDay = this.sim.day;
       entry.lastDay = this.sim.day;
       startPlaying(this, name, now());
+      refreshChests(this, joueur);
       this.syncVillage();
       log(`${joueur} arrive avec ${name} (${this.clients.length} connecté·e·s).`);
     }
