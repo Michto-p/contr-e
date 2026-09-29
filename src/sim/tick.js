@@ -26,6 +26,9 @@ export function tick(state, rng, { ticksPerDay = 24 } = {}) {
   const next = structuredClone(state);
   const ctx = makeCtx(next, ticksPerDay);
   const events = [];
+  if (next.tick === 0) {
+    events.push(ctx.event('contree', null, { name: next.name, ...next.signature }));
+  }
   for (const system of SYSTEMS) events.push(...system(next, rng, ctx));
 
   next.tick += 1;

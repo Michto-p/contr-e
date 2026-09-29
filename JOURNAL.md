@@ -16,3 +16,7 @@
 ## scripts/run-sim.js
 - Fait : CLI avec `--days`, `--seed`, `--ticks-per-day`, `--agents`, `--out` (sauvegarde JSON de l'état et des events), `--debug`, `--since`. Pour l'instant, la sortie liste les events bruts par jour.
 - Problème repéré : les chemins des champs s'effacent aussi, alors que les paysans y passent tous les jours. Ce sera corrigé dans le système village.
+
+## chronicle/chronicle.js
+- Fait : chaque type d'event a un rendu (priorité + phrase). Les events semblables d'un même jour sont regroupés (« les champs du Nord, de l'Est et du Sud »), triés par importance, 8 lignes au plus. `--debug` ajoute les chiffres entre crochets, `--since` produit un résumé « pendant votre absence ».
+- Décision : l'en-tête (nom de la contrée, signature) vient d'un event `contree` émis au tout premier tick, pour que la chronique ne lise que des events.

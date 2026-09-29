@@ -6,6 +6,7 @@ import { dirname } from 'node:path';
 import { createRng } from '../src/sim/rng.js';
 import { createWorld } from '../src/sim/world.js';
 import { simulate } from '../src/sim/tick.js';
+import { formatChronicle } from '../src/chronicle/chronicle.js';
 
 function parseArgs(argv) {
   const opts = { days: 7, seed: 42, ticksPerDay: 24, agents: 'mixte', out: null, debug: false, since: null };
@@ -45,11 +46,7 @@ function main() {
   const rng = createRng(opts.seed);
   const { state, events } = simulate(world, rng, { days: opts.days, ticksPerDay: opts.ticksPerDay });
 
-  for (let d = 1; d <= opts.days; d++) {
-    const dayEvents = events.filter((e) => e.day === d);
-    console.log(`Jour ${d} : ${dayEvents.length} événements`);
-    for (const e of dayEvents) console.log(`  ${e.type} ${JSON.stringify(e.data)}`);
-  }
+  console.log(formatChronicle(events, { debug: opts.debug, since: opts.since, days: opts.days }));
 
   if (opts.out) {
     mkdirSync(dirname(opts.out), { recursive: true });
