@@ -1,7 +1,7 @@
 // Vie d'ambiance, calculée par chaque navigateur (elle ne pèse pas sur le jeu) :
 // des villageois qui vont et viennent, des lapins qui détalent, des oiseaux au-dessus des bois.
 import { ZONE_TILES } from './shared/monde.js';
-import { TILE } from './render.js';
+import { TILE, VILLAGE_HOUSES } from './render.js';
 
 const FAMILLE_COULEURS = ['#8f5a3a', '#3b6d8f', '#7d4f8a', '#4f7d4a', '#a4473a', '#b8863a', '#3a8f86', '#6a6a8f'];
 
@@ -51,6 +51,7 @@ export function nearestVillager(amb, me, max = 1.5) {
   let best = null;
   let bestD = max;
   for (const v of amb.villagers.values()) {
+    if (v.home) continue;
     const d = Math.hypot(v.x - me.x, v.y - me.y);
     if (d < bestD) { bestD = d; best = v.h; }
   }
@@ -62,7 +63,24 @@ export function updateAmbiance(amb, dt, me, t, state) {
   syncVillagers(amb, state);
   // Villageois : marchent d'un point à l'autre de la place, s'arrêtent, repartent.
   const W = amb.monde.largeur;
+  // La nuit, chacun rentre chez soi (sauf ceux qui ne sont pas encore revenus de sortie) ; au matin, on ressort.
+  const night = state.heure >= 21 || state.heure < 6;
   for (const p of amb.villagers.values()) {
+    if (night && p.h.sortie < 0) {
+      const [hx, hy] = VILLAGE_HOUSES[p.h.id % VILLAGE_HOUSES.length];
+      const dx = amb.village.x0 - 1 + hx + 0.5 - p.x;
+      const dy = amb.village.y0 - 1 + hy + 0.9 - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 0.3) { p.home = true; continue; }
+      p.home = false;
+      p.x += (dx / d) * 2 * s;
+      p.y += (dy / d) * 2 * s;
+      p.wait = 0;
+      p.tx = 0;
+      p.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'droite' : 'gauche') : (dy > 0 ? 'bas' : 'haut');
+      continue;
+    }
+    p.home = false;
     // Un habitant parti en sortie marche jusqu'à la zone visée ; le soir, il rentre au village.
     // Arrivé au travail, il s'affaire autour de son coin (champ, coupe, pâture).
     if (p.h.sortie >= 0) {
@@ -166,6 +184,7 @@ function drawTool(ctx, metier, x, y, t) {
 // Dessin au sol (avant les personnages) : villageois et lapins.
 export function drawAmbianceGround(ctx, amb, t) {
   for (const p of amb.villagers.values()) {
+    if (p.home) continue;
     const x = p.x * TILE;
     const walking = p.wait <= 0;
     const y = p.y * TILE - (walking ? Math.abs(Math.sin(t / 110 + p.x)) : 0);

@@ -161,3 +161,7 @@
 ## Terrain procédural (2D)
 - Fait : `client/terrain.js` dessine le paysage tuile par tuile à partir de la graine (envoyée dans le message `monde`) : lisières naturelles entre biomes (bruit qui déforme les bords des zones, sauf village et champs), collines et montagnes en terrasses avec falaises, deux ruisseaux qui serpentent loin du village, clairières dans les bois et bosquets dans les prés, nuances de couleur à grande échelle.
 - Décision : le terrain ne sert qu'au dessin (la simulation reste par zones) ; les ruisseaux se passent à gué. Les images de zones sont dessinées à la demande et seules les 64 plus récentes sont gardées (la grande carte en compte 256).
+
+## Nuit, lumières et météo
+- Fait : `client/ciel.js` assombrit l'écran selon l'heure du monde (aube et crépuscule dorés), perce la nuit avec des lumières (lanterne des joueurs, torches des gardes, fenêtres et place du village, feux des avant-postes) et affiche la météo de la simulation : averses, pluie, orage avec éclairs, neige, brume, vent, gel, chaleur. La nuit, les habitants rentrent chez eux.
+- Décision : tout est calculé par le navigateur (rien de plus à synchroniser) ; la nuit ne change pas les règles du jeu pour l'instant.

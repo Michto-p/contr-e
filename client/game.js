@@ -2,6 +2,7 @@
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
+import { createSky } from './ciel.js';
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
 import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
 import { talk } from './dialogues.js';
@@ -23,6 +24,7 @@ const game = {
   me: { x: 0, y: 0 }, // position prédite du joueur local
   others: new Map(), // sessionId -> position affichée (interpolée)
   pnj: new Map(), // gardes et égarés : position affichée
+  sky: createSky(), // nuit, lumières et météo
   monsters: new Map(), // id -> position affichée et instants des coups
   input: { x: 0, y: 0 },
   sentInput: { x: 0, y: 0 },
@@ -618,7 +620,7 @@ function frame(t) {
     game.nearVillager = nearestVillager(game.ambiance, game.me);
   }
   drawWorld(ctx, {
-    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, pnjs, questZones,
+    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, pnjs, questZones, sky: game.sky, dt,
     under: game.ambiance ? (c) => drawAmbianceGround(c, game.ambiance, t) : null,
     over: game.ambiance ? (c) => drawAmbianceSky(c, game.ambiance, t) : null,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,

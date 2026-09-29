@@ -78,7 +78,8 @@ server/
   pnj.js              habitants sur la carte : gardes en patrouille qui combattent, voyageur égaré à ramener
   persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
-client/               index.html, game.js (réseau, entrées, interface), render.js (dessin)
+client/               index.html, game.js (réseau, entrées, interface), render.js (dessin),
+                      terrain.js (paysage procédural), ciel.js (nuit, lumières, météo), ambiance.js
 shared/monde.js       géométrie commune serveur/client (tuiles par zone, vitesse)
 shared/genealogie.js  arbre des familles (jeu et page de simulation)
 test/

@@ -2,6 +2,7 @@
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
 import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
+import { drawSky } from './ciel.js';
 
 export const TILE = 16;
 const ZONE_PX = ZONE_TILES * TILE;
@@ -113,6 +114,9 @@ function drawHouse(ctx, x, y, roof) {
   px(ctx, '#8fc3e8', x + 11, y + 9, 2, 2);
 }
 
+// Maisons du village (en tuiles depuis le coin de la zone) : leurs fenêtres s'allument la nuit.
+export const VILLAGE_HOUSES = [[2, 1], [6, 1], [10, 1], [13, 2], [1, 5], [13, 6], [1, 10], [5, 12], [10, 12], [13, 11], [3, 14]];
+
 function drawVillage(ctx, zx, zy) {
   for (let ty = 0; ty < ZONE_TILES; ty++) {
     for (let tx = 0; tx < ZONE_TILES; tx++) {
@@ -125,7 +129,7 @@ function drawVillage(ctx, zx, zy) {
   }
   // Maisons autour d'une place et d'un puits.
   const roofs = ['#b5523b', '#8f5a3a', '#a4473a', '#7d6a4a'];
-  const spots = [[2, 1], [6, 1], [10, 1], [13, 2], [1, 5], [13, 6], [1, 10], [5, 12], [10, 12], [13, 11], [3, 14]];
+  const spots = VILLAGE_HOUSES;
   spots.forEach(([tx, ty], i) => drawHouse(ctx, tx * TILE, ty * TILE, roofs[(i + zx + zy) % roofs.length]));
   const cx = (ZONE_TILES / 2) * TILE;
   const cy = (ZONE_TILES / 2) * TILE;
@@ -522,7 +526,7 @@ export function drawPnj(ctx, g, t, hitAge, lungeAge) {
 }
 
 // Dessine le monde vu par la caméra. `view` : { cx, cy, scale } en tuiles / pixels écran.
-export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], pnjs = [], questZones = new Set(), under = null, over = null, view, t, width, height }) {
+export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], pnjs = [], questZones = new Set(), under = null, over = null, sky = null, dt = 16, view, t, width, height }) {
   const { cx, cy, scale } = view;
   const W = monde.largeur;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -607,6 +611,29 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
   for (const a of actors) a.draw();
   state.projectiles?.forEach((pr) => drawProjectile(ctx, pr, t));
   if (over) over(ctx);
+
+  // Ciel : nuit, lumières, pluie, neige… Les lumières sont passées en pixels écran.
+  if (sky) {
+    const toScreen = (x, y, r, warm) => ({ x: width / 2 + (x - cx) * unit, y: height / 2 + (y - cy) * unit, r: r * unit, warm });
+    const lights = [];
+    for (const p of players) if (!p.aTerre) lights.push(toScreen(p.dx, p.dy - 0.3, 4.5, false));
+    for (const g of pnjs) if (g.sorte === 'garde') lights.push(toScreen(g.dx, g.dy - 0.5, 3.5, true));
+    for (let zy = zy0; zy <= zy1; zy++) {
+      for (let zx = zx0; zx <= zx1; zx++) {
+        const i = zy * W + zx;
+        if (monde.zones[i].village) {
+          for (const [hx, hy] of VILLAGE_HOUSES) lights.push(toScreen(zx * ZONE_TILES + hx + 0.5, zy * ZONE_TILES + hy + 0.6, 2.4, true));
+          lights.push(toScreen((zx + 0.5) * ZONE_TILES, (zy + 0.5) * ZONE_TILES, 5, true)); // la place
+        }
+        const s = state.zones[i]?.s ?? '';
+        const camp = s.split(';').find((part) => part.startsWith('avant-poste|'));
+        if (camp && Number(camp.split('|')[1]) >= 25 && camp.split('|')[2] !== '1') {
+          lights.push(toScreen(zx * ZONE_TILES + OUTPOST_SPOT[0] + 1.1, zy * ZONE_TILES + OUTPOST_SPOT[1] + 0.5, 5.5, true));
+        }
+      }
+    }
+    drawSky(ctx, sky, { width, height, heure: state.heure, meteo: state.meteo, saison: state.saison, lights, dt, t });
+  }
   const sorted = [...players].sort((a, b) => a.dy - b.dy);
 
   // Noms en coordonnées écran (texte net).

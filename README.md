@@ -90,6 +90,12 @@ Réglages du serveur (variables d'environnement) :
 - Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ frapper, ✋ agir,
   🌀 rouler, 🍞 manger, 🎒 sac.
 
+Le paysage est dessiné à partir de la graine de la contrée : lisières naturelles entre les
+biomes, collines et montagnes en terrasses, ruisseaux (qui se passent à gué), clairières. Le soir,
+la nuit tombe : les fenêtres du village et les feux des avant-postes s'allument, les habitants
+rentrent chez eux, chacun porte sa lanterne. La météo du monde se voit : averses, orages, neige,
+brume, vent.
+
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
 les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent
 le métier familial avec parfois un talent (forestier qui replante et ouvre des passages, agronome
