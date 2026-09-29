@@ -3,6 +3,7 @@
 // puis se recale en douceur sur la position envoyée par le serveur.
 import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
 import { createSky } from './ciel.js';
+import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
 import { buildZoneCanvases, drawWorld, drawMinimap, rareColor } from './render.js';
 import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
 import { talk } from './dialogues.js';
@@ -75,7 +76,12 @@ async function connect(nom) {
   room.onMessage('absence', (m) => {
     showMessage(`Pendant votre absence (jours ${m.depuis} à ${m.jusqua})`, m.lignes, '');
   });
-  room.onMessage('annonce', (text) => toast(text));
+  room.onMessage('annonce', (text) => {
+    toast(text);
+    if (/horde .*marche sur le village/.test(text)) play('cor');
+    else if (/repoussé la horde/.test(text)) play('succes');
+    else if (/jour se lève/.test(text)) play('cloche');
+  });
   room.onMessage('genealogie', (people) => {
     renderTrees($('arbre-contenu'), buildTrees(people));
   });
@@ -144,6 +150,8 @@ const KEYMAP = {
 
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || !game.room) return;
+  unlockAudio();
+  if (e.code === 'KeyM') info(toggleMute() ? 'Son coupé (M pour le remettre)' : 'Son activé');
   if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
   if (e.code === 'Space' || e.code === 'KeyJ') { attack(); e.preventDefault(); }
   if (e.code === 'KeyE' || e.code === 'KeyK') { interact(); e.preventDefault(); }
@@ -159,6 +167,7 @@ window.addEventListener('blur', () => keys.clear());
 
 // Tactile / souris : maintenir le doigt sur l'écran fait marcher dans cette direction.
 let pointer = null;
+window.addEventListener('pointerdown', () => { if (game.room) unlockAudio(); });
 canvas.addEventListener('pointerdown', (e) => { pointer = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
 canvas.addEventListener('pointermove', (e) => { if (pointer) pointer = { x: e.clientX, y: e.clientY }; });
 const stopPointer = () => { pointer = null; };
@@ -196,6 +205,7 @@ function attack() {
   if (now - lastAttackSent < 400) return;
   lastAttackSent = now;
   game.room.send('attaque');
+  play('epee');
 }
 
 // Roulade : prédite localement pour qu'elle parte sans délai, le serveur fait de même.
@@ -213,6 +223,7 @@ function dash() {
   const [fx, fy] = FACE[game.facing ?? me.dir] ?? [0, 1];
   game.dash = { until: now + DASH_MS, dir: input.x || input.y ? input : { x: fx, y: fy } };
   room.send('roulade');
+  play('roulade');
 }
 
 let lastEat = 0;
@@ -222,6 +233,8 @@ function eat() {
   if (now - lastEat < 500) return;
   lastEat = now;
   game.room.send('manger');
+  const me = game.room.state.joueurs.get(game.room.sessionId);
+  if (me && me.pv < me.pvMax && game.room.state.pain > 0) play('manger');
 }
 
 function talkTo(h) {
@@ -562,6 +575,12 @@ function frame(t) {
     const ey = mine.y - game.me.y;
     if (mine.aTerre || Math.hypot(ex, ey) > 2) game.me = { x: mine.x, y: mine.y };
     else { game.me.x += ex * 0.1; game.me.y += ey * 0.1; }
+    // Son du butin quand le sac se remplit ; pluie de fond selon la météo.
+    let bag = 0;
+    mine.sac?.forEach((n) => { bag += n; });
+    if (game.bag != null && bag > game.bag) play('butin');
+    game.bag = bag;
+    if (room.state.meteo !== game.meteo) { game.meteo = room.state.meteo; setWeather(game.meteo); }
   }
 
   room.state.joueurs.forEach((p, id) => {
@@ -571,7 +590,7 @@ function frame(t) {
     if (moi) { d.x = game.me.x; d.y = game.me.y; }
     else { d.x += (p.x - d.x) * 0.25; d.y += (p.y - d.y) * 0.25; }
     if (p.attaque !== d.attaque) { d.attaque = p.attaque; d.attackAt = t; }
-    if (p.touche !== d.touche) { d.touche = p.touche; d.hurtAt = t; }
+    if (p.touche !== d.touche) { d.touche = p.touche; d.hurtAt = t; if (moi) play('blesse'); }
     if (d.roulade === undefined) d.roulade = p.roulade;
     if (p.roulade !== d.roulade) { d.roulade = p.roulade; if (!moi) d.dashAt = t; }
     if (moi && game.dash && t < game.dash.until) d.dashAt = game.dash.until - DASH_MS;
@@ -587,8 +606,8 @@ function frame(t) {
     d.x += (m.x - d.x) * 0.3;
     d.y += (m.y - d.y) * 0.3;
     if (m.coup !== d.coup) { d.coup = m.coup; d.lungeAt = t; }
-    if (m.touche !== d.touche) { d.touche = m.touche; d.hitAt = t; }
-    monsters.push({ sorte: m.sorte, dx: d.x, dy: d.y, pv: m.pv, pvMax: m.pvMax, hitAt: d.hitAt, lungeAt: d.lungeAt, seed: d.seed });
+    if (m.touche !== d.touche) { d.touche = m.touche; d.hitAt = t; if (Math.hypot(m.x - game.me.x, m.y - game.me.y) < 10) play('touche'); }
+    monsters.push({ sorte: m.sorte, horde: m.horde, dx: d.x, dy: d.y, pv: m.pv, pvMax: m.pvMax, hitAt: d.hitAt, lungeAt: d.lungeAt, seed: d.seed });
   });
   for (const id of game.monsters.keys()) if (!room.state.monstres.has(id)) game.monsters.delete(id);
   const pnjs = [];
