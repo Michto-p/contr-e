@@ -23,6 +23,7 @@ const SPAWN_REACH = 5; // tuiles : une zone voisine ne se peuple que si l'on s'a
 const KEEP_REACH = 10; // tuiles : au-delà, ses monstres retournent dans la pression de la zone
 const RESPAWN_AFTER_KILL_MS = 15_000; // une zone nettoyée reste tranquille un moment
 const AGGRO = 5; // tuiles
+const AGGRO_NIGHT = 7; // la nuit, les monstres flairent de plus loin
 const REACH = 0.9;
 export const KILLS_PER_HOUR_CAP = 3; // au-delà, les monstres tués ne comptent plus pour la simulation
 export const INTERACT_COOLDOWN_MS = 600;
@@ -57,8 +58,14 @@ const KINDS = [
 export const monsterCountFor = (p) => (p < 20 ? 0 : Math.min(4, Math.round(p / 22)));
 
 // Ce qui est bâti dans une zone y retient les monstres.
-export function monsterTarget(zone) {
+// La nuit (21 h – 5 h), les monstres s'enhardissent : un de plus par zone infestée, et ils flairent
+// de plus loin. Le village et les avant-postes restent sûrs.
+export const isNightHour = (hour) => hour >= 21 || hour < 5;
+const isNight = (room) => isNightHour(room.sim.tick % 24);
+
+export function monsterTarget(zone, night = false) {
   let n = monsterCountFor(zone.monsterPressure);
+  if (night && n > 0) n += 1;
   if (standing(zone, 'tour de guet')) n -= 1;
   if (standing(zone, OUTPOST)) n -= 2;
   return Math.max(0, n);
@@ -167,7 +174,7 @@ function spawnMonsters(room, t) {
   for (const zoneId of active) {
     const z = sim.zones[zoneId];
     if (z.isVillage || z.closed) continue;
-    const target = monsterTarget(z);
+    const target = monsterTarget(z, isNight(room));
     const have = counts.get(zoneId) ?? 0;
     if (have >= target) continue;
     if ((play.spawnAt.get(zoneId) ?? 0) > t) continue;
@@ -204,7 +211,7 @@ function moveMonsters(room, dt, t) {
     // Cible : le joueur vivant le plus proche, s'il est à portée de flair.
     let target = null;
     const spitter = data.kind.sorte === 'cracheur';
-    let best = spitter ? (data.kind.portee ?? SPITTER.portee) : AGGRO;
+    let best = spitter ? (data.kind.portee ?? SPITTER.portee) : isNight(room) ? AGGRO_NIGHT : AGGRO;
     for (const [sid, p] of players) {
       const d = dist(m, p);
       if (d < best) { best = d; target = [sid, p]; }

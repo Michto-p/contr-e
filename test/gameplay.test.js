@@ -8,7 +8,7 @@ import { Client } from '@colyseus/sdk';
 import { createGameServer } from '../server/index.js';
 import { Monstre } from '../server/schema.js';
 import { ZONE_TILES, OUTPOST_SPOT } from '../shared/monde.js';
-import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, OUTPOST_STEP_WOOD, monsterCountFor, monsterTarget, kindFor, nearOutpost } from '../server/gameplay.js';
+import { QUEST_KILLS, REPAIR_WOOD, INTERACT_COOLDOWN_MS, OUTPOST_STEP_WOOD, monsterCountFor, monsterTarget, isNightHour, kindFor, nearOutpost } from '../server/gameplay.js';
 
 const dir = mkdtempSync(pathJoin(tmpdir(), 'contree-'));
 let game;
@@ -252,4 +252,12 @@ test('un voyageur égaré, secouru avec E, suit son sauveteur et s\'installe au 
   assert.ok(room().world.events.some((x) => x.type === 'wanderer_rescued' && x.data.who.includes('Iris')));
   assert.ok(await until(() => i.inbox.annonce.some((l) => /Séraphin/.test(l))), i.inbox.annonce.join(' / '));
   await i.r.leave();
+});
+
+test('la nuit, un monstre de plus par zone infestée ; une zone calme reste calme', () => {
+  const zone = { monsterPressure: 60, structures: [] };
+  assert.equal(monsterTarget(zone, true), monsterTarget(zone) + 1);
+  const calme = { monsterPressure: 5, structures: [] };
+  assert.equal(monsterTarget(calme, true), 0);
+  assert.ok(isNightHour(23) && isNightHour(2) && !isNightHour(12) && !isNightHour(5));
 });

@@ -138,6 +138,9 @@ export function makeContreeRoom(config) {
       const dayBefore = this.sim.day;
       this.advance();
       this.syncState();
+      const hour = this.sim.tick % 24;
+      if (hour === 21) this.broadcast('annonce', 'La nuit tombe : les monstres s\'enhardissent. Le village et les avant-postes restent sûrs.');
+      if (hour === 5) this.broadcast('annonce', 'Le jour se lève : les monstres regagnent leurs tanières.');
       if (this.sim.day !== dayBefore) {
         this.broadcast('chronique', [this.dayChronicle(dayBefore)]);
         this.save();

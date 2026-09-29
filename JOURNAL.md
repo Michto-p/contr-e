@@ -165,3 +165,7 @@
 ## Nuit, lumières et météo
 - Fait : `client/ciel.js` assombrit l'écran selon l'heure du monde (aube et crépuscule dorés), perce la nuit avec des lumières (lanterne des joueurs, torches des gardes, fenêtres et place du village, feux des avant-postes) et affiche la météo de la simulation : averses, pluie, orage avec éclairs, neige, brume, vent, gel, chaleur. La nuit, les habitants rentrent chez eux.
 - Décision : tout est calculé par le navigateur (rien de plus à synchroniser) ; la nuit ne change pas les règles du jeu pour l'instant.
+
+## Nuit dangereuse, eau animée
+- Fait : de 21 h à 5 h, un monstre de plus par zone infestée (une zone calme reste calme) et un flair porté de 5 à 7 tuiles ; une annonce prévient à la tombée de la nuit et au lever du jour. Les reflets de l'eau glissent au fil du courant.
+- Décision : la nuit ne change que le jeu en temps réel, pas la simulation (qui raisonne par jour) ; les avant-postes et le village gardent leur zone sûre, ce qui leur donne encore plus d'intérêt.

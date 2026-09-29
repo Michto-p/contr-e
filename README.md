@@ -93,7 +93,8 @@ Réglages du serveur (variables d'environnement) :
 Le paysage est dessiné à partir de la graine de la contrée : lisières naturelles entre les
 biomes, collines et montagnes en terrasses, ruisseaux (qui se passent à gué), clairières. Le soir,
 la nuit tombe : les fenêtres du village et les feux des avant-postes s'allument, les habitants
-rentrent chez eux, chacun porte sa lanterne. La météo du monde se voit : averses, orages, neige,
+rentrent chez eux, chacun porte sa lanterne. De 21 h à 5 h, les monstres s'enhardissent : un de plus
+par zone infestée, et ils vous repèrent de plus loin. Le village et les avant-postes restent sûrs. La météo du monde se voit : averses, orages, neige,
 brume, vent.
 
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,

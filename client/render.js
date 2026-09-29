@@ -552,6 +552,23 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
       ctx.drawImage(zoneCanvases.get(i), zx * ZONE_PX, zy * ZONE_PX);
     }
   }
+  // L'eau vit : des reflets qui glissent au fil du courant.
+  const terrain = zoneCanvases.terrain;
+  if (terrain) {
+    const tx0 = Math.max(0, Math.floor(cx - halfW));
+    const tx1 = Math.min(W * ZONE_TILES - 1, Math.ceil(cx + halfW));
+    const ty0 = Math.max(0, Math.floor(cy - halfH));
+    const ty1 = Math.min(monde.hauteur * ZONE_TILES - 1, Math.ceil(cy + halfH));
+    for (let gy = ty0; gy <= ty1; gy++) {
+      for (let gx = tx0; gx <= tx1; gx++) {
+        if (!terrain.isWater(gx, gy)) continue;
+        const phase = (t / 900 + hash(gx, gy, 60)) % 1;
+        const a = Math.sin(phase * Math.PI);
+        ctx.fillStyle = `rgba(200, 235, 245, ${0.55 * a})`;
+        ctx.fillRect(gx * TILE + 2 + Math.floor(phase * 10), gy * TILE + 3 + Math.floor(hash(gy, gx, 61) * 10), 3, 1);
+      }
+    }
+  }
   for (let zy = zy0; zy <= zy1; zy++) {
     for (let zx = zx0; zx <= zx1; zx++) {
       const i = zy * W + zx;
