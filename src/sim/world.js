@@ -125,12 +125,13 @@ export function createWorld(seed, { width = 12, height = 12 } = {}) {
         isField,
         vegetation: clamp(BIOME_MAX_VEGETATION[biome] - rng.int(0, 20)),
         // Plus on s'éloigne du village, plus les monstres sont installés.
-        monsterPressure: isVillage ? 0 : clamp(dist * 7 + rng.int(-8, 8)),
+        monsterPressure: isVillage ? 0 : clamp(dist * 9 + rng.int(-8, 8)),
         pathWear: 0,
         structures: [],
         resources,
         closed: false,
-        today: { visits: 0, fights: 0, visitors: [] },
+        overflowing: false,
+        today: { visits: 0, fights: 0, visitors: [], fighters: [] },
       };
       zone.label = zoneLabel(zone);
       zones.push(zone);

@@ -20,3 +20,8 @@
 ## chronicle/chronicle.js
 - Fait : chaque type d'event a un rendu (priorité + phrase). Les events semblables d'un même jour sont regroupés (« les champs du Nord, de l'Est et du Sud »), triés par importance, 8 lignes au plus. `--debug` ajoute les chiffres entre crochets, `--since` produit un résumé « pendant votre absence ».
 - Décision : l'en-tête (nom de la contrée, signature) vient d'un event `contree` émis au tout premier tick, pour que la chronique ne lise que des events.
+
+## systems/monsters.js
+- Fait : sans joueurs, chaque zone tend vers un plafond qui dépend de sa distance au village (et du biome). Une zone au-delà de 70 déborde vers une voisine plus proche du village ; au plus une horde par jour part d'une zone saturée. Le combat fait reculer la pression (×1,5 à plusieurs) ; seul face à une zone au-delà de 80, on bat en retraite (pilier coopération).
+- Problème repéré puis corrigé : la première version (croissance linéaire, débordement vers les 8 voisins) saturait toute la carte en 3 jours et noyait la chronique de hordes. Aujourd'hui, sans aucun joueur, la carte est envahie en 30 à 60 jours environ.
+- Décision : on ne signale les débordements qu'à 3 zones du village ou moins ; plus loin, l'infestation est normale.

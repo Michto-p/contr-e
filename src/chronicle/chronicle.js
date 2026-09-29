@@ -44,6 +44,8 @@ const theStructure = (t) => `${STRUCTURE_ARTICLE[t] ?? 'la'} ${t}`;
 const FIX = {
   emprunter: (n) => `Quelques allers-retours suffiraient à ${n > 1 ? 'les' : 'le'} retracer.`,
   reparer: 'Du bois et une journée de travail suffiront à la remettre en état.',
+  groupe: 'Il faudra y retourner à plusieurs.',
+  patrouiller: 'Une patrouille dans les champs protégera la prochaine récolte.',
 };
 
 const PARTITIVE = {
@@ -52,12 +54,52 @@ const PARTITIVE = {
 };
 
 const labels = (events) => events.map((e) => e.data.label);
+
+// Liste de lieux raccourcie : au-delà de `max`, on résume.
+function somePlaces(list, max = 3) {
+  const uniq = [...new Set(list)];
+  if (uniq.length <= max) return joinPlaces(uniq);
+  return `${joinPlaces(uniq.slice(0, max))}, entre autres`;
+}
+
+const who = (evs) => joinFr(evs.flatMap((e) => e.data.who ?? []));
+const plural = (evs) => new Set(evs.flatMap((e) => e.data.who ?? [])).size > 1;
 const dbg = (events, fields) => ` [${events.map((e) => fields.map((f) => `${f}=${e.data[f]}`).join(' ')).join(' ; ')}]`;
 
 // ---------- Rendus par type d'event ----------
 // key : regroupe les events d'un même jour ; priority : importance (10 = majeur) ; text : phrase.
 
 const RENDERERS = {
+  overflow: {
+    // Plus c'est proche du village, plus c'est grave.
+    priority: (e) => (e.data.dist <= 2 ? 8 : 6),
+    text: (evs, debug) => `Les monstres pullulent dans ${somePlaces(labels(evs))} et débordent sur les terres voisines. ${FIX.groupe}${debug ? dbg(evs, ['pressure']) : ''}`,
+  },
+  horde: {
+    priority: (e) => (e.data.dist <= 3 ? 8 : 6),
+    text: (evs) => evs.map((e) => (e.data.label === e.data.target
+      ? `Une horde s'est formée dans ${e.data.label} et se rapproche du village.`
+      : `Une horde a quitté ${e.data.label} et s'abat sur ${e.data.target}, un pas de plus vers le village.`)).join(' '),
+  },
+  fields_threatened: {
+    priority: () => 9,
+    text: (evs, debug) => `Des bêtes rôdent autour ${deLabel(joinPlaces(labels(evs)))}. ${FIX.patrouiller}${debug ? dbg(evs, ['pressure']) : ''}`,
+  },
+  retreat: {
+    key: (e) => e.data.label,
+    priority: () => 6,
+    text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont dû' : 'a dû'} battre en retraite face aux monstres ${deLabel(evs[0].data.label)} : trop nombreux pour un combattant seul. ${FIX.groupe}`,
+  },
+  zone_cleared: {
+    key: (e) => e.data.label,
+    priority: () => 7,
+    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont nettoyé' : 'a nettoyé'} ${evs[0].data.label} : les monstres n'y sont plus qu'une poignée.${debug ? dbg(evs, ['from', 'to']) : ''}`,
+  },
+  monsters_pushed: {
+    key: (e) => e.data.label,
+    priority: () => 4,
+    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont repoussé' : 'a repoussé'} les monstres ${deLabel(evs[0].data.label)}.${debug ? dbg(evs, ['from', 'to']) : ''}`,
+  },
   path_formed: {
     priority: () => 3,
     text: (evs) => `À force de passages, un vrai sentier traverse désormais ${joinPlaces(labels(evs))}.`,
@@ -107,7 +149,7 @@ function groupEvents(events) {
 
 // Transforme les events d'une période en lignes triées par importance.
 export function linesFor(events, { debug = false, max = MAX_LINES } = {}) {
-  const lines = groupEvents(events.filter((e) => RENDERERS[e.type] || debug))
+  const lines = groupEvents(events.filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
     .map((g) => ({ ...renderGroup(g.type, g.events, debug), first: g.first }))
     .sort((a, b) => b.priority - a.priority || a.first - b.first);
   return lines.slice(0, max).map((l) => l.text);

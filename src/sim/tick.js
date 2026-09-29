@@ -1,8 +1,9 @@
 // Un tick = 1 heure de jeu. Applique les systèmes dans l'ordre et renvoie les events produits.
 import { nature } from './systems/nature.js';
+import { monsters } from './systems/monsters.js';
 
 // Ordre d'application des systèmes.
-export const SYSTEMS = [nature];
+export const SYSTEMS = [nature, monsters];
 
 export function makeCtx(state, ticksPerDay) {
   const hour = state.tick % ticksPerDay;
@@ -34,7 +35,7 @@ export function tick(state, rng, { ticksPerDay = 24 } = {}) {
   next.tick += 1;
   if (ctx.dayEnd) {
     next.day += 1;
-    for (const z of next.zones) z.today = { visits: 0, fights: 0, visitors: [] };
+    for (const z of next.zones) z.today = { visits: 0, fights: 0, visitors: [], fighters: [] };
   }
   return { state: next, events };
 }
