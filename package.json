@@ -1,0 +1,12 @@
+{
+  "name": "contrees-vivantes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Jeu coop 2D - contrées vivantes. Étape 1 : simulation seule.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "sim": "node scripts/run-sim.js",
+    "test": "node --test"
+  }
+}
