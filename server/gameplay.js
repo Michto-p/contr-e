@@ -10,7 +10,7 @@ import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } fro
 import { Monstre, Projectile } from './schema.js';
 import { houseActionAt, buildHouse, spawnPoint } from './maisons.js';
 import { lostNear, followPlayer } from './pnj.js';
-import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
+import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD, addItem } from './objets.js';
 
 import { damageBonus, regenFactor, woodPerCut } from '../shared/competences.js';
 export const PLAYER_PV = 10;
@@ -581,6 +581,66 @@ function outpostSite(zone) {
   return !s || s.building;
 }
 
+// ---------- Le travail de chacun, selon son métier ----------
+
+// Ce qu'un personnage sait faire ici grâce à son métier (en plus de ce que tout le monde peut faire).
+const PASTURE = new Set(['plaine', 'colline']);
+function jobActionAt(zone, p) {
+  switch (p.metier) {
+    case 'agriculteur': return zone.isField ? { kind: 'recolter', label: 'récolter le blé' } : null;
+    case 'bucheron_mineur': return !zone.isVillage && !zone.isField && (zone.resources.minerai ?? 0) > 0 ? { kind: 'miner', label: 'miner le filon' } : null;
+    case 'eleveur': return !zone.isVillage && !zone.isField && PASTURE.has(zone.biome) ? { kind: 'tondre', label: 'soigner et tondre les bêtes' } : null;
+    case 'boulanger': return zone.isVillage ? { kind: 'cuire', label: 'cuire du pain au fournil (2 blé)' } : null;
+    case 'forgeron': return zone.isVillage ? { kind: 'forger-outils', label: 'forger des outils (1 minerai, 1 charbon)' } : null;
+    default: return null;
+  }
+}
+
+// Le rendement grandit avec le savoir-faire. Tout va aux réserves du village ; le mineur et
+// l'éleveur gardent aussi une part pour eux (minerai, cuir).
+function doJob(room, p, a, tell) {
+  const jobs = room.sim.village.jobs;
+  const sf = p.savoirFaire ?? 0;
+  const bonus = Math.floor(sf / 25);
+  const add = (stock, good, n) => { stock[good] = clamp((stock[good] ?? 0) + n); };
+  switch (a.kind) {
+    case 'recolter': {
+      add(jobs.agriculteur.stock, 'ble', 2 + bonus);
+      a.zone.pathWear = clamp(a.zone.pathWear + 1);
+      return tell(`+${2 + bonus} blé pour le village`);
+    }
+    case 'miner': {
+      if ((a.zone.monsterPressure ?? 0) >= 60) return tell('Trop de monstres rôdent autour du filon : dégagez la zone.');
+      add(jobs.bucheron_mineur.stock, 'minerai', 1 + bonus);
+      add(jobs.bucheron_mineur.stock, 'charbon', 1);
+      if (room.play.rng.next() < 0.4 + sf / 200) { addItem(p, 'minerai'); return tell(`+${1 + bonus} minerai au village, et un pour votre sac`); }
+      return tell(`+${1 + bonus} minerai et du charbon pour le village`);
+    }
+    case 'tondre': {
+      if (room.play.rng.next() < 0.3 + sf / 200) { addItem(p, 'cuir'); return tell('Les bêtes sont belles : +1 cuir pour votre sac'); }
+      add(jobs.agriculteur.stock, 'ble', 1); // le fumier engraisse les champs
+      return tell('Les bêtes sont soignées ; leur fumier enrichira les champs.');
+    }
+    case 'cuire': {
+      if ((jobs.agriculteur.stock.ble ?? 0) < 2) return tell('Plus de blé au grenier : il faut récolter les champs.');
+      jobs.agriculteur.stock.ble -= 2;
+      add(jobs.boulanger.stock, 'pain', 2 + bonus);
+      room.state.pain = jobs.boulanger.stock.pain;
+      return tell(`+${2 + bonus} pains au fournil`);
+    }
+    case 'forger-outils': {
+      const s = jobs.bucheron_mineur.stock;
+      if ((s.minerai ?? 0) < 1 || (s.charbon ?? 0) < 1) return tell('Il faut du minerai et du charbon : la mine doit tourner.');
+      s.minerai -= 1;
+      s.charbon -= 1;
+      add(jobs.forgeron.stock, 'outils', 1 + (bonus >= 2 ? 1 : 0));
+      room.state.outils = jobs.forgeron.stock.outils;
+      return tell(`+${1 + (bonus >= 2 ? 1 : 0)} outil${bonus >= 2 ? 's' : ''} à la forge du village`);
+    }
+    default: return undefined;
+  }
+}
+
 // Renvoie l'action possible à cet endroit (sans l'exécuter), ou null.
 export function actionAt(room, p) {
   const { sim } = room;
@@ -596,6 +656,8 @@ export function actionAt(room, p) {
   if (build) return { kind: 'construire', zone, quest: build, label: `bâtir la tour de guet (${BUILD_WOOD} bois)` };
   const damaged = zone.structures.find((s) => !s.protected && !s.building && s.condition < 90);
   if (damaged) return { kind: 'reparer', zone, structure: damaged, label: `réparer : ${damaged.type} (${REPAIR_WOOD} bois)` };
+  const job = jobActionAt(zone, p);
+  if (job) return { ...job, zone };
   if (zone.isVillage) {
     const help = quests.find((q) => q.kind === 'aide');
     if (help) return { kind: 'aide', zone, quest: help, label: `donner un coup de main (${help.job.replace('_', '-')})` };
@@ -634,6 +696,8 @@ export function playerInteract(room, sid, t = Date.now()) {
     followPlayer(room, a.key, sid, p);
     return tell(`${e.prenom} vous suit. Direction le village, à l'abri des monstres !`);
   }
+
+  if (['recolter', 'miner', 'tondre', 'cuire', 'forger-outils'].includes(a.kind)) return doJob(room, p, a, tell);
 
   if (a.kind === 'bois') {
     if ((stock.bois ?? 0) >= 100) return tell('La réserve de bois du village est pleine.');

@@ -199,3 +199,7 @@
 ## Famille des personnages
 - Fait : quand un joueur a sa maison, ses personnages (`foyer`) peuvent se mettre en couple avec un habitant et avoir des enfants, qui portent le nom du joueur ; l'écran de choix affiche le conjoint et le nombre d'enfants.
 - Décision : pas de couple entre deux personnages de joueurs (plus simple) ; le rythme des naissances se compte sur le conjoint habitant, puisque le personnage ne vieillit pas.
+
+## Le travail selon le métier
+- Fait : E propose le travail du métier du personnage : récolter (agriculteur, champs), miner (bûcheron-mineur, zones à minerai, une part pour son sac), soigner et tondre les bêtes (éleveur, prés : cuir ou fumier), cuire le pain (boulanger, 2 blé → pain) et forger des outils (forgeron, minerai + charbon). Couper du bois reste ouvert à tous. Le rendement dépend du savoir-faire.
+- Décision : ces actions passent avant le coup de main aux quêtes du village, mais après les réparations et chantiers.

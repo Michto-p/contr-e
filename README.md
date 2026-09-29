@@ -101,6 +101,10 @@ au village (voir l'arbre des familles, touche G). L'écran de choix des personna
 - **F** : sac et forge. Les monstres lâchent minerai, cuir et parfois une ressource rare de la
   contrée ; au village, le forgeron en fait une meilleure épée, une armure, des bottes (chaque pièce
   lui coûte un outil). L'équipement est gardé d'une connexion à l'autre.
+- **E** selon votre métier : l'agriculteur **récolte** dans les champs, le bûcheron-mineur **mine**
+  les filons des collines et montagnes (et coupe plus de bois), l'éleveur **soigne et tond** les bêtes
+  dans les prés (du cuir pour son sac), le boulanger **cuit le pain** et le forgeron **forge des outils**
+  au village. Le rendement grandit avec le savoir-faire.
 - **E** sur un gisement rare (le bandeau l'indique) : l'extraire, une fois la zone dégagée.
 - **E** près d'un voyageur égaré (un « ? » au-dessus de la tête, un point clignotant sur la
   mini-carte, et la chronique dit où) : il vous suit. Menez-le jusqu'au village, où il s'installe

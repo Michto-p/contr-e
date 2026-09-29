@@ -169,3 +169,32 @@ test('on commence à l\'auberge ; on bâtit sa maison, dont le coffre sert à to
   assert.ok(await until(() => q.sac.get('cuir') === 1 && !q.coffre.has('cuir')), 'repris');
   await r2.leave();
 });
+
+test('chacun travaille selon son métier : l\'agriculteur récolte, le boulanger cuit le pain', async () => {
+  const { ZONE_TILES } = await import('../shared/monde.js');
+  const sim = room().sim;
+  const r = await join({ joueur: 'Dora', nouveau: { prenom: 'Blé', metier: 'agriculteur', classe: 'herboriste' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Blé'));
+  const p = room().state.joueurs.get(r.sessionId);
+  const field = sim.zones.find((z) => z.isField);
+  p.x = (field.x + 0.3) * ZONE_TILES;
+  p.y = (field.y + 0.3) * ZONE_TILES;
+  assert.ok(await until(() => p.action === 'récolter le blé'), p.action);
+  const before = sim.village.jobs.agriculteur.stock.ble ?? 0;
+  r.send('interagir');
+  assert.ok(await until(() => (room().sim.village.jobs.agriculteur.stock.ble ?? 0) > before), 'blé récolté');
+  await r.leave();
+  const r2 = await join({ joueur: 'Dora', nouveau: { prenom: 'Mie', metier: 'boulanger', classe: 'herboriste' } });
+  assert.ok(await until(() => room().state.joueurs.get(r2.sessionId)?.nom === 'Mie'));
+  const q = room().state.joueurs.get(r2.sessionId);
+  const v = sim.zones[sim.villageId];
+  q.x = v.x * ZONE_TILES + 8; // sur la place, loin des terrains à bâtir
+  q.y = v.y * ZONE_TILES + 9.5;
+  room().sim.village.jobs.agriculteur.stock.ble = 10;
+  const pain = room().sim.village.jobs.boulanger.stock.pain ?? 0;
+  assert.ok(await until(() => q.action.startsWith('cuire du pain')), q.action);
+  r2.send('interagir');
+  assert.ok(await until(() => (room().sim.village.jobs.boulanger.stock.pain ?? 0) > pain), 'pain cuit');
+  assert.equal(room().sim.village.jobs.agriculteur.stock.ble, 8);
+  await r2.leave();
+});
