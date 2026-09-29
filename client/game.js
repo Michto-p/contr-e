@@ -121,6 +121,7 @@ const METIERS_PERSO = {
   bucheron_mineur: ['Bûcheron-mineur', 'Laissé au village : coupe du bois, descente à la mine.'],
   eleveur: ['Éleveur', 'Laissé au village : les bêtes, dont le fumier enrichit les champs.'],
   garde: ['Garde', 'Laissé au village : patrouilles et combats contre les monstres.'],
+  enseignant: ['Enseignant', ''],
 };
 let couleur = 0;
 let libres = {}; // points libres placés par le joueur
@@ -602,6 +603,14 @@ function renderSide() {
   p2.className = 'famille';
   p2.textContent = `Familles : ${Object.entries(familles).sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} (${n})`).join(', ')}.`;
   vi.append(p1, p2);
+  // La hiérarchie : qui mène le village, qui tient chaque atelier.
+  const chef = habitants.find((h) => h.rang === 'chef');
+  const maitres = habitants.filter((h) => h.rang === 'maitre');
+  if (chef || maitres.length) {
+    const p3 = document.createElement('p');
+    p3.textContent = `${chef ? `À la tête du village : ${chef.prenom} ${chef.famille}.` : ''} ${maitres.length ? `Maîtres d'atelier : ${maitres.map((h) => `${h.prenom} (${METIERS_PERSO[h.metier]?.[0] ?? h.metier})`).join(', ')}.` : ''} Apprentis : ${habitants.filter((h) => h.rang === 'apprenti').length}.`;
+    vi.appendChild(p3);
+  }
   const talents = habitants.filter((h) => h.talent);
   if (talents.length) {
     const p3 = document.createElement('p');
@@ -646,7 +655,8 @@ function renderBag() {
   const me = room?.state.joueurs.get(room.sessionId);
   if (!me || !game.monde) return;
   $('equip').textContent = `Équipement : ${SLOT_NOM.epee[me.epee]} (${me.epee} dégât${me.epee > 1 ? 's' : ''}), ${SLOT_NOM.armure[me.armure]} (${me.pvMax} PV), ${SLOT_NOM.bottes[me.bottes]}${me.talisman ? ', un talisman' : ''}.`;
-  $('fiche').textContent = `${me.nom} — ${CLASSES[me.classe]?.nom ?? ''}, ${METIERS_PERSO[me.metier]?.[0] ?? ''}${me.secret ? ` · ✨ ${me.secret}` : ''}. `
+  const RANGS = { chef: ' · à la tête du village', maitre: ' · maître d\'atelier', apprenti: ' · apprenti' };
+  $('fiche').textContent = `${me.nom} — ${CLASSES[me.classe]?.nom ?? ''}, ${METIERS_PERSO[me.metier]?.[0] ?? ''}${me.secret ? ` · ✨ ${me.secret}` : ''}${RANGS[me.rang] ?? ''} · renommée ${me.renommee}. `
     + SKILL_KEYS.map((k) => `${COMPETENCES[k].nom} ${me[k]}`).join(' · ');
   const box = $('objets');
   const items = [...me.sac.entries()].filter(([, n]) => n > 0);

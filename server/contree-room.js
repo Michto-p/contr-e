@@ -10,6 +10,7 @@ import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor, needsSpeed } from '../shared/competences.js';
 import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom } from './maisons.js';
+import { rankOf } from '../src/sim/systems/population.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -212,9 +213,18 @@ export function makeContreeRoom(config) {
         motif: q.outing?.kind ?? '',
         joueur: q.hero ?? '',
         joue: Boolean(q.played),
+        rang: rankOf(pop, q),
         blesse: (q.hurtUntil ?? 0) > this.sim.day,
       }));
-      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}:${h.joue}:${h.joueur}`).join('|');
+      const key = (arr) => arr.map((h) => `${h.id}:${h.age}:${h.metier}:${h.talent}:${h.partenaire}:${h.sortie}:${h.blesse}:${h.joue}:${h.joueur}:${h.rang}`).join('|');
+      // Le rang et la renommée des personnages en jeu.
+      this.state.joueurs.forEach((p) => {
+        const h = byId.get(this.registry[p.nom]?.hid);
+        if (!h) return;
+        const rang = rankOf(pop, h);
+        if (p.rang !== rang) p.rang = rang;
+        if (p.renommee !== (h.renommee ?? 0)) p.renommee = h.renommee ?? 0;
+      });
       if (key(people) !== key([...this.state.habitants])) {
         this.state.habitants.splice(0, this.state.habitants.length);
         for (const h of people) this.state.habitants.push(Object.assign(new Habitant(), h));

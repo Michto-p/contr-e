@@ -9,11 +9,11 @@ Une terre de collines. On y trouve de la résine dorée et du fer noir, introuva
 - Naissance de Suzanne Roux, enfant de Gaël et de Léna.
 - Yaël a prêté main-forte à l'agriculteur.
 - Lou, Agathe, Noé, Camille, Élie et Eden ont repoussé les monstres des collines du Nord-Est, de l'Est, du Sud et du Sud-Est.
+- Jeanne Tisserand, qu'on voit d'habitude à l'école, prend la tête du village.
 - Agathe, de garde, a patrouillé dans les collines de l'Est.
 - Morgan est allé chasser dans les prés du Nord-Ouest.
+- Marthe Marchal (aux champs), Léna Roux (au fournil), Gaël Roux (à la forge), Octave Aubry (à la coupe et à la mine) et Jeanne Tisserand (à l'école) deviennent maîtres d'atelier : les apprentis apprendront plus vite.
 - Au village, on cherche un coup de main pour l'agriculteur.
-- Agathe profite d'une journée tranquille.
-- Journée ordinaire au village : on moud, on forge, on fend du bois.
 
 ## Jour 2 — printemps, brume
 
@@ -34,8 +34,8 @@ Une terre de collines. On y trouve de la résine dorée et du fer noir, introuva
 - Yaël a prêté main-forte au forgeron.
 - Agathe, de garde, a patrouillé dans les collines du Sud-Ouest.
 - À force de passages, un vrai sentier traverse désormais les collines de l'Est et les prés du Sud-Est.
+- Mathilde Marchal (auprès des bêtes) devient maître d'atelier : les apprentis apprendront plus vite.
 - Gustave a travaillé du lever au coucher du soleil, comme toujours.
-- Au village, on cherche un coup de main pour le forgeron.
 
 ## Jour 4 — printemps, brume
 

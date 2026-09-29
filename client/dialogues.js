@@ -74,8 +74,11 @@ const WORK_LINES = {
 
 // Réplique complète d'un habitant (plusieurs phrases).
 export function talk(h, ctx) {
-  const who = `${h.prenom} ${h.famille}, ${h.age} an${h.age > 1 ? 's' : ''}, ${METIER[h.metier] ?? METIER['']}`;
+  const RANG = { chef: ', à la tête du village', maitre: ', maître d\'atelier', apprenti: ', apprenti' };
+  const who = `${h.prenom} ${h.famille}, ${h.age} an${h.age > 1 ? 's' : ''}, ${METIER[h.metier] ?? METIER['']}${RANG[h.rang] ?? ''}`;
   const lines = [];
+  if (h.rang === 'chef') lines.push('On m\'a confié la tête du village. Je fais de mon mieux pour que chacun mange à sa faim et dorme tranquille.');
+  if (h.rang === 'maitre') lines.push('J\'ai des apprentis maintenant. Il faut leur transmettre ce qu\'on m\'a appris, et un peu plus.');
   if (!h.metier && h.parents) lines.push(`Je suis l'enfant de ${h.parents}. Plus tard, je ferai comme eux… ou autre chose !`);
   if (h.partenaire && h.metier) lines.push(`Je partage ma vie avec ${h.partenaire}.`);
   if (h.joueur) lines.push(`Quand ${h.joueur} ne m'emmène pas à l'aventure, je donne un coup de main ici.`);

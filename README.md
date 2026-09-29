@@ -141,6 +141,13 @@ elle apparaît pour de bon (monstres cerclés de rouge, points rouges sur la min
 sur le village. Repoussée à temps, à plusieurs et avec les gardes, sa zone recule nettement ;
 sinon, elle pille une partie du pain en atteignant le village, puis se disperse.
 
+**La hiérarchie du village.** Chacun gagne de la **renommée** par ses hauts faits (inventions,
+défrichages, défense, et pour les joueurs : quêtes, hordes repoussées, égarés ramenés…). Chaque jour,
+l'adulte le plus respecté **prend la tête du village** (couronne de feuilles d'or ; un petit bonus pour
+tous les métiers), le plus habile de chaque métier devient **maître d'atelier** (le métier produit
+plus), et les jeunes qui travaillent auprès de lui sont ses **apprentis** (ils apprennent plus vite).
+Un personnage de joueur peut prendre la tête du village.
+
 Le village vit sa vie : les habitants s'unissent, ont des enfants quand le pain ne manque pas,
 les enfants apprennent de leurs parents, grands-parents et de l'enseignant, puis reprennent souvent
 le métier familial avec parfois un talent (forestier qui replante et ouvre des passages, agronome

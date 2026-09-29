@@ -211,3 +211,7 @@
 ## Intérieur des maisons et compagnons
 - Fait : E devant sa porte fait entrer dans sa maison : une pièce (coordonnées locales, `interieur` = numéro du terrain) avec lit (dormir), coffre, panier (adopter un chien : +5 flair, ou un chat : +5 survie), cheminée, table, et la porte pour sortir. Le client dessine la pièce à la place du monde ; les autres personnages du joueur qui y sont s'y voient. Le compagnon suit son maître (calculé par chaque navigateur, visible de tous).
 - Décision : chez soi, on est hors du monde (ni monstres, ni projectiles, ni butin, l'égaré attend dehors) ; la disposition du mobilier est une constante partagée, prête à devenir personnalisable. Problème corrigé : un habitant qui passait volait encore la touche E devant la porte.
+
+## Hiérarchie du village
+- Fait : renommée (0–100) gagnée par les hauts faits (habitants : invention, défrichage, passage, défense, trouvaille ; joueurs : quêtes, hordes repoussées, égarés ramenés, avant-postes, maison). Chaque jour, le plus respecté (renommée, savoir, savoir-faire, âge, talent) prend la tête du village (+0,05 à tous les métiers) ; le plus habile de chaque métier (au moins 45) devient maître d'atelier (+0,1 à son métier, il garde sa place sauf s'il est nettement dépassé) ; les moins de 22 ans qui exercent sont ses apprentis (+2 d'apprentissage par an). Events `new_chief`, `new_master`.
+- Décision : pas de nouveau système, tout vit dans la population. Problème repéré : le test de famille dépendait du hasard (village plein, conjoint trop âgé) ; il contrôle désormais ces conditions.

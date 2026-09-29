@@ -7,6 +7,8 @@ export const Joueur = schema({
   classe: t.string(),
   metier: t.string(),
   secret: t.string(), // secret de classe découvert ('' sinon)
+  rang: t.string(), // sa place dans le village : 'chef', 'maitre', 'apprenti' ou ''
+  renommee: t.uint8(),
   force: t.uint8(),
   endurance: t.uint8(),
   agilite: t.uint8(),
@@ -52,6 +54,7 @@ export const Habitant = schema({
   sortie: t.int16(), // zone où l'habitant est parti aujourd'hui (-1 : au village)
   joueur: t.string(), // personnage d'un joueur ('' sinon)
   joue: t.boolean(), // incarné en ce moment (il n'est donc pas au village)
+  rang: t.string(), // 'chef', 'maitre', 'apprenti' ou ''
   motif: t.string(), // 'travail', 'defense' ou 'exploration'
   blesse: t.boolean(),
 }, 'Habitant');

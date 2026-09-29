@@ -214,6 +214,7 @@ export function drawAmbianceGround(ctx, amb, t) {
         px(ctx, '#3a2f28', sx + 2, sy + 3, 1, 2);
       }
     }
+    if (p.h.rang === 'chef') { px(ctx, '#ffd84a', x - 3 * k, y - 14 * k, 6 * k, 2); px(ctx, '#ffd84a', x - 3 * k, y - 16 * k, 1, 2); px(ctx, '#ffd84a', x, y - 16 * k, 1, 2); px(ctx, '#ffd84a', x + 3 * k - 1, y - 16 * k, 1, 2); } // une couronne de feuilles d'or
     if (p.h.blesse) { px(ctx, '#ffffff', x - 3 * k, y - 9 * k, 6 * k, 1); px(ctx, '#e5635c', x, y - 9 * k, 1, 1); } // un bandage
   }
   for (const r of amb.rabbits) {

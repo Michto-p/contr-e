@@ -200,17 +200,26 @@ test('un personnage de joueur avec une maison fonde une famille ; ses enfants po
   const h = createHero(w, { prenom: 'Paul', metier: 'forgeron', owner: 'Alix' }, makeCtx(w, 24)).person;
   const without = simulate(structuredClone(w), createRng(1), { days: 20 }).state.village.population.people.find((p) => p.prenom === 'Paul' && p.hero);
   assert.equal(without.partner, null, 'sans maison, pas de famille');
+  // Avec une maison, il trouve quelqu'un au village.
   setFoyer(w, 'Alix');
-  w.village.jobs.boulanger.stock.pain = 100;
+  w.village.population.houses = 40; // de la place pour tout le monde : on ne teste ici que la famille
   let state = w;
   const rng = createRng(1);
-  for (let d = 0; d < 40; d++) {
-    state.village.jobs.boulanger.stock.pain = Math.max(state.village.jobs.boulanger.stock.pain, 40);
+  for (let d = 0; d < 60 && !state.village.population.people.find((p) => p.id === h.id).partner; d++) {
     state = simulate(state, rng, { days: 1 }).state;
   }
   const paul = state.village.population.people.find((p) => p.id === h.id);
   assert.ok(paul.partner, 'en couple');
   assert.equal(paul.age, h.age, 'il ne vieillit pas');
+  // Un couple jeune, du pain en réserve : des enfants, qui portent le nom du joueur.
+  const kidsOf = (st) => st.village.population.people.filter((p) => p.parents.includes(paul.id));
+  for (let d = 0; d < 60 && !kidsOf(state).length; d++) {
+    const partner = state.village.population.people.find((p) => p.id === paul.partner);
+    partner.age = 25; // le conjoint, lui, vieillit : on le garde jeune pour ce test
+    partner.lastChild = null;
+    state.village.jobs.boulanger.stock.pain = Math.max(state.village.jobs.boulanger.stock.pain, 40);
+    state = simulate(state, rng, { days: 1 }).state;
+  }
   const kids = state.village.population.people.filter((p) => p.parents.includes(paul.id));
   assert.ok(kids.length >= 1, `${kids.length} enfant(s)`);
   for (const k of kids) assert.equal(k.famille, 'Alix');

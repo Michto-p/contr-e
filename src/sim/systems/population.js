@@ -111,6 +111,8 @@ export function createPopulation(seed, { yearsPerDay = 1 } = {}) {
 // ---------- Outils ----------
 
 const living = (pop) => pop.people.filter((p) => p.alive);
+// La renommée (0–100) : ce que le village retient des hauts faits de chacun.
+export const fame = (p, n) => { if (p) p.renommee = clamp((p.renommee ?? 0) + n); };
 // Présents au village : un personnage qu'un joueur incarne en ce moment est parti à l'aventure.
 const present = (pop) => living(pop).filter((p) => !p.played);
 const byId = (pop, id) => pop.people.find((p) => p.id === id);
@@ -134,6 +136,10 @@ export function workforceFactor(state, job) {
     sum += v;
   }
   let factor = 0.6 + 0.4 * sum;
+  // Un maître d'atelier fait mieux travailler tout le métier ; un chef écouté, tout le village.
+  const master = pop.maitres?.[job] != null ? byId(pop, pop.maitres[job]) : null;
+  if (master?.alive && !master.played && master.metier === job) factor += 0.1;
+  if (pop.chef != null && byId(pop, pop.chef)?.alive) factor += 0.05;
   if (job === 'agriculteur' && workers(pop, 'eleveur').length) factor += 0.1; // le fumier des bêtes
   return Math.max(0.6, Math.min(1.5, factor));
 }
@@ -163,6 +169,9 @@ function learn(pop, state) {
       // On progresse en pratiquant.
       const k = JOB_SKILL[p.metier];
       p.skills[k] = clamp(p.skills[k] + (p.traits.includes('travailleur') ? 2 : 1));
+      // Apprenti : un jeune qui travaille auprès d'un maître apprend plus vite.
+      const master = pop.maitres?.[p.metier] != null ? byId(pop, pop.maitres[p.metier]) : null;
+      if (p.age < 22 && master?.alive && master !== p) p.skills[k] = clamp(p.skills[k] + 2);
     }
     if (p.age >= ADULT) continue;
     // Les enfants apprennent de leurs parents, grands-parents et de l'enseignant.
@@ -333,6 +342,49 @@ function welcome(pop, state, rng, who, ctx, events) {
   return e;
 }
 
+// ---------- Hiérarchie du village ----------
+
+// Chaque jour, le village se reconnaît un chef (l'adulte le plus respecté : renommée, sagesse,
+// savoir-faire, âge) et, dans chaque métier, un maître d'atelier (le plus habile). Les jeunes de
+// moins de 22 ans qui exercent un métier sont les apprentis de son maître. Un personnage de joueur
+// peut prendre la tête du village par ses hauts faits.
+const MASTER_SKILL = 45;
+export function prestige(p) {
+  const best = Math.max(...Object.values(p.skills));
+  return (p.renommee ?? 0) + p.skills.savoir * 0.3 + best * 0.3 + Math.min(p.age, 60) * 0.3 + (p.talent ? 8 : 0);
+}
+
+export function rankOf(pop, p) {
+  if (pop.chef === p.id) return 'chef';
+  if (Object.values(pop.maitres ?? {}).includes(p.id)) return 'maitre';
+  if (p.metier && JOB_SKILL[p.metier] && p.age < 22 && pop.maitres?.[p.metier] != null) return 'apprenti';
+  return '';
+}
+
+function hierarchy(pop, state, ctx, events) {
+  const adults = living(pop).filter((p) => p.age >= 20 && p.metier !== 'ancien' || (p.metier === 'ancien' && p.age < 80));
+  const chef = [...adults].sort((a, b) => prestige(b) - prestige(a) || a.id - b.id)[0] ?? null;
+  if (chef && chef.id !== pop.chef) {
+    const before = pop.chef != null ? byId(pop, pop.chef) : null;
+    pop.chef = chef.id;
+    events.push(ctx.event('new_chief', null, { name: fullName(chef), prenom: chef.prenom, job: chef.metier, before: before?.alive ? before.prenom : null, hero: chef.hero ?? null }));
+  }
+  pop.maitres ??= {};
+  for (const job of Object.keys(JOB_SKILL)) {
+    const skill = JOB_SKILL[job];
+    const best = living(pop).filter((p) => p.metier === job && p.skills[skill] >= MASTER_SKILL)
+      .sort((a, b) => b.skills[skill] - a.skills[skill] || a.id - b.id)[0] ?? null;
+    const current = pop.maitres[job] != null ? byId(pop, pop.maitres[job]) : null;
+    // Un maître garde sa place tant qu'il exerce, sauf si un autre le dépasse nettement.
+    const keep = current?.alive && current.metier === job && (!best || best.skills[skill] < current.skills[skill] + 10);
+    if (keep) continue;
+    if (best) {
+      pop.maitres[job] = best.id;
+      events.push(ctx.event('new_master', null, { name: fullName(best), prenom: best.prenom, job }));
+    } else delete pop.maitres[job];
+  }
+}
+
 // ---------- Personnages des joueurs ----------
 
 // Chaque joueur peut avoir quelques personnages. Celui qu'il n'incarne pas vit au village comme
@@ -424,6 +476,7 @@ function forestier(pop, state, rng, ctx, events) {
     const thin = forests.filter((z) => z.vegetation < 80).sort((a, b) => a.vegetation - b.vegetation)[0];
     if (thin && rng.chance(0.5)) {
       thin.vegetation = clamp(thin.vegetation + 15);
+      fame(p, 1);
       events.push(ctx.event('replant', thin, { who: p.prenom, label: thin.label }));
       continue;
     }
@@ -433,6 +486,7 @@ function forestier(pop, state, rng, ctx, events) {
     if (target) {
       target.pathWear = clamp(target.pathWear + 35);
       target.passageDay = ctx.day;
+      fame(p, 2);
       events.push(ctx.event('passage', target, { who: p.prenom, label: target.label }));
     }
   }
@@ -456,6 +510,8 @@ function clearing(pop, state, rng, ctx, events) {
   z.isField = true;
   z.resources.ble = 80;
   z.label = zoneLabel(z);
+  fame(agro, 5);
+  fame(eleveur, 5);
   events.push(ctx.event('new_field', z, { who: [agro.prenom, eleveur.prenom], label: z.label }));
 }
 
@@ -477,6 +533,7 @@ function invent(pop, state, rng, ctx, events) {
     pop.rares[materiau] = n - 2;
     const plan = { id: pop.nextPlanId++, type: t.type, nom: t.nom(materiau), effet: t.effet, materiau, auteur: fullName(smith), contree: state.name, jour: ctx.day };
     pop.plans.push(plan);
+    fame(smith, 10);
     events.push(ctx.event('invention', null, { who: smith.prenom, plan: plan.nom, materiau }));
     return;
   }
@@ -519,6 +576,7 @@ function outings(pop, state, rng, ctx, events) {
       p.hurtUntil = ctx.day + 2;
       events.push(ctx.event('villager_hurt', z, { who: p.prenom, label: z.label, fix: 'groupe' }));
     } else {
+      fame(p, 2);
       events.push(ctx.event('villager_defense', z, { who: [p.prenom], label: z.label }));
     }
   }
@@ -540,6 +598,7 @@ function outings(pop, state, rng, ctx, events) {
     const rare = state.signature.exclusives.find((r) => z.resources[r] > 0);
     if (rare && rng.chance(0.4)) {
       pop.rares[rare] = (pop.rares[rare] ?? 0) + 1;
+      fame(p, 4);
       events.push(ctx.event('villager_found', z, { who: p.prenom, label: z.label, materiau: rare }));
     } else {
       events.push(ctx.event('villager_explore', z, { who: p.prenom, label: z.label }));
@@ -686,6 +745,7 @@ export function population(state, rng, ctx) {
       pop.yearClock -= 1;
       year(pop, state, prng, ctx, events);
     }
+    hierarchy(pop, state, ctx, events);
     build(pop, state, ctx, events);
     immigration(pop, state, prng, ctx, events);
     forestier(pop, state, prng, ctx, events);
