@@ -33,3 +33,11 @@ test('les events ont le format commun', () => {
     assert.equal(typeof e.data, 'object');
   }
 });
+
+test('onDayEnd est appelé une fois par jour sans changer le résultat', () => {
+  const days = [];
+  const withHook = simulate(createWorld(42), createRng(42), { days: 4, onDayEnd: (s, d) => days.push([d, s.day]) });
+  const without = simulate(createWorld(42), createRng(42), { days: 4 });
+  assert.deepEqual(days, [[1, 2], [2, 3], [3, 4], [4, 5]]);
+  assert.deepEqual(withHook, without);
+});

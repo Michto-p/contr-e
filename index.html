@@ -4,39 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Contrées vivantes — chronique</title>
-<style>
-  :root {
-    --bg: #f6f1e7; --fg: #2b2620; --muted: #7a6f60; --card: #fffaf0; --line: #e2d8c6; --accent: #7a4b1c;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #1c1a17; --fg: #ece4d6; --muted: #a39884; --card: #25221e; --line: #3a352e; --accent: #d9a15f; }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 Georgia, 'Times New Roman', serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
-  header p { color: var(--muted); margin-top: 0; }
-  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; align-items: end;
-         background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; font-family: system-ui, sans-serif; font-size: 14px; }
-  label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
-  label.check { flex-direction: row; align-items: center; gap: 8px; }
-  input, select, button { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
-  button { background: var(--accent); color: var(--bg); border: none; font-weight: 600; cursor: pointer; padding: 8px 12px; }
-  #out h1 { font-size: 1.7em; margin: 32px 0 4px; }
-  #out h2 { font-size: 1.1em; margin: 28px 0 6px; color: var(--accent); border-bottom: 1px solid var(--line); padding-bottom: 4px; }
-  #out ul { padding-left: 1.1em; margin: 6px 0; }
-  #out li { margin: 4px 0; }
-  #meta { color: var(--muted); font-family: system-ui, sans-serif; font-size: 13px; margin-top: 10px; }
-  .error { color: #b3261e; }
-</style>
+<link rel="stylesheet" href="web/style.css">
 </head>
 <body>
 <main>
-  <header>
+  <header class="intro">
     <h1>Contrées vivantes</h1>
     <p>Étape 1 : la simulation seule. Le monde tourne heure par heure, les joueurs simulés vont et viennent, et la chronique raconte ce qui s'est passé.</p>
   </header>
 
-  <form id="f">
+  <form id="f" class="controls">
     <label>Graine <input name="seed" type="number" min="0" value="42"></label>
     <label>Jours <input name="days" type="number" min="1" max="120" value="7"></label>
     <label>Joueurs
@@ -50,68 +27,71 @@
     <label class="check"><input name="debug" type="checkbox"> chiffres</label>
     <button type="submit">Simuler</button>
   </form>
+  <div id="meta" class="meta"></div>
+  <p id="contree" class="contree"></p>
 
-  <div id="meta"></div>
-  <article id="out"></article>
+  <section class="card viewer" id="viewer" aria-label="Vue du jour">
+    <div class="daybar">
+      <div class="daytitle">
+        <h2 id="day-title">Jour 1</h2>
+        <span id="day-sub" class="muted"></span>
+      </div>
+      <div class="daynav">
+        <button type="button" id="prev" class="ghost" aria-label="Jour précédent">◀</button>
+        <button type="button" id="play" class="ghost" aria-label="Lecture">▶ Lecture</button>
+        <button type="button" id="next" class="ghost" aria-label="Jour suivant">▶</button>
+      </div>
+      <input id="slider" type="range" min="1" max="7" value="1" aria-label="Jour affiché">
+    </div>
+
+    <div class="viewer-grid">
+      <div class="map-col">
+        <div class="layer-row" role="radiogroup" aria-label="Calque de la carte">
+          <button type="button" class="seg" data-layer="monstres" aria-pressed="true">Monstres</button>
+          <button type="button" class="seg" data-layer="chemins" aria-pressed="false">Chemins</button>
+          <button type="button" class="seg" data-layer="terrain" aria-pressed="false">Terrain</button>
+        </div>
+        <div class="map-wrap"><svg id="map" role="img" aria-label="Carte de la contrée"></svg></div>
+        <div id="map-legend" class="legend"></div>
+      </div>
+
+      <div class="side-col">
+        <h3>Le village</h3>
+        <div id="village"></div>
+        <h3>Ce jour-là</h3>
+        <ul id="day-lines" class="day-lines"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="charts">
+    <figure class="card chart-card">
+      <figcaption>
+        <strong>Pression des monstres</strong>
+        <span class="muted">moyenne par distance au village, sur 100</span>
+      </figcaption>
+      <div id="legend-pressure" class="legend"></div>
+      <div class="chart" id="chart-pressure"></div>
+    </figure>
+    <figure class="card chart-card">
+      <figcaption>
+        <strong>Satisfaction des métiers</strong>
+        <span class="muted">sur 100 ; en dessous de 45 trop longtemps, le métier perd un niveau</span>
+      </figcaption>
+      <div id="legend-jobs" class="legend"></div>
+      <div class="chart" id="chart-jobs"></div>
+    </figure>
+  </section>
+
+  <details class="card data-table">
+    <summary>Données jour par jour</summary>
+    <div class="table-wrap"><table id="table"></table></div>
+  </details>
+
+  <section class="chronicle" id="out" aria-label="Chronique complète"></section>
 </main>
 
-<script type="module">
-  import { createRng } from './src/sim/rng.js';
-  import { createWorld } from './src/sim/world.js';
-  import { simulate } from './src/sim/tick.js';
-  import { addPlayers, agentsAct } from './src/sim/agents.js';
-  import { formatChronicle } from './src/chronicle/chronicle.js';
-
-  const form = document.getElementById('f');
-  const out = document.getElementById('out');
-  const meta = document.getElementById('meta');
-
-  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-
-  // La chronique est en Markdown très simple : titres et listes.
-  function render(md) {
-    let html = '';
-    let inList = false;
-    for (const line of md.split('\n')) {
-      const item = line.startsWith('- ');
-      if (inList && !item) { html += '</ul>'; inList = false; }
-      if (line.startsWith('## ')) html += `<h2>${esc(line.slice(3))}</h2>`;
-      else if (line.startsWith('# ')) html += `<h1>${esc(line.slice(2))}</h1>`;
-      else if (item) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${esc(line.slice(2))}</li>`; }
-      else if (line.trim()) html += `<p>${esc(line)}</p>`;
-    }
-    return html + (inList ? '</ul>' : '');
-  }
-
-  function run() {
-    const data = new FormData(form);
-    const seed = Number(data.get('seed')) || 0;
-    const days = Math.max(1, Math.min(120, Number(data.get('days')) || 7));
-    const agents = data.get('agents');
-    const since = data.get('since') ? Number(data.get('since')) : null;
-    const debug = data.get('debug') === 'on';
-    const params = new URLSearchParams({ seed, days, agents, ...(since ? { since } : {}), ...(debug ? { debug: 1 } : {}) });
-    history.replaceState(null, '', `?${params}`);
-    try {
-      const t0 = performance.now();
-      const world = createWorld(seed);
-      const rng = createRng(seed);
-      addPlayers(world, rng, agents);
-      const { events } = simulate(world, rng, { days, beforeTick: agentsAct });
-      out.innerHTML = render(formatChronicle(events, { debug, since, days }));
-      meta.textContent = `Équivalent CLI : npm run sim -- --days ${days} --seed ${seed} --agents ${agents}${since ? ` --since ${since}` : ''}${debug ? ' --debug' : ''} · ${events.length} événements · ${Math.round(performance.now() - t0)} ms`;
-    } catch (err) {
-      out.innerHTML = `<p class="error">${esc(String(err))}</p>`;
-    }
-  }
-
-  // Les paramètres de l'URL permettent de partager une chronique précise.
-  const q = new URLSearchParams(location.search);
-  for (const k of ['seed', 'days', 'agents', 'since']) if (q.has(k)) form.elements[k].value = q.get(k);
-  if (q.has('debug')) form.elements.debug.checked = true;
-
-  form.addEventListener('submit', (e) => { e.preventDefault(); run(); });
-  run();
-</script>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script type="module" src="web/app.js"></script>
 </body>
 </html>

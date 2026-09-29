@@ -42,8 +42,9 @@ export function tick(state, rng, { ticksPerDay = 24 } = {}) {
   return { state: next, events };
 }
 
-// Fait tourner la simulation sur plusieurs jours. `beforeTick` permet aux agents d'agir entre les ticks.
-export function simulate(state, rng, { days = 7, ticksPerDay = 24, beforeTick = null } = {}) {
+// Fait tourner la simulation sur plusieurs jours. `beforeTick` permet aux agents d'agir entre les ticks ;
+// `onDayEnd(state, day)` reçoit l'état à la fin de chaque jour (pour la page de visualisation).
+export function simulate(state, rng, { days = 7, ticksPerDay = 24, beforeTick = null, onDayEnd = null } = {}) {
   const events = [];
   let current = state;
   const total = days * ticksPerDay;
@@ -56,6 +57,7 @@ export function simulate(state, rng, { days = 7, ticksPerDay = 24, beforeTick = 
     const res = tick(current, rng, { ticksPerDay });
     current = res.state;
     events.push(...res.events);
+    if (onDayEnd && (i + 1) % ticksPerDay === 0) onDayEnd(current, current.day - 1);
   }
   return { state: current, events };
 }
