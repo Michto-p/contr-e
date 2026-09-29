@@ -230,3 +230,6 @@
 ## Aménager sa maison
 - Fait : chaque maison a son aménagement (`players[j].interieur` : sol, mur, place des meubles, décorations), synchronisé par terrain (`state.interieurs`, JSON). Chez soi, le panneau Aménager (H) change le sol et les murs, déplace lit, coffre, panier, table et décorations (clic dans la pièce), et fabrique 6 décorations payées avec le sac et le bois du village. Le lit, le coffre et le panier servent là où on les a posés.
 - Décision : le serveur arrondit et borne les positions (jamais sur la porte ni dans le mur) ; une décoration de chaque sorte au plus.
+
+## Correctif : le butin certain redevient certain
+- Problème repéré : le plafond de 95 % ajouté avec le Flair s'appliquait aussi au cuir que la brute lâche toujours (100 %) ; un test échouait donc de temps en temps (et ce commit d'aménagement a été poussé malgré cet échec, par erreur). Corrigé : seul un butin incertain profite du Flair.

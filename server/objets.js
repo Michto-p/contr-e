@@ -83,7 +83,8 @@ export function dropLoot(room, sorte, zoneId, x, y, t = Date.now(), killer = nul
   const r = room.play.rng;
   const items = [];
   const luck = lootFactor(killer);
-  for (const [item, chance] of DROPS[sorte] ?? []) if (r.next() < Math.min(0.95, chance * luck)) items.push(item);
+  // Le flair rend un butin incertain plus fréquent ; un butin certain le reste.
+  for (const [item, chance] of DROPS[sorte] ?? []) if (r.next() < (chance >= 1 ? 1 : Math.min(0.95, chance * luck))) items.push(item);
   const zone = room.sim.zones[zoneId];
   const rares = room.sim.signature.exclusives.filter((res) => zone.resources[res] > 0);
   if (rares.length && r.next() < RARE_DROP) items.push(r.pick(rares));

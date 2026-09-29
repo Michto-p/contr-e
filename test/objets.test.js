@@ -78,7 +78,7 @@ test('une brute vaincue lâche du cuir, qu\'on ramasse en marchant dessus', asyn
   a.r.send('attaque');
   assert.ok(await until(() => !room().state.monstres.has(id)));
   const loot = [...room().state.butins.values()].find((b) => b.sorte === 'cuir');
-  assert.ok(loot, 'du cuir au sol');
+  assert.ok(loot, `du cuir au sol (sac : ${JSON.stringify([...a.p().sac.entries()])}, butins : ${[...room().state.butins.values()].map((b) => b.sorte)}, flair ${a.p().flair}, classe ${a.p().classe})`);
   a.p().x = loot.x;
   a.p().y = loot.y;
   assert.ok(await until(() => (a.p().sac.get('cuir') ?? 0) >= 1), 'cuir ramassé');
