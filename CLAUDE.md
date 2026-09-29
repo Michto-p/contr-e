@@ -77,7 +77,7 @@ server/
   gameplay.js         temps réel : monstres, points de vie, touche E (bois, réparer, bâtir, aider), quêtes jouables
   pnj.js              habitants sur la carte : gardes en patrouille qui combattent, voyageur égaré à ramener
   personnages.js      joueurs et personnages (3 par joueur) : au village quand on ne les joue pas, abandon
-  maisons.js          l'auberge (où l'on commence) et les maisons des joueurs, avec leur coffre
+  maisons.js          l'auberge (où l'on commence) et les maisons des joueurs : intérieur, lit, coffre, compagnon
   persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
 client/               index.html, game.js (réseau, entrées, interface), render.js (dessin),

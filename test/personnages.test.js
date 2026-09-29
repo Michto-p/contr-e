@@ -132,7 +132,7 @@ test('à la création, la classe, les points libres et le secret sont appliqués
 });
 
 test('on commence à l\'auberge ; on bâtit sa maison, dont le coffre sert à tous ses personnages', async () => {
-  const { ZONE_TILES, INN_DOOR, houseDoor } = await import('../shared/monde.js');
+  const { ZONE_TILES, INN_DOOR, houseDoor, ROOM_FURNITURE } = await import('../shared/monde.js');
   const { HOUSE_COST, HOUSE_WOOD } = await import('../server/maisons.js');
   const sim = room().sim;
   const v = sim.zones[sim.villageId];
@@ -154,7 +154,12 @@ test('on commence à l\'auberge ; on bâtit sa maison, dont le coffre sert à to
   assert.equal(room().state.maisons.get('0'), 'Cleo');
   assert.equal(p.sac.get('cuir'), 1);
   assert.ok(room().world.events.some((e) => e.type === 'house_player' && e.data.who === 'Cleo'));
-  // Le coffre : on dépose le cuir restant.
+  // On entre chez soi, on va au coffre et on y dépose le cuir restant.
+  assert.ok(await until(() => p.action === 'entrer chez vous'), p.action);
+  await sleep(700); // une action à la fois (délai de la touche E)
+  r.send('interagir');
+  assert.ok(await until(() => p.interieur === lot), 'à l\'intérieur');
+  [p.x, p.y] = ROOM_FURNITURE.coffre;
   assert.ok(await until(() => p.action === 'ouvrir le coffre de votre maison'), p.action);
   r.send('coffre', { sens: 'deposer', objet: 'cuir' });
   assert.ok(await until(() => p.coffre.get('cuir') === 1 && !p.sac.has('cuir')), 'déposé');
@@ -165,6 +170,8 @@ test('on commence à l\'auberge ; on bâtit sa maison, dont le coffre sert à to
   const q = room().state.joueurs.get(r2.sessionId);
   assert.ok(Math.hypot(q.x - (v.x * ZONE_TILES + dx), q.y - (v.y * ZONE_TILES + dy)) < 1.5, 'devant sa maison');
   assert.equal(q.coffre.get('cuir'), 1);
+  q.interieur = lot; // on le fait entrer, devant le coffre
+  [q.x, q.y] = ROOM_FURNITURE.coffre;
   r2.send('coffre', { sens: 'retirer', objet: 'cuir' });
   assert.ok(await until(() => q.sac.get('cuir') === 1 && !q.coffre.has('cuir')), 'repris');
   await r2.leave();
@@ -224,4 +231,33 @@ test('faim et fatigue : le pain apaise la faim, une nuit à l\'auberge efface la
   r.send('interagir');
   assert.ok(await until(() => p.fatigue === 0), 'reposé');
   await r.leave();
+});
+
+test('chez soi : un lit pour dormir, un panier pour adopter un compagnon, une porte pour sortir', async () => {
+  const { ROOM_FURNITURE } = await import('../shared/monde.js');
+  const r = await join({ joueur: 'Cleo', perso: 'Iris' });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Iris'));
+  const p = room().state.joueurs.get(r.sessionId);
+  r.send('interagir'); // elle apparaît devant sa porte
+  assert.ok(await until(() => p.interieur >= 0), 'entrée');
+  const flair = p.flair;
+  [p.x, p.y] = ROOM_FURNITURE.panier;
+  assert.ok(await until(() => p.action === 'adopter un chien'), p.action);
+  await sleep(700);
+  r.send('interagir');
+  assert.ok(await until(() => p.compagnon === 'chien'));
+  assert.equal(p.flair, flair + 5);
+  p.fatigue = 50;
+  [p.x, p.y] = ROOM_FURNITURE.lit;
+  assert.ok(await until(() => p.action === 'dormir dans votre lit'), p.action);
+  await sleep(700);
+  r.send('interagir');
+  assert.ok(await until(() => p.fatigue === 0), 'reposée');
+  [p.x, p.y] = ROOM_FURNITURE.porte;
+  assert.ok(await until(() => p.action === 'sortir'), p.action);
+  await sleep(700);
+  r.send('interagir');
+  assert.ok(await until(() => p.interieur === -1), 'sortie');
+  await r.leave();
+  assert.equal(room().registry.Iris.compagnon, 'chien', 'le compagnon est gardé');
 });

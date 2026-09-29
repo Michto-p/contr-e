@@ -15,6 +15,14 @@ export const INN_SPOT = [10, 4]; // coin haut-gauche, 3 × 2 tuiles
 export const INN_DOOR = [11.5, 6.4];
 export const HOUSE_LOTS = [[4, 3], [7, 4], [14, 4], [3, 7], [11, 8], [5, 9], [14, 9], [8, 12], [6, 14], [12, 14]];
 export const houseDoor = (lot) => [HOUSE_LOTS[lot][0] + 0.5, HOUSE_LOTS[lot][1] + 1.3];
+
+// L'intérieur d'une maison : une pièce de ROOM_W × ROOM_H tuiles, en coordonnées locales.
+// Le mobilier a une place par défaut (la disposition pourra se personnaliser plus tard).
+export const ROOM_W = 10;
+export const ROOM_H = 7;
+export const ROOM_FURNITURE = {
+  porte: [5, 6.4], lit: [1.6, 1.9], coffre: [8.4, 1.8], panier: [2, 5.2], cheminee: [5, 0.9], table: [7, 4.2],
+};
 export const SPEED = 5; // tuiles par seconde
 export const MOVE_STEP_MS = 50; // pas de simulation des déplacements côté serveur
 

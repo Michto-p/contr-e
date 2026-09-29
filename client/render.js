@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, HOUSE_LOTS } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, HOUSE_LOTS, ROOM_W, ROOM_H, ROOM_FURNITURE } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
 import { drawSky } from './ciel.js';
 
@@ -603,6 +603,121 @@ export function drawPnj(ctx, g, t, hitAge, lungeAge) {
   }
 }
 
+// Compagnons : un chien roux ou un chat gris, qui trottine derrière son maître.
+export function drawPet(ctx, pet, t) {
+  const x = pet.x * TILE;
+  const hop = pet.bouge ? Math.abs(Math.sin(t / 80)) * 1.5 : 0;
+  const y = pet.y * TILE - hop;
+  const s = pet.dir === 'gauche' ? -1 : 1;
+  px(ctx, 'rgba(0,0,0,0.25)', x - 5, pet.y * TILE + 3, 10, 2);
+  if (pet.sorte === 'chien') {
+    px(ctx, '#b0703a', x - 5, y - 4, 9, 5); // corps
+    px(ctx, '#b0703a', x + s * 4 - 2, y - 8, 5, 5); // tête
+    px(ctx, '#7a4a22', x + s * 4 - (s > 0 ? 2 : -1), y - 9, 2, 3); // oreille
+    px(ctx, '#1c1814', x + s * 5 - (s > 0 ? 0 : 1), y - 7, 1, 1);
+    px(ctx, '#b0703a', x - s * 6 - (s > 0 ? 0 : 1), y - 6 + (Math.sin(t / 90) > 0 ? 0 : 1), 2, 2); // queue qui remue
+    px(ctx, '#7a4a22', x - 4, y + 1, 2, 2); px(ctx, '#7a4a22', x + 2, y + 1, 2, 2);
+  } else {
+    px(ctx, '#8d8f96', x - 4, y - 4, 8, 5);
+    px(ctx, '#8d8f96', x + s * 4 - 2, y - 7, 4, 4);
+    px(ctx, '#8d8f96', x + s * 4 - 2, y - 9, 1, 2); px(ctx, '#8d8f96', x + s * 4 + 1, y - 9, 1, 2); // oreilles
+    px(ctx, '#e5e08a', x + s * 4 - (s > 0 ? -1 : 0), y - 6, 1, 1);
+    px(ctx, '#8d8f96', x - s * 5 - (s > 0 ? 0 : 1), y - 8, 1, 5); // queue dressée
+    px(ctx, '#6d6f76', x - 3, y + 1, 2, 1); px(ctx, '#6d6f76', x + 1, y + 1, 2, 1);
+  }
+}
+
+// L'intérieur d'une maison, centré à l'écran : plancher, murs, cheminée, lit, coffre, table, panier.
+export function drawInterior(ctx, { players, heure, t, width, height, scale }) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#120f0c';
+  ctx.fillRect(0, 0, width, height);
+  const unit = TILE * scale;
+  ctx.setTransform(scale, 0, 0, scale, Math.round(width / 2 - (ROOM_W / 2) * unit), Math.round(height / 2 - (ROOM_H / 2) * unit));
+  const W = ROOM_W * TILE;
+  const H = ROOM_H * TILE;
+  // Plancher et murs.
+  for (let y = 0; y < ROOM_H; y++) {
+    for (let x = 0; x < ROOM_W; x++) {
+      px(ctx, (x + y) % 2 ? '#a0703f' : '#9a6a3a', x * TILE, y * TILE, TILE, TILE);
+      px(ctx, '#7f5530', x * TILE, y * TILE + 15, TILE, 1);
+    }
+  }
+  px(ctx, '#d8c8a8', 0, 0, W, 1.4 * TILE);
+  px(ctx, '#6b4a2b', 0, 1.4 * TILE, W, 3);
+  for (const x of [0, 3, 7, 10]) px(ctx, '#6b4a2b', x * TILE - 2, 0, 3, 1.4 * TILE);
+  const night = heure >= 20 || heure < 6;
+  for (const wx of [1.5, 7.6]) { // fenêtres
+    px(ctx, '#6b4a2b', wx * TILE - 1, 4, 22, 14);
+    px(ctx, night ? '#1d2748' : '#9fd0f0', wx * TILE + 1, 6, 18, 10);
+    px(ctx, '#6b4a2b', wx * TILE + 9, 6, 2, 10);
+  }
+  // Cheminée et son feu.
+  const [cx0] = ROOM_FURNITURE.cheminee;
+  px(ctx, '#7d7466', cx0 * TILE - 14, 0, 28, 1.6 * TILE);
+  px(ctx, '#2b2620', cx0 * TILE - 8, 10, 16, 0.9 * TILE);
+  const f = Math.sin(t / 90) > 0 ? 1 : 0;
+  px(ctx, '#ff9a3c', cx0 * TILE - 5, 16 + f, 10, 6 - f);
+  px(ctx, '#ffe07a', cx0 * TILE - 2, 18, 4, 4);
+  // Tapis.
+  px(ctx, '#8a3b3b', 3.2 * TILE, 3 * TILE, 3.6 * TILE, 2.2 * TILE);
+  px(ctx, '#c9a66b', 3.4 * TILE, 3.2 * TILE, 3.2 * TILE, 1.8 * TILE);
+  px(ctx, '#8a3b3b', 3.6 * TILE, 3.4 * TILE, 2.8 * TILE, 1.4 * TILE);
+  // Lit.
+  const [bx, by] = ROOM_FURNITURE.lit;
+  px(ctx, '#6b4a2b', (bx - 1) * TILE, (by - 0.5) * TILE, 1.6 * TILE, 2.2 * TILE);
+  px(ctx, '#efe9dc', (bx - 0.9) * TILE, (by - 0.4) * TILE, 1.4 * TILE, 0.6 * TILE);
+  px(ctx, '#3b6d8f', (bx - 0.9) * TILE, (by + 0.2) * TILE, 1.4 * TILE, 1.4 * TILE);
+  // Coffre.
+  const [kx, ky] = ROOM_FURNITURE.coffre;
+  px(ctx, '#7a4a22', (kx - 0.6) * TILE, (ky - 0.4) * TILE, 1.2 * TILE, 0.8 * TILE);
+  px(ctx, '#5c3718', (kx - 0.6) * TILE, (ky - 0.1) * TILE, 1.2 * TILE, 2);
+  px(ctx, '#e0c060', kx * TILE - 1, ky * TILE - 2, 3, 3);
+  // Table et chaises.
+  const [tx, ty] = ROOM_FURNITURE.table;
+  px(ctx, 'rgba(0,0,0,0.2)', (tx - 0.9) * TILE, (ty + 0.5) * TILE, 1.8 * TILE, 3);
+  px(ctx, '#8a5a2b', (tx - 0.9) * TILE, (ty - 0.4) * TILE, 1.8 * TILE, 0.9 * TILE);
+  px(ctx, '#6b4a2b', (tx - 1.4) * TILE, (ty - 0.2) * TILE, 6, 10); px(ctx, '#6b4a2b', (tx + 1.05) * TILE, (ty - 0.2) * TILE, 6, 10);
+  px(ctx, '#f7f2e0', tx * TILE - 3, (ty - 0.2) * TILE, 6, 3); // une miche de pain
+  // Panier du compagnon.
+  const [px0, py0] = ROOM_FURNITURE.panier;
+  ctx.fillStyle = '#b8864a';
+  ctx.beginPath(); ctx.ellipse(px0 * TILE, py0 * TILE, 11, 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#d9c7a0';
+  ctx.beginPath(); ctx.ellipse(px0 * TILE, py0 * TILE - 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // Porte (on sort par là).
+  const [dx0] = ROOM_FURNITURE.porte;
+  px(ctx, '#3a2a1c', (dx0 - 0.6) * TILE, H - 5, 1.2 * TILE, 5);
+  px(ctx, '#c9a66b', (dx0 - 0.5) * TILE, H - 3, 1 * TILE, 2);
+  // Habitants de la pièce, du fond vers l'avant.
+  const actors = [];
+  for (const p of players) {
+    actors.push({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt, Infinity) });
+    if (p.pet) actors.push({ y: p.pet.y, draw: () => drawPet(ctx, p.pet, t) });
+  }
+  actors.sort((a, b) => a.y - b.y).forEach((a) => a.draw());
+  // Lumière chaude de la cheminée.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const g = ctx.createRadialGradient(width / 2, height / 2 - 2 * unit, unit, width / 2, height / 2, 7 * unit);
+  g.addColorStop(0, 'rgba(255, 170, 70, 0.10)');
+  g.addColorStop(1, `rgba(10, 8, 20, ${night ? 0.35 : 0.12})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, width, height);
+  // Noms.
+  ctx.font = `${Math.max(11, Math.round(4.5 * scale))}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  for (const p of players) {
+    const sx = Math.round(width / 2 + (p.dx - ROOM_W / 2) * unit);
+    const sy = Math.round(height / 2 + (p.dy - ROOM_H / 2) * unit - 16 * scale);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20, 16, 12, 0.85)';
+    ctx.strokeText(p.nom, sx, sy);
+    ctx.fillStyle = p.moi ? '#ffe28a' : '#fdf6e3';
+    ctx.fillText(p.nom, sx, sy);
+  }
+}
+
 // Dessine le monde vu par la caméra. `view` : { cx, cy, scale } en tuiles / pixels écran.
 export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], pnjs = [], questZones = new Set(), under = null, over = null, sky = null, dt = 16, view, t, width, height }) {
   const { cx, cy, scale } = view;
@@ -709,6 +824,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
   const actors = [
     ...monsters.map((m) => ({ y: m.dy, draw: () => drawMonster(ctx, m, t, t - m.hitAt, t - m.lungeAt) })),
     ...players.map((p) => ({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt, t - p.dashAt) })),
+    ...players.filter((p) => p.pet).map((p) => ({ y: p.pet.y, draw: () => drawPet(ctx, p.pet, t) })),
     ...pnjs.map((g) => ({ y: g.dy, draw: () => drawPnj(ctx, g, t, t - g.hitAt, t - g.lungeAt) })),
   ].sort((a, b) => a.y - b.y);
   for (const a of actors) a.draw();

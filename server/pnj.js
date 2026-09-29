@@ -105,7 +105,7 @@ export function followPlayer(room, key, sid, p) {
 
 function updateLost(room, key, e, data, dt) {
   const p = data.follow ? room.state.joueurs.get(data.follow) : null;
-  if (!p || p.aTerre) {
+  if (!p || p.aTerre || p.interieur >= 0) {
     // Son guide est tombé ou parti : il attend là, qu'on revienne le chercher.
     if (e.suit) { e.suit = ''; data.follow = null; e.bouge = false; }
     return;

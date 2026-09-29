@@ -107,7 +107,7 @@ function updateLoot(room, t) {
       continue;
     }
     for (const [sid, p] of room.state.joueurs) {
-      if (p.aTerre || Math.hypot(p.x - b.x, p.y - b.y) > PICKUP_RADIUS) continue;
+      if (p.aTerre || p.interieur >= 0 || Math.hypot(p.x - b.x, p.y - b.y) > PICKUP_RADIUS) continue;
       addItem(p, b.sorte);
       room.objets.loot.delete(id);
       room.state.butins.delete(id);

@@ -8,7 +8,7 @@ import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
-import { houseActionAt, buildHouse, spawnPoint } from './maisons.js';
+import { houseActionAt, buildHouse, spawnPoint, interiorActionAt, enterHouse, leaveHouse } from './maisons.js';
 import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD, addItem } from './objets.js';
 
@@ -218,7 +218,7 @@ function wood(room) {
 
 function livingPlayers(room) {
   const out = [];
-  room.state.joueurs.forEach((p, sid) => { if (!p.aTerre) out.push([sid, p]); });
+  room.state.joueurs.forEach((p, sid) => { if (!p.aTerre && p.interieur < 0) out.push([sid, p]); }); // chez soi, on est à l'abri
   return out;
 }
 
@@ -392,7 +392,7 @@ function moveProjectiles(room, dt, t) {
     pr.x += (data.vx * dt) / 1000;
     pr.y += (data.vy * dt) / 1000;
     for (const [sid, p] of room.state.joueurs) {
-      if (p.aTerre || Math.hypot(p.x - pr.x, p.y - pr.y) > PROJECTILE_HIT) continue;
+      if (p.aTerre || p.interieur >= 0 || Math.hypot(p.x - pr.x, p.y - pr.y) > PROJECTILE_HIT) continue;
       if (!isDashing(room, sid, t)) hurtPlayer(room, sid, p, data.degats, t);
       room.play.projectiles.delete(id);
       room.state.projectiles.delete(id);
@@ -469,7 +469,7 @@ function updatePlayers(room, t) {
     // Le ventre creux, on ne reprend plus de forces tout seul (le pain, lui, soigne toujours).
     if (p.pv < p.pvMax && p.faim < HUNGRY && t >= (play.regenAt.get(sid) ?? 0)) {
       p.pv += 1;
-      const safe = zoneOfPos(room, p.x, p.y) === room.sim.villageId || nearOutpost(room, p.x, p.y);
+      const safe = p.interieur >= 0 || zoneOfPos(room, p.x, p.y) === room.sim.villageId || nearOutpost(room, p.x, p.y);
       play.regenAt.set(sid, t + (safe ? REGEN_VILLAGE_MS : REGEN_WILD_MS * regenFactor(p)));
     }
   });
@@ -491,7 +491,7 @@ const FACING = { droite: [1, 0], gauche: [-1, 0], bas: [0, 1], haut: [0, -1] };
 
 export function playerAttack(room, sid, t = Date.now()) {
   const p = room.state.joueurs.get(sid);
-  if (!p || p.aTerre) return;
+  if (!p || p.aTerre || p.interieur >= 0) return; // on ne se bat pas chez soi
   p.attaque = (p.attaque + 1) % 65536;
   addFatigue(room, p, 0.15);
   const [fx, fy] = FACING[p.dir] ?? [0, 1];
@@ -624,6 +624,19 @@ export function sleep(room, p, sid, tell) {
   return tell('Une bonne nuit de sommeil : vous voilà reposé.');
 }
 
+// Un compagnon, adopté dans le panier de la maison : il suit son maître partout.
+// Le chien a du flair (butin), le chat de la ressource (récupération) : quelques points de plus.
+export const PET_BONUS = { chien: { flair: 5 }, chat: { survie: 5 } };
+function choosePet(room, p, next, tell) {
+  const entry = room.registry[p.nom];
+  const old = PET_BONUS[p.compagnon] ?? {};
+  for (const [k, v] of Object.entries(old)) p[k] = Math.max(0, p[k] - v);
+  p.compagnon = next ?? '';
+  for (const [k, v] of Object.entries(PET_BONUS[p.compagnon] ?? {})) p[k] = Math.min(255, p[k] + v);
+  if (entry) entry.compagnon = p.compagnon;
+  return tell(p.compagnon ? `Un ${p.compagnon} vous suit désormais partout.` : 'Votre compagnon garde la maison.');
+}
+
 // ---------- Le travail de chacun, selon son métier ----------
 
 // Ce qu'un personnage sait faire ici grâce à son métier (en plus de ce que tout le monde peut faire).
@@ -686,6 +699,7 @@ function doJob(room, p, a, tell) {
 
 // Renvoie l'action possible à cet endroit (sans l'exécuter), ou null.
 export function actionAt(room, p) {
+  if (p.interieur >= 0) return interiorActionAt(room, p);
   const { sim } = room;
   const zone = sim.zones[zoneOfPos(room, p.x, p.y)];
   const lost = room.pnj ? lostNear(room, p) : null;
@@ -741,6 +755,9 @@ export function playerInteract(room, sid, t = Date.now()) {
   }
 
   if (a.kind === 'dormir') return sleep(room, p, sid, tell);
+  if (a.kind === 'entrer') { enterHouse(room, p); return undefined; }
+  if (a.kind === 'sortir') { leaveHouse(room, p); return undefined; }
+  if (a.kind === 'compagnon') return choosePet(room, p, a.next, tell);
   if (['recolter', 'miner', 'tondre', 'cuire', 'forger-outils'].includes(a.kind)) { addFatigue(room, p, 0.4); return doJob(room, p, a, tell); }
 
   if (a.kind === 'bois') addFatigue(room, p, 0.4);

@@ -207,3 +207,7 @@
 ## Faim et fatigue
 - Fait : deux jauges par personnage (0–100) : la faim monte d'un point toutes les 18 s de jeu, la fatigue toutes les 25 s et à l'effort (coups, travail). Affamé (≥ 70) : plus de récupération naturelle ; fatigué (≥ 70) : vitesse × 0,85 (prédite aussi par le client) et un dégât de moins. Le pain (R) retire 35 de faim ; dormir à l'auberge remet la fatigue à zéro et les PV au maximum.
 - Décision : jamais mortel (pilier « des revers ») ; un personnage laissé plus de dix minutes au village y a mangé et dormi (jauges à zéro en revenant).
+
+## Intérieur des maisons et compagnons
+- Fait : E devant sa porte fait entrer dans sa maison : une pièce (coordonnées locales, `interieur` = numéro du terrain) avec lit (dormir), coffre, panier (adopter un chien : +5 flair, ou un chat : +5 survie), cheminée, table, et la porte pour sortir. Le client dessine la pièce à la place du monde ; les autres personnages du joueur qui y sont s'y voient. Le compagnon suit son maître (calculé par chaque navigateur, visible de tous).
+- Décision : chez soi, on est hors du monde (ni monstres, ni projectiles, ni butin, l'égaré attend dehors) ; la disposition du mobilier est une constante partagée, prête à devenir personnalisable. Problème corrigé : un habitant qui passait volait encore la touche E devant la porte.

@@ -2,7 +2,7 @@
 // bâtit sa maison sur un terrain libre du village (avec ce qu'il a rapporté et le bois du village).
 // La maison a un coffre, commun à tous les personnages du joueur, et c'est là qu'il reprend ses
 // esprits quand il tombe. Une maison au village est protégée : elle ne s'abîme jamais.
-import { ZONE_TILES, INN_DOOR, HOUSE_LOTS, houseDoor } from '../shared/monde.js';
+import { ZONE_TILES, INN_DOOR, HOUSE_LOTS, houseDoor, ROOM_W, ROOM_H, ROOM_FURNITURE } from '../shared/monde.js';
 import { clamp } from '../src/sim/world.js';
 import { bagCount, addItem } from './objets.js';
 import { pushEvent, announce } from './evenements.js';
@@ -63,7 +63,7 @@ export function houseActionAt(room, p) {
   if (!account) return null;
   if (account.maison != null) {
     const [dx, dy] = houseDoor(account.maison);
-    if (Math.hypot(c.x + dx - p.x, c.y + dy - p.y) <= REACH) return { kind: 'coffre', label: 'ouvrir le coffre de votre maison' };
+    if (Math.hypot(c.x + dx - p.x, c.y + dy - p.y) <= REACH) return { kind: 'entrer', label: 'entrer chez vous' };
     return null;
   }
   const used = new Set(Object.values(room.players).map((a) => a.maison).filter((m) => m != null));
@@ -109,10 +109,50 @@ export function refreshChests(room, joueur) {
   });
 }
 
-// Déposer ou reprendre un objet ; seulement devant chez soi.
+// ---------- L'intérieur ----------
+
+const near = (p, [x, y], r = REACH) => Math.hypot(p.x - x, p.y - y) <= r;
+
+// Dans la pièce : se coucher, ouvrir le coffre, le panier du compagnon, ou sortir.
+export function interiorActionAt(room, p) {
+  const f = ROOM_FURNITURE;
+  if (near(p, f.porte, 1.2)) return { kind: 'sortir', label: 'sortir' };
+  if (near(p, f.lit)) return { kind: 'dormir', label: 'dormir dans votre lit' };
+  if (near(p, f.coffre)) return { kind: 'coffre', label: 'ouvrir le coffre de votre maison' };
+  if (near(p, f.panier)) {
+    const next = { '': 'chien', chien: 'chat', chat: '' }[p.compagnon ?? ''];
+    return { kind: 'compagnon', next, label: next ? `adopter un ${next}` : 'laisser votre compagnon à la maison' };
+  }
+  return null;
+}
+
+export function enterHouse(room, p) {
+  const lot = room.players[p.joueur]?.maison;
+  if (lot == null) return;
+  p.interieur = lot;
+  [p.x, p.y] = [ROOM_FURNITURE.porte[0], ROOM_FURNITURE.porte[1] - 1.8]; // assez loin de la porte pour ne pas ressortir aussitôt
+  p.dir = 'haut';
+}
+
+export function leaveHouse(room, p) {
+  if (p.interieur < 0) return;
+  const c = villageCorner(room);
+  const [dx, dy] = houseDoor(p.interieur);
+  p.interieur = -1;
+  p.x = c.x + dx;
+  p.y = c.y + dy + 0.4;
+  p.dir = 'bas';
+}
+
+// Déplacement dans la pièce : on reste entre les murs.
+export function clampInRoom(next) {
+  return { x: Math.max(0.6, Math.min(ROOM_W - 0.6, next.x)), y: Math.max(1.6, Math.min(ROOM_H - 0.4, next.y)) };
+}
+
+// Déposer ou reprendre un objet ; seulement devant son coffre, chez soi.
 export function chestMove(room, p, { sens, objet, n } = {}, tell) {
-  const action = houseActionAt(room, p);
-  if (action?.kind !== 'coffre') return tell('Il faut être devant votre maison.');
+  const action = p.interieur >= 0 ? interiorActionAt(room, p) : null;
+  if (action?.kind !== 'coffre') return tell('Il faut être devant le coffre, chez vous.');
   const account = room.players[p.joueur];
   const coffre = account.coffre ??= {};
   const item = String(objet ?? '');

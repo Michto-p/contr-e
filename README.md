@@ -79,8 +79,9 @@ métier vont bien ensemble et révèlent un **secret de classe** : des points en
 **L'auberge et la maison.** Tout le monde commence à l'auberge du village (la grande bâtisse à
 colombages). Plus tard, on bâtit sa maison sur un terrain libre (les enclos du village) : **E** devant
 le terrain, avec 4 cuir et 4 minerai rapportés des combats et 10 bois de la réserve du village. On
-y réapparaît désormais, et son **coffre** (E devant la porte) garde vos affaires, pour tous vos
-personnages. L'équipement, lui, reste propre à chaque personnage.
+y réapparaît désormais, et l'on peut **y entrer** (E devant la porte) : une pièce avec un lit (dormir),
+le **coffre** qui garde vos affaires pour tous vos personnages, et un panier où adopter un
+**compagnon** (un chien, qui ajoute du flair, ou un chat, de la survie). Il vous suit partout. L'équipement, lui, reste propre à chaque personnage.
 
 **Une famille.** Dès que le joueur a sa maison, ses personnages peuvent, quand ils vivent au village,
 se mettre en couple avec un habitant et avoir des enfants, qui portent le nom du joueur et grandissent

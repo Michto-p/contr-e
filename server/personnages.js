@@ -90,6 +90,9 @@ export function applyCharacter(p, entry) {
   p.metier = entry.metier ?? 'aventurier';
   p.secret = entry.secret ?? '';
   for (const k of SKILL_KEYS) p[k] = Math.min(255, entry.competences?.[k] ?? 0);
+  // Le compagnon ajoute ses quelques points (chien : flair, chat : survie).
+  if (entry.compagnon === 'chien') p.flair = Math.min(255, p.flair + 5);
+  if (entry.compagnon === 'chat') p.survie = Math.min(255, p.survie + 5);
 }
 
 export function startPlaying(room, name, now) {

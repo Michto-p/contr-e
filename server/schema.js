@@ -32,6 +32,8 @@ export const Joueur = schema({
   roulade: t.uint16(), // compteur : chaque roulade l'incrémente
   sac: t.map('uint16'), // objet -> quantité (minerai, cuir, ressources rares)
   maison: t.int8(), // terrain de la maison du joueur (-1 : il dort à l'auberge)
+  interieur: t.int8(), // dans une maison (numéro du terrain), -1 dehors ; x, y sont alors locaux à la pièce
+  compagnon: t.string(), // '', 'chien' ou 'chat'
   faim: t.uint8(), // 0–100
   fatigue: t.uint8(), // 0–100
   coffre: t.map('uint16'), // le coffre de sa maison, commun à ses personnages

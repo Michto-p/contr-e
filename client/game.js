@@ -1,11 +1,11 @@
 // Client du jeu : connexion Colyseus, clavier/tactile, prédiction du déplacement, interface.
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
-import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt } from './shared/monde.js';
+import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt, ROOM_W, ROOM_H } from './shared/monde.js';
 import { COMPETENCES, SKILL_KEYS, CLASSES, FREE_POINTS, basePoints, computeSkills, speedFactor, needsSpeed } from './shared/competences.js';
 import { createSky } from './ciel.js';
 import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
-import { buildZoneCanvases, drawWorld, drawMinimap, rareColor, TUNIQUES } from './render.js';
+import { buildZoneCanvases, drawWorld, drawMinimap, drawInterior, rareColor, TUNIQUES } from './render.js';
 import { createAmbiance, updateAmbiance, drawAmbianceGround, drawAmbianceSky, nearestVillager } from './ambiance.js';
 import { talk } from './dialogues.js';
 import { buildTrees, renderTrees } from './shared/genealogie.js';
@@ -454,7 +454,7 @@ function talkTo(h) {
 
 let lastInteractSent = 0;
 // Certaines actions passent avant la conversation : un habitant qui passe ne doit pas les voler.
-const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir)/;
+const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir|entrer chez vous|dormir|sortir|adopter|laisser votre compagnon)/;
 function talkTarget() {
   const me = game.room?.state.joueurs.get(game.room.sessionId);
   return me && PRIORITY_ACTION.test(me.action) ? null : game.nearVillager;
@@ -493,15 +493,16 @@ function renderHud() {
   const info = monde.zones[zi];
   const z = s.zones[zi];
   if (!info || !z) return;
-  const label = info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
+  const home = s.joueurs.get(game.room.sessionId)?.interieur >= 0; // chez soi, à l'abri
+  const label = home ? 'Chez vous' : info.village ? 'Le village' : info.label.charAt(0).toUpperCase() + info.label.slice(1);
   $('ou').textContent = label;
-  $('danger-mot').textContent = info.village ? 'Zone sûre' : `Monstres : ${PRESSION(z.p)}`;
-  $('jauge').style.width = `${info.village ? 0 : z.p}%`;
+  $('danger-mot').textContent = home || info.village ? 'Zone sûre' : `Monstres : ${PRESSION(z.p)}`;
+  $('jauge').style.width = `${home || info.village ? 0 : z.p}%`;
   const structs = (z.s || '').split(';').filter(Boolean).map((part) => {
     const [type, cond, b] = part.split('|');
     return `${type} (${statusWord(Number(cond), b === '1')})`;
   });
-  $('structs').textContent = structs.join(' · ');
+  $('structs').textContent = home ? '' : structs.join(' · ');
 
   const me = s.joueurs.get(game.room.sessionId);
   if (me) {
@@ -809,9 +810,15 @@ function frame(t) {
     const factor = (dashing ? DASH_FACTOR : 1) * (mine.bottes ? BOOTS_FACTOR : 1) * speedFactor(mine) * needsSpeed(mine);
     const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, dashing ? game.dash.dir : input, dt, factor);
     if (input.x || input.y) game.facing = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
-    const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;
-    if (!blocked(next.x, game.me.y)) game.me.x = next.x;
-    if (!blocked(game.me.x, next.y)) game.me.y = next.y;
+    if (mine.interieur >= 0) {
+      // Chez soi : entre les murs de la pièce, comme sur le serveur.
+      game.me.x = Math.max(0.6, Math.min(ROOM_W - 0.6, next.x));
+      game.me.y = Math.max(1.6, Math.min(ROOM_H - 0.4, next.y));
+    } else {
+      const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;
+      if (!blocked(next.x, game.me.y)) game.me.x = next.x;
+      if (!blocked(game.me.x, next.y)) game.me.y = next.y;
+    }
     // Recalage en douceur (ou immédiat si l'écart est grand, ou si le joueur est à terre).
     const ex = mine.x - game.me.x;
     const ey = mine.y - game.me.y;
@@ -830,14 +837,17 @@ function frame(t) {
     let d = game.others.get(id);
     if (!d) { d = { x: p.x, y: p.y, attaque: p.attaque, attackAt: -1e9, touche: p.touche, hurtAt: -1e9 }; game.others.set(id, d); }
     if (moi) { d.x = game.me.x; d.y = game.me.y; }
+    else if (d.interieur !== p.interieur || Math.hypot(p.x - d.x, p.y - d.y) > 6) { d.x = p.x; d.y = p.y; } // entré ou sorti : pas de glissade
     else { d.x += (p.x - d.x) * 0.25; d.y += (p.y - d.y) * 0.25; }
+    d.interieur = p.interieur;
+    updatePet(d, p, dt);
     if (p.attaque !== d.attaque) { d.attaque = p.attaque; d.attackAt = t; }
     if (p.touche !== d.touche) { d.touche = p.touche; d.hurtAt = t; if (moi) play('blesse'); }
     if (d.roulade === undefined) d.roulade = p.roulade;
     if (p.roulade !== d.roulade) { d.roulade = p.roulade; if (!moi) d.dashAt = t; }
     if (moi && game.dash && t < game.dash.until) d.dashAt = game.dash.until - DASH_MS;
     const dir = moi && (input.x || input.y) ? (Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut')) : p.dir;
-    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) && !p.aTerre : p.bouge, couleur: p.couleur, attackAt: d.attackAt, hurtAt: d.hurtAt, dashAt: d.dashAt ?? -1e9, aTerre: p.aTerre, epee: p.epee, armure: p.armure, bottes: p.bottes, moi });
+    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) && !p.aTerre : p.bouge, couleur: p.couleur, attackAt: d.attackAt, hurtAt: d.hurtAt, dashAt: d.dashAt ?? -1e9, aTerre: p.aTerre, epee: p.epee, armure: p.armure, bottes: p.bottes, moi, interieur: p.interieur, pet: d.pet });
   });
   for (const id of game.others.keys()) if (!room.state.joueurs.has(id)) game.others.delete(id);
 
@@ -876,18 +886,48 @@ function frame(t) {
   const cx = Math.max(halfW, Math.min(worldW - halfW, game.me.x));
   const cy = Math.max(halfH, Math.min(worldH - halfH, game.me.y));
 
+  // Chez soi : on dessine la pièce, avec ceux qui s'y trouvent.
+  if (mine && mine.interieur >= 0) {
+    game.nearVillager = null;
+    drawInterior(ctx, { players: players.filter((p) => p.interieur === mine.interieur), heure: room.state.heure, t, width: sized.w, height: sized.h, scale });
+    drawMinimap(mini, { monde: game.monde, state: room.state, players: [], pnjs, questZones });
+    renderHud();
+    return;
+  }
   if (game.ambiance) {
     updateAmbiance(game.ambiance, dt, game.me, t, room.state);
     game.nearVillager = nearestVillager(game.ambiance, game.me);
   }
   drawWorld(ctx, {
-    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, pnjs, questZones, sky: game.sky, dt,
+    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players: players.filter((p) => p.interieur < 0), monsters, pnjs, questZones, sky: game.sky, dt,
     under: game.ambiance ? (c) => drawAmbianceGround(c, game.ambiance, t) : null,
     over: game.ambiance ? (c) => drawAmbianceSky(c, game.ambiance, t) : null,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,
   });
   drawMinimap(mini, { monde: game.monde, state: room.state, players, pnjs, questZones });
   renderHud();
+}
+
+// Le compagnon suit son maître d'un pas tranquille, un peu en retrait.
+function updatePet(d, p, dt) {
+  if (!p.compagnon) { d.pet = null; return; }
+  const [fx, fy] = FACE[p.dir] ?? [0, 1];
+  const tx = d.x - fx * 0.9 + 0.3;
+  const ty = d.y - fy * 0.9 + 0.2;
+  if (!d.pet || d.pet.sorte !== p.compagnon || Math.hypot(tx - d.pet.x, ty - d.pet.y) > 6) {
+    d.pet = { sorte: p.compagnon, x: tx, y: ty, bouge: false, dir: 'droite' };
+    return;
+  }
+  const dx = tx - d.pet.x;
+  const dy = ty - d.pet.y;
+  const dist = Math.hypot(dx, dy);
+  d.pet.bouge = dist > 0.25;
+  if (d.pet.bouge) {
+    const step = Math.min(dist, (dist > 2 ? 6.5 : 4.5) * dt / 1000);
+    d.pet.x += (dx / dist) * step;
+    d.pet.y += (dy / dist) * step;
+    if (Math.abs(dx) > 0.05) d.pet.dir = dx > 0 ? 'droite' : 'gauche';
+  }
 }
 
 // Accès pour les tests automatisés dans le navigateur.

@@ -9,7 +9,7 @@ import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndex
 import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor, needsSpeed } from '../shared/competences.js';
-import { initHouses, spawnPoint, refreshChests, chestMove } from './maisons.js';
+import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom } from './maisons.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
@@ -258,6 +258,7 @@ export function makeContreeRoom(config) {
     // ---------- Joueurs ----------
 
     zoneOf(p) {
+      if (p.interieur >= 0) return this.sim.villageId; // chez soi, on est au village
       return zoneIndexAt(p.x, p.y, this.sim.width, this.sim.height);
     }
 
@@ -322,6 +323,8 @@ export function makeContreeRoom(config) {
       p.x = spawn.x + ((this.clients.length % 3) - 1) * 0.6;
       p.y = spawn.y;
       p.maison = -1;
+      p.interieur = -1;
+      p.compagnon = entry.compagnon ?? '';
       p.dir = 'bas';
       p.bouge = false;
       p.attaque = 0;
@@ -390,6 +393,8 @@ export function makeContreeRoom(config) {
         if (!moving) continue;
         const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1) * speedFactor(p) * needsSpeed(p);
         const next = stepPosition(p.x, p.y, input, dt, factor);
+        p.dir = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
+        if (p.interieur >= 0) { Object.assign(p, clampInRoom(next)); continue; } // chez soi : entre ses murs
         next.x = Math.max(0.4, Math.min(W - 0.4, next.x));
         next.y = Math.max(0.4, Math.min(H - 0.4, next.y));
         // Une zone fermée par la neige ne se traverse pas : on bloque axe par axe.
