@@ -1,5 +1,5 @@
-# Tests à chaque push. La page (index.html à la racine) est publiée par GitHub Pages
-# en mode « Deploy from a branch », qui sert directement les fichiers du dépôt.
+# Tests à chaque push. La page de simulation (index.html à la racine) est publiée par GitHub Pages
+# en mode « Deploy from a branch ». Le serveur de jeu, lui, tourne dans un Codespace ou sur le LXC.
 name: Tests
 
 on:
@@ -14,5 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
       - run: npm run sim -- --days 7 --seed 42
+      - name: Le serveur démarre et sert la page du jeu
+        run: |
+          PORT=2567 HEURE_MS=200 FICHIER=/tmp/contree.json node server/index.js &
+          for i in $(seq 1 30); do curl -sf http://localhost:2567/ > /tmp/page.html && break; sleep 1; done
+          grep -q "<canvas" /tmp/page.html
+          curl -sf http://localhost:2567/vendor/colyseus.js > /dev/null
