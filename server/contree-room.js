@@ -240,6 +240,7 @@ export function makeContreeRoom(config) {
     staticWorld() {
       return {
         nom: this.sim.name,
+        graine: this.sim.seed,
         signature: this.sim.signature,
         largeur: this.sim.width,
         hauteur: this.sim.height,

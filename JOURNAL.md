@@ -157,3 +157,7 @@
 ## Voyageurs égarés
 - Fait : de temps en temps (au plus un à la fois), un voyageur s'égare dans une zone lointaine. En jeu, il attend sur la carte ; E le fait suivre le joueur, et arrivé au village il s'installe avec le métier où son savoir compte le plus (event `wanderer_rescued`, annoncé à tous). Sans joueurs, un habitant curieux peut aller le chercher ; au bout de 6 jours sans secours, il reprend sa route (`wanderer_gone`).
 - Décision : les monstres ne s'en prennent pas à l'égaré (plus simple) ; le danger, c'est pour celui qui le guide. Si le guide tombe ou part, l'égaré attend sur place.
+
+## Terrain procédural (2D)
+- Fait : `client/terrain.js` dessine le paysage tuile par tuile à partir de la graine (envoyée dans le message `monde`) : lisières naturelles entre biomes (bruit qui déforme les bords des zones, sauf village et champs), collines et montagnes en terrasses avec falaises, deux ruisseaux qui serpentent loin du village, clairières dans les bois et bosquets dans les prés, nuances de couleur à grande échelle.
+- Décision : le terrain ne sert qu'au dessin (la simulation reste par zones) ; les ruisseaux se passent à gué. Les images de zones sont dessinées à la demande et seules les 64 plus récentes sont gardées (la grande carte en compte 256).

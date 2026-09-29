@@ -1,6 +1,7 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
 import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE } from './shared/monde.js';
+import { createTerrain } from './terrain.js';
 
 export const TILE = 16;
 const ZONE_PX = ZONE_TILES * TILE;
@@ -33,15 +34,24 @@ function grass(ctx, tx, ty, ox, oy, base, dark, light) {
 }
 
 const TERRAIN = {
-  plaine(ctx, tx, ty, ox, oy) {
+  plaine(ctx, tx, ty, ox, oy, terrain) {
     grass(ctx, tx, ty, ox, oy, '#7ec850', '#5fa83a', '#a6e070');
     const r = hash(tx, ty, 11);
-    if (r < 0.06) { px(ctx, '#f4e06d', ox + 6, oy + 7, 2, 2); px(ctx, '#fff6c2', ox + 6, oy + 7); }
+    if (terrain && terrain.density(tx, ty) > 0.66 && hash(tx, ty, 12) < 0.3) {
+      // Un bosquet au milieu des prés.
+      px(ctx, '#6b4a2b', ox + 7, oy + 10, 2, 4);
+      ctx.fillStyle = '#4c9a3a';
+      ctx.beginPath(); ctx.arc(ox + 8, oy + 8, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6cb552';
+      ctx.beginPath(); ctx.arc(ox + 6, oy + 6, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (r < 0.06) { px(ctx, '#f4e06d', ox + 6, oy + 7, 2, 2); px(ctx, '#fff6c2', ox + 6, oy + 7); }
     else if (r < 0.1) { px(ctx, '#e87ba4', ox + 10, oy + 4, 2, 2); }
   },
-  foret(ctx, tx, ty, ox, oy) {
+  foret(ctx, tx, ty, ox, oy, terrain) {
     grass(ctx, tx, ty, ox, oy, '#4f9a3c', '#3c7f2e', '#6cb552');
-    if (hash(tx, ty, 3) < 0.5) {
+    // Des sous-bois denses et des clairières.
+    const dense = terrain ? 0.15 + terrain.density(tx, ty) * 0.75 : 0.5;
+    if (hash(tx, ty, 3) < dense) {
       px(ctx, '#6b4a2b', ox + 7, oy + 10, 2, 5);
       ctx.fillStyle = '#2f6f2c';
       ctx.beginPath(); ctx.arc(ox + 8, oy + 8, 6, 0, Math.PI * 2); ctx.fill();
@@ -125,29 +135,93 @@ function drawVillage(ctx, zx, zy) {
   ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
 }
 
-export function buildZoneCanvases(monde) {
-  const canvases = [];
-  monde.zones.forEach((z, i) => {
-    const zx = i % monde.largeur;
-    const zy = Math.floor(i / monde.largeur);
-    const c = document.createElement('canvas');
-    c.width = ZONE_PX;
-    c.height = ZONE_PX;
-    const ctx = c.getContext('2d');
-    if (z.village) drawVillage(ctx, zx, zy);
-    else {
-      for (let ty = 0; ty < ZONE_TILES; ty++) {
-        for (let tx = 0; tx < ZONE_TILES; tx++) {
-          const gx = zx * ZONE_TILES + tx;
-          const gy = zy * ZONE_TILES + ty;
-          if (z.champ) drawField(ctx, gx, gy, tx * TILE, ty * TILE);
-          else TERRAIN[z.biome](ctx, gx, gy, tx * TILE, ty * TILE);
-        }
+function drawWater(ctx, gx, gy, ox, oy, terrain) {
+  px(ctx, '#3f7f9a', ox, oy, TILE, TILE);
+  // Berges : un bord plus sombre côté terre.
+  if (!terrain.isWater(gx, gy - 1)) px(ctx, '#2f6377', ox, oy, TILE, 2);
+  if (!terrain.isWater(gx - 1, gy)) px(ctx, '#356d83', ox, oy, 1, TILE);
+  if (!terrain.isWater(gx + 1, gy)) px(ctx, '#356d83', ox + TILE - 1, oy, 1, TILE);
+  for (let i = 0; i < 2; i++) {
+    const x = ox + 2 + Math.floor(hash(gx, gy, 40 + i) * 10);
+    const y = oy + 4 + Math.floor(hash(gy, gx, 42 + i) * 9);
+    px(ctx, '#7fb8cc', x, y, 4, 1);
+  }
+  if (hash(gx, gy, 44) < 0.12) { px(ctx, '#9a9480', ox + 5, oy + 6, 4, 3); px(ctx, '#c2bca8', ox + 5, oy + 6, 3, 1); } // un galet de gué
+}
+
+const CLIFF = { colline: ['#8a7d5c', '#6f6448', '#c2cf7a'], montagne: ['#6a655c', '#56524b', '#b0aa9c'] };
+
+// Une tuile sauvage : lisières, eau, relief en terrasses, nuances de couleur.
+function drawWildTile(ctx, terrain, gx, gy, ox, oy) {
+  if (terrain.isWater(gx, gy)) { drawWater(ctx, gx, gy, ox, oy, terrain); return; }
+  const biome = terrain.biomeAt(gx, gy);
+  TERRAIN[biome](ctx, gx, gy, ox, oy, terrain);
+  const t = terrain.tint(gx, gy);
+  if (t > 0.08) px(ctx, `rgba(255, 244, 190, ${Math.min(0.14, (t - 0.08) * 0.6)})`, ox, oy, TILE, TILE);
+  else if (t < -0.08) px(ctx, `rgba(10, 40, 20, ${Math.min(0.16, (-t - 0.08) * 0.7)})`, ox, oy, TILE, TILE);
+  const lv = terrain.level(gx, gy, biome);
+  if (lv) px(ctx, `rgba(255, 255, 240, ${0.035 * lv})`, ox, oy, TILE, TILE); // plus haut, plus clair
+  const [rock, shade, lip] = CLIFF[biome] ?? [];
+  if (rock) {
+    const below = terrain.level(gx, gy + 1, terrain.biomeAt(gx, gy + 1));
+    if (lv > below) {
+      // Falaise : la face rocheuse au bas de la tuile, avec son rebord.
+      px(ctx, rock, ox, oy + 10, TILE, 6);
+      px(ctx, shade, ox, oy + 14, TILE, 2);
+      for (let i = 0; i < 3; i++) px(ctx, shade, ox + 2 + Math.floor(hash(gx, gy, 50 + i) * 12), oy + 11, 1, 3);
+      px(ctx, lip, ox, oy + 9, TILE, 1);
+    }
+    if (terrain.level(gx - 1, gy, terrain.biomeAt(gx - 1, gy)) < lv) px(ctx, shade, ox, oy, 1, TILE);
+    if (terrain.level(gx + 1, gy, terrain.biomeAt(gx + 1, gy)) < lv) px(ctx, shade, ox + TILE - 1, oy, 1, TILE);
+  }
+  if (terrain.nearWater(gx, gy)) {
+    // Berge sableuse, côté eau.
+    if (terrain.isWater(gx, gy + 1)) px(ctx, '#d8c88e', ox, oy + 13, TILE, 3);
+    if (terrain.isWater(gx, gy - 1)) px(ctx, '#d8c88e', ox, oy, TILE, 2);
+    if (terrain.isWater(gx + 1, gy)) px(ctx, '#d8c88e', ox + 13, oy, 3, TILE);
+    if (terrain.isWater(gx - 1, gy)) px(ctx, '#d8c88e', ox, oy, 3, TILE);
+  }
+}
+
+function buildZoneCanvas(monde, terrain, i) {
+  const z = monde.zones[i];
+  const zx = i % monde.largeur;
+  const zy = Math.floor(i / monde.largeur);
+  const c = document.createElement('canvas');
+  c.width = ZONE_PX;
+  c.height = ZONE_PX;
+  const ctx = c.getContext('2d');
+  if (z.village) drawVillage(ctx, zx, zy);
+  else {
+    for (let ty = 0; ty < ZONE_TILES; ty++) {
+      for (let tx = 0; tx < ZONE_TILES; tx++) {
+        const gx = zx * ZONE_TILES + tx;
+        const gy = zy * ZONE_TILES + ty;
+        if (z.champ) drawField(ctx, gx, gy, tx * TILE, ty * TILE);
+        else drawWildTile(ctx, terrain, gx, gy, tx * TILE, ty * TILE);
       }
     }
-    canvases.push(c);
-  });
-  return canvases;
+  }
+  return c;
+}
+
+// Les images des zones sont dessinées à la demande et gardées en mémoire (les plus récentes),
+// pour ne pas tout peindre d'avance sur une grande carte.
+const ZONE_CACHE_MAX = 64;
+export function buildZoneCanvases(monde) {
+  const terrain = createTerrain(monde);
+  const cache = new Map();
+  return {
+    terrain,
+    get(i) {
+      let c = cache.get(i);
+      if (c) { cache.delete(i); cache.set(i, c); return c; }
+      c = buildZoneCanvas(monde, terrain, i);
+      cache.set(i, c);
+      if (cache.size > ZONE_CACHE_MAX) cache.delete(cache.keys().next().value);
+      return c;
+    },
+  };
 }
 
 // ---------- Éléments dynamiques ----------
@@ -471,7 +545,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
   for (let zy = zy0; zy <= zy1; zy++) {
     for (let zx = zx0; zx <= zx1; zx++) {
       const i = zy * W + zx;
-      ctx.drawImage(zoneCanvases[i], zx * ZONE_PX, zy * ZONE_PX);
+      ctx.drawImage(zoneCanvases.get(i), zx * ZONE_PX, zy * ZONE_PX);
     }
   }
   for (let zy = zy0; zy <= zy1; zy++) {
