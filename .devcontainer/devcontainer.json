@@ -1,0 +1,13 @@
+{
+  "name": "Contrées vivantes",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "forwardPorts": [2567],
+  "portsAttributes": {
+    "2567": { "label": "Jeu : Contrées vivantes", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "npm ci",
+  "postAttachCommand": "bash scripts/codespace.sh",
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] }
+  }
+}

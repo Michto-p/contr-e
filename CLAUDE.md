@@ -4,38 +4,35 @@ Jeu coop 2D (style action-aventure SNES) : des petits mondes vivants entre amis 
 « contrée »), chacun unique et incomplet, reliés par des voyages risqués. Le monde évolue même
 quand personne n'est connecté. Au retour, le joueur lit une **chronique** de ce qui s'est passé.
 
-## Phase actuelle : ÉTAPE 1 — simulation seule, sans graphisme
+## Phase actuelle : ÉTAPE 2 — client Canvas + Colyseus, déplacements multijoueur
 
-Objectif unique : prouver que la simulation produit des chroniques intéressantes.
-**Pas de client, pas de réseau, pas de sprites, pas de Colyseus à cette étape.**
+L'étape 1 (simulation seule) est terminée : `npm run sim -- --days 7 --seed 42` produit la chronique
+(exemple dans `CHRONIQUE-EXEMPLE.md`, visualisation sur GitHub Pages via `index.html` + `web/`).
 
-Critère de réussite : `npm run sim -- --days 7 --seed 42` affiche une chronique jour par jour
-qu'un humain a envie de lire, avec des événements variés et des conséquences visibles.
+Objectif de l'étape 2 : un serveur Colyseus (1 room = 1 contrée) où la simulation tourne en continu,
+et un client HTML unique en Canvas 2D où plusieurs joueurs se déplacent et combattent ; leur présence
+et leurs combats pèsent sur la simulation comme ceux des bots. Test à plusieurs via GitHub Codespaces.
 
-## Mode autonome (lire en premier)
+Critère de réussite : deux navigateurs se voient bouger dans la même contrée, le monde continue
+d'avancer sans eux (et rattrape le temps serveur éteint), et au retour chacun lit ce qu'il a manqué.
 
-Le développeur lance la session puis s'absente. Travaille sans attendre de validation.
+## Façon de travailler
 
-1. **Git d'abord** : si le dossier n'a pas de `.git`, lance `git init -b main`, configure un
-   utilisateur local si nécessaire (`git config user.name "Claude Code"` et
-   `git config user.email "claude@local"`), puis fais un premier commit « init: structure de départ ».
-   Pas de remote, pas de GitHub, pas de `git push`.
-2. **Petits pas** : une tâche = un commit. Ordre : world.js -> tick.js -> nature -> run-sim.js ->
-   chronique -> monsters -> village -> seasons -> agents.
+1. **Git** : le dépôt est sur GitHub. Développer sur la branche de travail désignée, pousser avec
+   `git push -u origin <branche>`. Jamais de `reset --hard`, `rebase` ou `push --force`.
+2. **Petits pas** : une tâche = un commit.
 3. **Avant chaque commit** : `npm test` doit passer et `npm run sim -- --days 7 --seed 42` doit
    s'exécuter sans erreur. Sinon corrige avant de committer.
 4. **Messages de commit en français**, préfixés : `feat:`, `fix:`, `test:`, `docs:`, `refactor:`.
-5. **Ne pose pas de questions** : face à une ambiguïté, choisis l'option la plus simple compatible
-   avec ce fichier et note-la dans `JOURNAL.md`.
+5. **Face à une ambiguïté** : choisis l'option la plus simple compatible avec ce fichier et note-la
+   dans `JOURNAL.md`.
 6. **JOURNAL.md** : après chaque commit, ajoute 2 ou 3 lignes (ce qui est fait, décision prise,
-   problème repéré). Le développeur le lira au retour.
-7. **Exemple de chronique** : à la fin, sauvegarde la sortie de
-   `npm run sim -- --days 7 --seed 42` dans `CHRONIQUE-EXEMPLE.md` et committe-la.
-8. **Condition d'arrêt** : quand les 4 systèmes, les agents et la chronique fonctionnent, arrête-toi.
-   Ne commence pas l'étape 2.
+   problème repéré).
+7. **CHRONIQUE-EXEMPLE.md** : à régénérer quand la sortie de `npm run sim -- --days 7 --seed 42` change.
 
-Interdits en mode autonome : installer des dépendances npm, supprimer l'historique git
-(`reset --hard`, `rebase`, `push --force`), modifier `.claude/settings.json`.
+Dépendances autorisées : `@colyseus/core`, `@colyseus/ws-transport`, `@colyseus/schema`,
+`@colyseus/sdk`, `express`. Toute autre dépendance demande une validation du développeur.
+Ne pas modifier `.claude/settings.json`.
 
 ## Piliers (toute mécanique doit en servir au moins un)
 
@@ -48,9 +45,11 @@ Interdits en mode autonome : installer des dépendances npm, supprimer l'histori
 ## Stack
 
 - Node.js 22 LTS, ES modules (`"type": "module"`), JavaScript pur, pas de TypeScript pour l'instant.
-- Aucune dépendance runtime à l'étape 1. Tests avec `node:test`.
-- État sauvegardé en JSON dans `data/` (SQLite viendra à l'étape 2).
-- Plus tard : serveur Colyseus (1 room = 1 contrée), client HTML unique en Canvas 2D.
+- `src/` (simulation, chronique) reste sans aucune dépendance. Tests avec `node:test`.
+- Serveur : Colyseus 0.18 (1 room = 1 contrée), qui sert aussi le client sur le même port.
+- Client : une page HTML en Canvas 2D (`client/`), sans framework ni sprites (formes dessinées).
+- État sauvegardé en JSON dans `data/` (SQLite plus tard, quand ce sera utile).
+- Test à plusieurs : GitHub Codespaces (`.devcontainer/`, port 2567 public). Monde permanent : LXC Proxmox.
 
 ## Architecture de la simulation
 
@@ -70,6 +69,14 @@ src/
     chronicle.js      transforme les events bruts en phrases lisibles, regroupées par jour
 scripts/
   run-sim.js          CLI : --days, --seed, --ticks-per-day, --agents, --out
+  codespace.sh        démarre le serveur dans un Codespace et rend le port public
+server/
+  index.js            createGameServer() : Colyseus + fichiers du client ; `npm start`
+  contree-room.js     la room : horloge du monde, joueurs réels -> simulation, chronique diffusée
+  persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
+  schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
+client/               index.html, game.js (réseau, entrées, interface), render.js (dessin)
+shared/monde.js       géométrie commune serveur/client (tuiles par zone, vitesse)
 test/
 ```
 
@@ -129,25 +136,27 @@ Scénarios à tester : tous assidus / mixte / tout le monde absent 5 jours.
 ## Commandes
 
 ```
+npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER)
 npm run sim -- --days 7 --seed 42
 npm run sim -- --days 30 --seed 42 --agents mixte --debug
 npm test
 ```
 
-## Ce qu'il NE faut PAS faire à l'étape 1
+## Ce qu'il NE faut PAS faire à l'étape 2
 
-- Pas de rendu graphique, pas de serveur réseau, pas de base de données.
-- Pas de nouveau système au-delà des 4 listés sans validation.
+- Pas de nouveau système de simulation au-delà des 4 existants sans validation.
 - Pas de sur-abstraction (ECS, plugins, injection de dépendances) : des fonctions et des objets simples.
+- Le serveur fait autorité : le client prédit son propre déplacement mais ne décide de rien.
+- Pas de base de données ni de comptes pour l'instant (le nom du joueur suffit).
 
 ## Étapes suivantes (pour mémoire, ne pas commencer)
 
-2. Client minimal Canvas + Colyseus, déplacements multijoueur, simulation branchée sur le serveur.
 3. Village jouable (3 métiers + quêtes).
 4. Deuxième contrée + voyages.
 5. Arène et mécaniques additionnelles.
 
 ## Déploiement
 
-Étape 1 : tourne sur n'importe quel PC, aucun serveur nécessaire.
-À partir de l'étape 2 : LXC Proxmox dédié, voir `deploy/PROXMOX-LXC.md`.
+Simulation (étape 1) : tourne sur n'importe quel PC, et la page de visualisation sur GitHub Pages.
+Jeu (étape 2) : essais à plusieurs dans GitHub Codespaces (voir `README.md`) ; monde permanent sur un
+LXC Proxmox dédié, voir `deploy/PROXMOX-LXC.md`.
