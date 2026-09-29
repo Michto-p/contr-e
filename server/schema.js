@@ -145,6 +145,7 @@ export const EtatContree = schema({
   maisons: t.map('string'), // terrain -> joueur qui y a bâti sa maison
   faubourgs: t.array('int16'), // zones devenues faubourgs, dans l'ordre (terrains 10, 11…)
   ruines: t.array('string'), // maisons abandonnées : "id|maison ou lot|numéro|état"
+  interieurs: t.map('string'), // terrain -> aménagement de la maison (JSON : sol, mur, meubles, déco)
   pnj: t.map(Pnj),
   zones: t.array(Zone),
   metiers: t.map(Metier),

@@ -295,3 +295,39 @@ test('la maison d\'un joueur qu\'on ne voit plus est laissée à l\'abandon', as
   assert.ok(!room().state.maisons.has(String(lot)));
   assert.ok(room().world.events.some((e) => e.type === 'house_abandoned' && e.data.owner === 'Cleo'));
 });
+
+test('chez soi, on aménage : sol, murs, meubles déplacés, décorations fabriquées', async () => {
+  const { lotDoor } = await import('../shared/monde.js');
+  const { freeLot, geoOf } = await import('../server/maisons.js');
+  const sim = room().sim;
+  const r = await join({ joueur: 'Gus', nouveau: { prenom: 'Tobie', metier: 'forgeron', classe: 'gardien' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Tobie'));
+  const p = room().state.joueurs.get(r.sessionId);
+  const lot = freeLot(room());
+  [p.x, p.y] = lotDoor(lot, geoOf(room()));
+  p.sac.set('cuir', 6);
+  p.sac.set('minerai', 4);
+  sim.village.jobs.bucheron_mineur.stock.bois = 40;
+  assert.ok(await until(() => p.action.startsWith('bâtir votre maison')), p.action);
+  r.send('interagir');
+  assert.ok(await until(() => room().players.Gus.maison === lot));
+  await sleep(700);
+  r.send('interagir'); // entrer
+  assert.ok(await until(() => p.interieur === lot));
+  r.send('amenager', { sol: 'pierre' });
+  r.send('amenager', { mur: 2 });
+  r.send('amenager', { deplacer: 'lit', x: 8.2, y: 5.1 });
+  r.send('amenager', { fabriquer: 'plante' });
+  r.send('amenager', { fabriquer: 'tapis' });
+  const lay = () => JSON.parse(room().state.interieurs.get(String(lot)) ?? '{}');
+  assert.ok(await until(() => lay().deco?.length === 2), JSON.stringify(lay()));
+  assert.equal(lay().sol, 'pierre');
+  assert.equal(lay().mur, 2);
+  assert.deepEqual(lay().meubles.lit, [8, 5]);
+  assert.ok(!p.sac.has('cuir'), 'la maison a coûté 4 cuir, le tapis 2');
+  // Le lit a bougé : on y dort à sa nouvelle place.
+  p.fatigue = 40;
+  [p.x, p.y] = [8, 5];
+  assert.ok(await until(() => p.action === 'dormir dans votre lit'), p.action);
+  await r.leave();
+});

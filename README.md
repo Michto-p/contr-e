@@ -81,7 +81,10 @@ colombages). Plus tard, on bâtit sa maison sur un terrain libre (les enclos du 
 le terrain, avec 4 cuir et 4 minerai rapportés des combats et 10 bois de la réserve du village. On
 y réapparaît désormais, et l'on peut **y entrer** (E devant la porte) : une pièce avec un lit (dormir),
 le **coffre** qui garde vos affaires pour tous vos personnages, et un panier où adopter un
-**compagnon** (un chien, qui ajoute du flair, ou un chat, de la survie). Il vous suit partout. L'équipement, lui, reste propre à chaque personnage.
+**compagnon** (un chien, qui ajoute du flair, ou un chat, de la survie). Il vous suit partout.
+Chez soi, **🛠 Aménager** (touche **H**) : changer le sol (plancher, dalles, tomettes) et la couleur
+des murs, déplacer les meubles (on choisit, puis on clique où le poser) et fabriquer des décorations
+(plante, étagère, lanterne, grand tapis, tableau, trophée avec une ressource rare). L'équipement, lui, reste propre à chaque personnage.
 
 **Une famille.** Dès que le joueur a sa maison, ses personnages peuvent, quand ils vivent au village,
 se mettre en couple avec un habitant et avoir des enfants, qui portent le nom du joueur et grandissent

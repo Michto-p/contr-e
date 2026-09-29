@@ -226,3 +226,7 @@
 
 ## Correctif : pas de nuit dans les ruines
 - Fait : la nuit, les habitants rentrent dans une maison encore debout (celles en ruine sont sautées).
+
+## Aménager sa maison
+- Fait : chaque maison a son aménagement (`players[j].interieur` : sol, mur, place des meubles, décorations), synchronisé par terrain (`state.interieurs`, JSON). Chez soi, le panneau Aménager (H) change le sol et les murs, déplace lit, coffre, panier, table et décorations (clic dans la pièce), et fabrique 6 décorations payées avec le sac et le bois du village. Le lit, le coffre et le panier servent là où on les a posés.
+- Décision : le serveur arrondit et borne les positions (jamais sur la porte ni dans le mur) ; une décoration de chaque sorte au plus.

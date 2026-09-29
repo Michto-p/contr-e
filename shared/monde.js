@@ -69,6 +69,33 @@ export const ROOM_H = 7;
 export const ROOM_FURNITURE = {
   porte: [5, 6.4], lit: [1.6, 1.9], coffre: [8.4, 1.8], panier: [2, 5.2], cheminee: [5, 0.9], table: [7, 4.2],
 };
+
+// Aménagement d'une maison (propre à chaque maison, vu de tous ceux qui y entrent) :
+// un sol, une couleur de murs, la place des meubles, et des décorations fabriquées.
+export const FLOORS = { bois: 'Plancher', pierre: 'Dalles de pierre', tomettes: 'Tomettes' };
+export const WALLS = ['#d8c8a8', '#c9d8b8', '#e0c4b8', '#bcc8dc', '#e8e0cc'];
+export const MOVABLE = ['lit', 'coffre', 'panier', 'table'];
+// Le prix d'une décoration : ce qu'on a dans son sac, et le bois du village.
+export const DECORATIONS = {
+  plante: { nom: 'Plante en pot', cout: { bois: 1 } },
+  etagere: { nom: 'Étagère', cout: { bois: 3 } },
+  lanterne: { nom: 'Lanterne', cout: { minerai: 2 } },
+  tapis: { nom: 'Grand tapis', cout: { cuir: 2 } },
+  tableau: { nom: 'Tableau', cout: { bois: 2, cuir: 1 } },
+  trophee: { nom: 'Trophée', cout: { rare: 1 } }, // une ressource rare de la contrée
+};
+export function defaultLayout() {
+  const meubles = {};
+  for (const k of MOVABLE) meubles[k] = [...ROOM_FURNITURE[k]];
+  return { sol: 'bois', mur: 0, meubles, deco: [] };
+}
+// Les meubles restent dans la pièce, loin du mur du fond et de la porte.
+export function clampFurniture([x, y]) {
+  const cx = Math.max(1, Math.min(ROOM_W - 1, Math.round(x * 2) / 2));
+  const cy = Math.max(2, Math.min(ROOM_H - 2, Math.round(y * 2) / 2));
+  if (Math.abs(cx - ROOM_FURNITURE.porte[0]) < 1.5 && cy > ROOM_H - 2.2) return [cx, ROOM_H - 2.2];
+  return [cx, cy];
+}
 export const SPEED = 5; // tuiles par seconde
 export const MOVE_STEP_MS = 50; // pas de simulation des déplacements côté serveur
 

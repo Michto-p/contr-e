@@ -1,7 +1,7 @@
 // Client du jeu : connexion Colyseus, clavier/tactile, prédiction du déplacement, interface.
 // Le serveur fait autorité : le client prédit son propre mouvement pour qu'il soit fluide,
 // puis se recale en douceur sur la position envoyée par le serveur.
-import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt, ROOM_W, ROOM_H } from './shared/monde.js';
+import { ZONE_TILES, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, stepPosition, zoneIndexAt, ROOM_W, ROOM_H, FLOORS, WALLS, MOVABLE, DECORATIONS } from './shared/monde.js';
 import { COMPETENCES, SKILL_KEYS, CLASSES, FREE_POINTS, basePoints, computeSkills, speedFactor, needsSpeed } from './shared/competences.js';
 import { createSky } from './ciel.js';
 import { unlockAudio, toggleMute, play, setWeather } from './sons.js';
@@ -359,6 +359,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyF' || e.code === 'KeyI') { toggleBag(); e.preventDefault(); }
   if (e.code === 'KeyG') { toggleTree(); e.preventDefault(); }
   if (e.code === 'KeyP') { switchCharacter(); e.preventDefault(); }
+  if (e.code === 'KeyH') { toggleFurnish(); e.preventDefault(); }
   if (e.code === 'KeyC') toggleSide();
   if (e.code === 'Escape') { $('message').hidden = true; for (const id of ['cote', 'sac', 'arbre']) $(id).classList.remove('ouvert'); }
 });
@@ -368,7 +369,21 @@ window.addEventListener('blur', () => keys.clear());
 // Tactile / souris : maintenir le doigt sur l'écran fait marcher dans cette direction.
 let pointer = null;
 window.addEventListener('pointerdown', () => { if (game.room) unlockAudio(); });
-canvas.addEventListener('pointerdown', (e) => { pointer = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerdown', (e) => {
+  // Aménagement : le clic pose le meuble choisi à cet endroit de la pièce.
+  if (game.placing && game.view) {
+    const { w, h, scale, dpr } = game.view;
+    const unit = 16 * scale;
+    const x = (e.clientX * dpr - (w / 2 - (ROOM_W / 2) * unit)) / unit;
+    const y = (e.clientY * dpr - (h / 2 - (ROOM_H / 2) * unit)) / unit;
+    game.room.send('amenager', { deplacer: game.placing, x, y });
+    game.placing = null;
+    renderFurnish();
+    return;
+  }
+  pointer = { x: e.clientX, y: e.clientY };
+  canvas.setPointerCapture(e.pointerId);
+});
 canvas.addEventListener('pointermove', (e) => { if (pointer) pointer = { x: e.clientX, y: e.clientY }; });
 const stopPointer = () => { pointer = null; };
 canvas.addEventListener('pointerup', stopPointer);
@@ -771,6 +786,75 @@ function toggleTree() {
 }
 $('btn-arbre').addEventListener('click', toggleTree);
 $('btn-persos').addEventListener('click', switchCharacter);
+$('btn-amenager').addEventListener('click', toggleFurnish);
+$('fermer-amenager').addEventListener('click', toggleFurnish);
+
+// ---------- Aménager sa maison ----------
+
+const MEUBLE_NOM = { lit: 'Le lit', coffre: 'Le coffre', panier: 'Le panier', table: 'La table' };
+let layoutCache = { json: '', lay: null };
+function currentLayout() {
+  const s = game.room?.state;
+  const me = s?.joueurs.get(game.room.sessionId);
+  if (!me || me.interieur < 0) return null;
+  const json = s.interieurs?.get(String(me.interieur)) ?? '';
+  if (json !== layoutCache.json) layoutCache = { json, lay: json ? JSON.parse(json) : null };
+  return layoutCache.lay;
+}
+const atHome = () => {
+  const me = game.room?.state.joueurs.get(game.room.sessionId);
+  return me && me.interieur >= 0 && me.maison === me.interieur;
+};
+function toggleFurnish() {
+  if (!atHome()) { $('amenager').classList.remove('ouvert'); game.placing = null; return; }
+  $('amenager').classList.toggle('ouvert');
+  game.placing = null;
+  renderFurnish();
+}
+function renderFurnish() {
+  const lay = currentLayout();
+  if (!lay || !$('amenager').classList.contains('ouvert')) return;
+  const send = (m) => game.room.send('amenager', m);
+  const button = (text, pressed, onClick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = text;
+    b.setAttribute('aria-pressed', String(pressed));
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  $('am-sols').replaceChildren(...Object.entries(FLOORS).map(([k, nom]) => button(nom, lay.sol === k, () => send({ sol: k }))));
+  $('am-murs').replaceChildren(...WALLS.map((c, i) => {
+    const b = button('', lay.mur === i, () => send({ mur: i }));
+    b.style.background = c;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(lay.mur === i));
+    b.setAttribute('aria-label', `Murs, teinte ${i + 1}`);
+    return b;
+  }));
+  $('am-meubles').replaceChildren(...[...MOVABLE, ...lay.deco].map((k) => button(MEUBLE_NOM[k] ?? DECORATIONS[k]?.nom ?? k, game.placing === k, () => {
+    game.placing = game.placing === k ? null : k;
+    info(game.placing ? 'Cliquez dans la pièce pour le poser.' : '');
+    renderFurnish();
+  })));
+  const box = $('am-deco');
+  box.replaceChildren();
+  for (const [k, d] of Object.entries(DECORATIONS)) {
+    const row = document.createElement('div');
+    row.className = 'recette';
+    const nom = document.createElement('span');
+    nom.className = 'nom';
+    nom.textContent = d.nom;
+    const detail = document.createElement('span');
+    detail.className = 'detail';
+    detail.textContent = Object.entries(d.cout).map(([item, n]) => (item === 'rare' ? 'une ressource rare' : item === 'bois' ? `${n} bois du village` : `${n} ${item}`)).join(', ');
+    const owned = lay.deco.includes(k);
+    const b = button(owned ? 'Installé' : 'Fabriquer', false, () => send({ fabriquer: k }));
+    b.disabled = owned;
+    row.append(nom, b, detail);
+    box.appendChild(row);
+  }
+}
 $('fermer-arbre').addEventListener('click', toggleTree);
 
 function toggleSide() {
@@ -899,11 +983,21 @@ function frame(t) {
   // Chez soi : on dessine la pièce, avec ceux qui s'y trouvent.
   if (mine && mine.interieur >= 0) {
     game.nearVillager = null;
-    drawInterior(ctx, { players: players.filter((p) => p.interieur === mine.interieur), heure: room.state.heure, t, width: sized.w, height: sized.h, scale });
+    game.view = { w: sized.w, h: sized.h, scale, dpr: sized.dpr };
+    const lay = currentLayout();
+    drawInterior(ctx, { players: players.filter((p) => p.interieur === mine.interieur), heure: room.state.heure, t, width: sized.w, height: sized.h, scale, layout: lay ?? undefined, placing: game.placing });
+    const home = atHome();
+    $('btn-amenager').hidden = !home;
+    if ($('amenager').classList.contains('ouvert')) {
+      if (!home) toggleFurnish();
+      else if (layoutCache.json !== game.furnishKey) { game.furnishKey = layoutCache.json; renderFurnish(); }
+    }
     drawMinimap(mini, { monde: game.monde, state: room.state, players: [], pnjs, questZones });
     renderHud();
     return;
   }
+  $('btn-amenager').hidden = true;
+  if ($('amenager').classList.contains('ouvert')) toggleFurnish();
   if (game.ambiance) {
     updateAmbiance(game.ambiance, dt, game.me, t, room.state);
     game.nearVillager = nearestVillager(game.ambiance, game.me);

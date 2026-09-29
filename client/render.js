@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, ROOM_W, ROOM_H, ROOM_FURNITURE, FAUBOURG_HOUSES, VILLAGE_HOUSES, lotCount, lotTile, ruinTile } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, ROOM_W, ROOM_H, ROOM_FURNITURE, WALLS, defaultLayout, FAUBOURG_HOUSES, VILLAGE_HOUSES, lotCount, lotTile, ruinTile } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
 import { drawSky } from './ciel.js';
 
@@ -660,7 +660,7 @@ export function drawPet(ctx, pet, t) {
 }
 
 // L'intérieur d'une maison, centré à l'écran : plancher, murs, cheminée, lit, coffre, table, panier.
-export function drawInterior(ctx, { players, heure, t, width, height, scale }) {
+export function drawInterior(ctx, { players, heure, t, width, height, scale, layout = defaultLayout(), placing = null }) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#120f0c';
@@ -669,14 +669,26 @@ export function drawInterior(ctx, { players, heure, t, width, height, scale }) {
   ctx.setTransform(scale, 0, 0, scale, Math.round(width / 2 - (ROOM_W / 2) * unit), Math.round(height / 2 - (ROOM_H / 2) * unit));
   const W = ROOM_W * TILE;
   const H = ROOM_H * TILE;
-  // Plancher et murs.
+  const lay = layout;
+  const m = lay.meubles;
+  // Le sol choisi : plancher, dalles de pierre ou tomettes.
   for (let y = 0; y < ROOM_H; y++) {
     for (let x = 0; x < ROOM_W; x++) {
-      px(ctx, (x + y) % 2 ? '#a0703f' : '#9a6a3a', x * TILE, y * TILE, TILE, TILE);
-      px(ctx, '#7f5530', x * TILE, y * TILE + 15, TILE, 1);
+      const ox = x * TILE;
+      const oy = y * TILE;
+      if (lay.sol === 'pierre') {
+        px(ctx, (x * 3 + y * 5) % 4 ? '#9a968c' : '#8e8a80', ox, oy, TILE, TILE);
+        px(ctx, '#77736b', ox, oy + 15, TILE, 1); px(ctx, '#77736b', ox + ((y % 2) * 8), oy, 1, TILE);
+      } else if (lay.sol === 'tomettes') {
+        px(ctx, (x + y) % 2 ? '#b8563a' : '#c4633f', ox, oy, TILE, TILE);
+        px(ctx, '#8f3f2a', ox, oy + 15, TILE, 1); px(ctx, '#8f3f2a', ox + 15, oy, 1, TILE);
+      } else {
+        px(ctx, (x + y) % 2 ? '#a0703f' : '#9a6a3a', ox, oy, TILE, TILE);
+        px(ctx, '#7f5530', ox, oy + 15, TILE, 1);
+      }
     }
   }
-  px(ctx, '#d8c8a8', 0, 0, W, 1.4 * TILE);
+  px(ctx, WALLS[lay.mur] ?? WALLS[0], 0, 0, W, 1.4 * TILE);
   px(ctx, '#6b4a2b', 0, 1.4 * TILE, W, 3);
   for (const x of [0, 3, 7, 10]) px(ctx, '#6b4a2b', x * TILE - 2, 0, 3, 1.4 * TILE);
   const night = heure >= 20 || heure < 6;
@@ -692,32 +704,74 @@ export function drawInterior(ctx, { players, heure, t, width, height, scale }) {
   const f = Math.sin(t / 90) > 0 ? 1 : 0;
   px(ctx, '#ff9a3c', cx0 * TILE - 5, 16 + f, 10, 6 - f);
   px(ctx, '#ffe07a', cx0 * TILE - 2, 18, 4, 4);
-  // Tapis.
-  px(ctx, '#8a3b3b', 3.2 * TILE, 3 * TILE, 3.6 * TILE, 2.2 * TILE);
-  px(ctx, '#c9a66b', 3.4 * TILE, 3.2 * TILE, 3.2 * TILE, 1.8 * TILE);
-  px(ctx, '#8a3b3b', 3.6 * TILE, 3.4 * TILE, 2.8 * TILE, 1.4 * TILE);
+  // Petit tapis devant la cheminée, et le grand tapis s'il a été fabriqué.
+  px(ctx, '#8a3b3b', 4 * TILE, 2.2 * TILE, 2 * TILE, 0.7 * TILE);
+  if (m.tapis) {
+    const [ax, ay] = m.tapis;
+    px(ctx, '#3b5a8a', (ax - 1.8) * TILE, (ay - 1.1) * TILE, 3.6 * TILE, 2.2 * TILE);
+    px(ctx, '#c9a66b', (ax - 1.6) * TILE, (ay - 0.9) * TILE, 3.2 * TILE, 1.8 * TILE);
+    px(ctx, '#3b5a8a', (ax - 1.4) * TILE, (ay - 0.7) * TILE, 2.8 * TILE, 1.4 * TILE);
+  }
   // Lit.
-  const [bx, by] = ROOM_FURNITURE.lit;
+  const [bx, by] = m.lit;
   px(ctx, '#6b4a2b', (bx - 1) * TILE, (by - 0.5) * TILE, 1.6 * TILE, 2.2 * TILE);
   px(ctx, '#efe9dc', (bx - 0.9) * TILE, (by - 0.4) * TILE, 1.4 * TILE, 0.6 * TILE);
   px(ctx, '#3b6d8f', (bx - 0.9) * TILE, (by + 0.2) * TILE, 1.4 * TILE, 1.4 * TILE);
   // Coffre.
-  const [kx, ky] = ROOM_FURNITURE.coffre;
+  const [kx, ky] = m.coffre;
   px(ctx, '#7a4a22', (kx - 0.6) * TILE, (ky - 0.4) * TILE, 1.2 * TILE, 0.8 * TILE);
   px(ctx, '#5c3718', (kx - 0.6) * TILE, (ky - 0.1) * TILE, 1.2 * TILE, 2);
   px(ctx, '#e0c060', kx * TILE - 1, ky * TILE - 2, 3, 3);
   // Table et chaises.
-  const [tx, ty] = ROOM_FURNITURE.table;
+  const [tx, ty] = m.table;
   px(ctx, 'rgba(0,0,0,0.2)', (tx - 0.9) * TILE, (ty + 0.5) * TILE, 1.8 * TILE, 3);
   px(ctx, '#8a5a2b', (tx - 0.9) * TILE, (ty - 0.4) * TILE, 1.8 * TILE, 0.9 * TILE);
   px(ctx, '#6b4a2b', (tx - 1.4) * TILE, (ty - 0.2) * TILE, 6, 10); px(ctx, '#6b4a2b', (tx + 1.05) * TILE, (ty - 0.2) * TILE, 6, 10);
   px(ctx, '#f7f2e0', tx * TILE - 3, (ty - 0.2) * TILE, 6, 3); // une miche de pain
   // Panier du compagnon.
-  const [px0, py0] = ROOM_FURNITURE.panier;
+  const [px0, py0] = m.panier;
   ctx.fillStyle = '#b8864a';
   ctx.beginPath(); ctx.ellipse(px0 * TILE, py0 * TILE, 11, 6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#d9c7a0';
   ctx.beginPath(); ctx.ellipse(px0 * TILE, py0 * TILE - 1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // Décorations fabriquées.
+  for (const d of lay.deco ?? []) {
+    if (d === 'tapis' || !m[d]) continue;
+    const [dx, dy] = m[d];
+    const x = dx * TILE;
+    const y = dy * TILE;
+    if (d === 'plante') {
+      px(ctx, '#a0522d', x - 4, y - 2, 8, 6);
+      ctx.fillStyle = '#4f9a3c';
+      ctx.beginPath(); ctx.arc(x, y - 6, 6, 0, Math.PI * 2); ctx.fill();
+      px(ctx, '#6cb552', x - 3, y - 9, 3, 3);
+    } else if (d === 'etagere') {
+      px(ctx, '#6b4a2b', x - 12, y - 14, 24, 18);
+      px(ctx, '#8a5a2b', x - 11, y - 8, 22, 2); px(ctx, '#8a5a2b', x - 11, y - 2, 22, 2);
+      for (let k = 0; k < 5; k++) px(ctx, ['#3b6d8f', '#a4473a', '#e0c060', '#4f7d4a', '#7d4f8a'][k], x - 10 + k * 4, y - 13, 3, 5); // des livres
+      px(ctx, '#d8d0c0', x - 8, y - 7, 5, 5); px(ctx, '#c9a66b', x + 2, y - 6, 6, 4); // un bol, une boîte
+    } else if (d === 'lanterne') {
+      px(ctx, '#6b6f76', x - 1, y - 14, 2, 4);
+      px(ctx, '#3a3530', x - 4, y - 10, 8, 10);
+      px(ctx, f ? '#ffd98a' : '#ffe8a8', x - 3, y - 9, 6, 8);
+    } else if (d === 'tableau') {
+      px(ctx, '#8a5a2b', x - 10, y - 12, 20, 14);
+      px(ctx, '#9fd0f0', x - 8, y - 10, 16, 6); px(ctx, '#7ec850', x - 8, y - 4, 16, 4); px(ctx, '#ffd84a', x + 3, y - 9, 3, 3);
+    } else if (d === 'trophee') {
+      px(ctx, '#6b4a2b', x - 6, y - 2, 12, 4);
+      px(ctx, '#e0c060', x - 4, y - 12, 8, 10);
+      px(ctx, '#6fd6ff', x - 2, y - 10, 4, 4); // la ressource rare, sertie
+    }
+  }
+  // En cours d'aménagement : un cadre autour du meuble à placer.
+  if (placing && m[placing]) {
+    const [qx, qy] = m[placing];
+    ctx.strokeStyle = '#ffe28a';
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeRect((qx - 1.1) * TILE, (qy - 1.1) * TILE, 2.2 * TILE, 2.2 * TILE);
+    ctx.setLineDash([]);
+  }
   // Porte (on sort par là).
   const [dx0] = ROOM_FURNITURE.porte;
   px(ctx, '#3a2a1c', (dx0 - 0.6) * TILE, H - 5, 1.2 * TILE, 5);

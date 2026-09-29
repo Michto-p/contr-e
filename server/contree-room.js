@@ -9,7 +9,7 @@ import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndex
 import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor, needsSpeed } from '../shared/competences.js';
-import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom, syncRuins, abandonHouses } from './maisons.js';
+import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom, syncRuins, abandonHouses, furnish } from './maisons.js';
 import { rankOf } from '../src/sim/systems/population.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
@@ -91,6 +91,10 @@ export function makeContreeRoom(config) {
       this.onMessage('coffre', (client, m) => {
         const p = this.state.joueurs.get(client.sessionId);
         if (p) chestMove(this, p, m, (text) => client.send('info', text));
+      });
+      this.onMessage('amenager', (client, m) => {
+        const p = this.state.joueurs.get(client.sessionId);
+        if (p) furnish(this, p, m, (text) => client.send('info', text));
       });
       this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
       this.onMessage('roulade', (client) => {

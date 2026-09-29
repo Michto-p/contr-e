@@ -139,6 +139,13 @@
   .competences .pm button { padding: 0 8px; line-height: 22px; }
   .competences .pm button:disabled { opacity: 0.35; cursor: default; }
   .secret { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(154, 208, 106, 0.15); color: #cfe9b4; font-size: 13px; }
+  #amenager { position: fixed; right: 10px; top: 10px; width: min(360px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow-y: auto; padding: 12px 14px; display: none; }
+  #amenager.ouvert { display: block; }
+  #amenager h2 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 6px; font-size: 1.15em; }
+  #amenager h3 { font-size: 0.95em; margin: 12px 0 6px; color: var(--accent); }
+  #amenager .note { font-size: 13px; color: var(--ink-2); margin: 0 0 6px; }
+  .choix-ligne { display: flex; flex-wrap: wrap; gap: 6px; }
+  .choix-ligne button[aria-pressed="true"] { border-color: var(--accent); background: rgba(224, 164, 88, 0.2); }
   #sac .fiche { font-size: 13px; color: var(--ink-2); margin: 4px 0 0; }
   #toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 14px; max-width: min(560px, calc(100vw - 24px)); font-family: Georgia, "Times New Roman", serif; }
   #toast[hidden] { display: none; }
@@ -163,6 +170,7 @@
   <button type="button" id="btn-sac" title="Sac et forge (F)">🎒 Sac</button>
   <button type="button" id="btn-arbre" title="Familles (G)">🌳 Familles</button>
   <button type="button" id="btn-persos" title="Changer de personnage (P)">👥 Personnages</button>
+  <button type="button" id="btn-amenager" title="Aménager votre maison (H)" hidden>🛠 Aménager</button>
 </div>
 <div class="aide panel" id="aide" hidden>
   <kbd>←↑↓→</kbd>/<kbd>ZQSD</kbd> marcher · <kbd>Espace</kbd> frapper · <kbd>Maj</kbd> rouler · <kbd>E</kbd> agir · <kbd>R</kbd> manger · <kbd>F</kbd> sac · <kbd>G</kbd> familles · <kbd>C</kbd> chronique · <kbd>P</kbd> personnages · <kbd>M</kbd> son
@@ -194,6 +202,19 @@
   <h3>La forge du village</h3>
   <p class="note" id="forge-note"></p>
   <div id="recettes"></div>
+</section>
+<section id="amenager" class="panel" aria-label="Aménager la maison">
+  <button type="button" class="fermer" id="fermer-amenager" aria-label="Fermer" style="float:right">✕</button>
+  <h2>Aménager votre maison</h2>
+  <h3>Le sol</h3>
+  <div class="choix-ligne" id="am-sols"></div>
+  <h3>Les murs</h3>
+  <div class="couleurs" id="am-murs"></div>
+  <h3>Déplacer un meuble</h3>
+  <p class="note">Choisissez un meuble, puis cliquez là où il doit aller.</p>
+  <div class="choix-ligne" id="am-meubles"></div>
+  <h3>Fabriquer une décoration</h3>
+  <div id="am-deco"></div>
 </section>
 <div id="info" class="panel" hidden></div>
 <div id="aterre" hidden><div class="carte panel">À bout de forces…<br><small>On vous ramène au village pour vous soigner.</small></div></div>

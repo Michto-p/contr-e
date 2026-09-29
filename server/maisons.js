@@ -2,7 +2,7 @@
 // bâtit sa maison sur un terrain libre du village (avec ce qu'il a rapporté et le bois du village).
 // La maison a un coffre, commun à tous les personnages du joueur, et c'est là qu'il reprend ses
 // esprits quand il tombe. Une maison au village est protégée : elle ne s'abîme jamais.
-import { ZONE_TILES, INN_DOOR, ROOM_W, ROOM_H, ROOM_FURNITURE, lotCount, lotDoor, ruinTile } from '../shared/monde.js';
+import { ZONE_TILES, INN_DOOR, ROOM_W, ROOM_H, ROOM_FURNITURE, lotCount, lotDoor, ruinTile, defaultLayout, clampFurniture, FLOORS, WALLS, MOVABLE, DECORATIONS } from '../shared/monde.js';
 import { clamp } from '../src/sim/world.js';
 import { bagCount, addItem } from './objets.js';
 import { pushEvent, announce } from './evenements.js';
@@ -40,6 +40,7 @@ export function initHouses(room) {
   v.structures = v.structures.filter((s) => !s.type.startsWith('maison de ') || !room.players[s.type.slice('maison de '.length)]);
   syncHouses(room);
   syncRuins(room);
+  syncInteriors(room);
 }
 
 export function syncHouses(room) {
@@ -160,6 +161,7 @@ export function buildHouse(room, p, lot, tell) {
   account.maison = lot;
   account.coffre ??= {};
   syncHouses(room);
+  syncInteriors(room);
   refreshChests(room, p.joueur);
   announce(room, pushEvent(room, 'house_player', null, { who: p.joueur, prenom: p.nom }));
   return tell('Votre maison est bâtie ! Son coffre garde vos affaires, pour tous vos personnages.');
@@ -182,15 +184,73 @@ const near = (p, [x, y], r = REACH) => Math.hypot(p.x - x, p.y - y) <= r;
 
 // Dans la pièce : se coucher, ouvrir le coffre, le panier du compagnon, ou sortir.
 export function interiorActionAt(room, p) {
-  const f = ROOM_FURNITURE;
-  if (near(p, f.porte, 1.2)) return { kind: 'sortir', label: 'sortir' };
+  const f = layoutOf(room, p.interieur).meubles;
+  if (near(p, ROOM_FURNITURE.porte, 1.2)) return { kind: 'sortir', label: 'sortir' };
   if (near(p, f.lit)) return { kind: 'dormir', label: 'dormir dans votre lit' };
+  const home = room.players[p.joueur]?.maison === p.interieur;
+  if (!home) return null; // en visite : le coffre et le panier sont à l'hôte
   if (near(p, f.coffre)) return { kind: 'coffre', label: 'ouvrir le coffre de votre maison' };
   if (near(p, f.panier)) {
     const next = { '': 'chien', chien: 'chat', chat: '' }[p.compagnon ?? ''];
     return { kind: 'compagnon', next, label: next ? `adopter un ${next}` : 'laisser votre compagnon à la maison' };
   }
   return null;
+}
+
+// ---------- Aménagement ----------
+
+// L'aménagement d'une maison (terrain `lot`), créé au besoin.
+export function layoutOf(room, lot) {
+  const account = Object.values(room.players).find((a) => a.maison === lot);
+  if (!account) return defaultLayout();
+  account.interieur ??= defaultLayout();
+  return account.interieur;
+}
+
+export function syncInteriors(room) {
+  for (const account of Object.values(room.players)) {
+    if (account.maison == null) continue;
+    const json = JSON.stringify(layoutOf(room, account.maison));
+    if (room.state.interieurs.get(String(account.maison)) !== json) room.state.interieurs.set(String(account.maison), json);
+  }
+  for (const k of [...room.state.interieurs.keys()]) {
+    if (!Object.values(room.players).some((a) => String(a.maison) === k)) room.state.interieurs.delete(k);
+  }
+}
+
+// Places libres pour une nouvelle décoration, le long des murs.
+const DECOR_SPOTS = [[3.5, 2], [6.5, 2], [9, 3.5], [1, 3.8], [9, 5], [7.5, 5.5]];
+
+// `m` : { sol } | { mur } | { deplacer, x, y } | { fabriquer }. Seulement chez soi.
+export function furnish(room, p, m = {}, tell) {
+  if (p.interieur < 0 || room.players[p.joueur]?.maison !== p.interieur) return tell('Il faut être chez vous pour aménager.');
+  const lay = layoutOf(room, p.interieur);
+  if (m.sol && FLOORS[m.sol]) lay.sol = m.sol;
+  else if (Number.isInteger(m.mur) && m.mur >= 0 && m.mur < WALLS.length) lay.mur = m.mur;
+  else if (m.deplacer && (MOVABLE.includes(m.deplacer) || lay.deco.includes(m.deplacer))) {
+    lay.meubles[m.deplacer] = clampFurniture([Number(m.x) || 0, Number(m.y) || 0]);
+  } else if (m.fabriquer && DECORATIONS[m.fabriquer]) {
+    const d = DECORATIONS[m.fabriquer];
+    if (lay.deco.includes(m.fabriquer)) return tell(`Vous avez déjà : ${d.nom.toLowerCase()}.`);
+    const wood = room.sim.village.jobs.bucheron_mineur.stock;
+    const rares = room.sim.signature.exclusives.filter((r) => bagCount(p, r) > 0);
+    for (const [item, n] of Object.entries(d.cout)) {
+      const have = item === 'bois' ? wood.bois ?? 0 : item === 'rare' ? rares.length : bagCount(p, item);
+      if (have < n) return tell(`Il manque : ${item === 'rare' ? 'une ressource rare de la contrée' : `${n} ${item}`}.`);
+    }
+    for (const [item, n] of Object.entries(d.cout)) {
+      if (item === 'bois') { wood.bois -= n; room.state.bois = wood.bois; continue; }
+      const what = item === 'rare' ? rares[0] : item;
+      const left = bagCount(p, what) - n;
+      if (left > 0) p.sac.set(what, left); else p.sac.delete(what);
+    }
+    lay.deco.push(m.fabriquer);
+    const used = new Set(Object.values(lay.meubles).map(([x, y]) => `${x},${y}`));
+    lay.meubles[m.fabriquer] = DECOR_SPOTS.find(([x, y]) => !used.has(`${x},${y}`)) ?? [5, 3.5];
+    tell(`Nouveau chez vous : ${d.nom.toLowerCase()}. Déplacez-le à votre goût (Aménager).`);
+  } else return undefined;
+  syncInteriors(room);
+  return undefined;
 }
 
 export function enterHouse(room, p) {
