@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import { join as pathJoin } from 'node:path';
 import { Client } from '@colyseus/sdk';
 import { createGameServer } from '../server/index.js';
-import { ZONE_TILES } from '../shared/monde.js';
 
 const dir = mkdtempSync(pathJoin(tmpdir(), 'contree-'));
 let game;
@@ -52,19 +51,6 @@ test('deux joueurs se voient bouger', async () => {
   assert.ok(await until(() => !b.room.state.joueurs.get(aId).bouge));
   await a.room.leave();
   await b.room.leave();
-});
-
-test('combattre dans une zone nourrit la simulation', async () => {
-  const c = await join('Camille');
-  const sim = () => game.room.sim;
-  const field = sim().zones.find((z) => z.isField);
-  const p = game.room.state.joueurs.get(c.room.sessionId);
-  p.x = (field.x + 0.5) * ZONE_TILES;
-  p.y = (field.y + 0.5) * ZONE_TILES;
-  c.room.send('attaque');
-  const seen = await until(() => sim().zones[field.id].today.fighters.includes('Camille'));
-  assert.ok(seen, 'le combat de Camille est compté dans la zone');
-  await c.room.leave();
 });
 
 test('au retour, un joueur reçoit le résumé de ce qu\'il a manqué', async () => {

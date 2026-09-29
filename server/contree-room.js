@@ -1,13 +1,17 @@
 // Une room Colyseus = une contrée. La simulation de l'étape 1 y tourne en continu :
 // une heure de jeu toutes les `heureMs` millisecondes, que des joueurs soient connectés ou non.
-// Les vrais joueurs pèsent sur le monde exactement comme les bots : leur présence dans une zone
-// y freine les monstres, et combattre les fait reculer.
+// Les vrais joueurs pèsent sur le monde comme les bots : leur présence dans une zone y freine
+// les monstres, et chaque monstre vaincu compte comme un combat (voir gameplay.js).
 import { Room } from '@colyseus/core';
 import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js';
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
 import { ZONE_TILES, MOVE_STEP_MS, zoneIndexAt, stepPosition } from '../shared/monde.js';
-import { EtatContree, Joueur, Zone, Metier } from './schema.js';
+import { EtatContree, Joueur, Zone, Metier, Quete } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
+import {
+  initGameplay, updateGameplay, playerAttack, playerInteract, updateActions, questPercent,
+  PLAYER_PV, KILLS_PER_HOUR_CAP,
+} from './gameplay.js';
 
 const ATTACK_COOLDOWN_MS = 400;
 const NAME_MAX = 16;
@@ -44,9 +48,11 @@ export function makeContreeRoom(config) {
 
     onCreate() {
       this.inputs = new Map(); // sessionId -> { x, y }
-      this.activity = new Map(); // sessionId -> { zones: Set, fought: Set } pour l'heure en cours
+      this.activity = new Map(); // sessionId -> { zones: Set, kills: Map zone -> nombre } pour l'heure en cours
       this.lastAttack = new Map();
       this.loadOrCreate();
+      initGameplay(this);
+      this.lastActions = 0;
 
       this.setState(new EtatContree());
       for (let i = 0; i < this.sim.zones.length; i++) this.state.zones.push(new Zone());
@@ -58,6 +64,7 @@ export function makeContreeRoom(config) {
         this.inputs.set(client.sessionId, { x, y });
       });
       this.onMessage('attaque', (client) => this.attack(client));
+      this.onMessage('interagir', (client) => playerInteract(this, client.sessionId));
 
       this.setSimulationInterval((dt) => this.moveAll(dt), MOVE_STEP_MS);
       this.clock.setInterval(() => this.gameHour(), heureMs);
@@ -90,15 +97,16 @@ export function makeContreeRoom(config) {
           z.today.visits += 1;
           z.today.visitors.push(name);
         }
-        for (const id of act.fought) {
+        // Chaque monstre vaincu compte comme une heure de combat (plafonné, pour ne pas écraser l'équilibre).
+        for (const [id, kills] of act.kills) {
           const z = this.sim.zones[id];
-          z.today.fights += 1;
+          z.today.fights += Math.min(kills, KILLS_PER_HOUR_CAP);
           z.today.fighters.push(name);
         }
         // L'heure suivante commence là où le joueur se trouve.
         const p = this.state.joueurs.get(sid);
         act.zones = new Set([this.zoneOf(p)]);
-        act.fought = new Set();
+        act.kills = new Map();
       }
       const dayBefore = this.sim.day;
       this.advance();
@@ -129,24 +137,37 @@ export function makeContreeRoom(config) {
       s.heure = this.sim.tick % 24;
       s.saison = this.sim.season.name ?? SEASONS[seasonIndex(this.sim)].name;
       s.meteo = this.sim.season.weather ?? '';
-      this.sim.zones.forEach((z, i) => {
-        const sz = s.zones[i];
-        if (sz.p !== z.monsterPressure) sz.p = z.monsterPressure;
-        if (sz.w !== z.pathWear) sz.w = z.pathWear;
-        if (sz.c !== z.closed) sz.c = z.closed;
-        const st = structuresSummary(z);
-        if (sz.s !== st) sz.s = st;
-      });
+      for (let i = 0; i < this.sim.zones.length; i++) this.syncZone(i);
+      s.bois = this.sim.village.jobs.bucheron_mineur.stock.bois ?? 0;
       for (const [name, job] of Object.entries(this.sim.village.jobs)) {
         let m = s.metiers.get(name);
         if (!m) { m = new Metier(); s.metiers.set(name, m); }
         if (m.niveau !== job.level) m.niveau = job.level;
         if (m.satisfaction !== job.satisfaction) m.satisfaction = job.satisfaction;
       }
-      const quests = this.sim.village.quests.map(questText);
-      if (quests.join('\n') !== [...s.quetes].join('\n')) {
-        s.quetes.splice(0, s.quetes.length);
-        for (const q of quests) s.quetes.push(q);
+      this.syncQuests();
+    }
+
+    syncZone(i) {
+      const z = this.sim.zones[i];
+      const sz = this.state.zones[i];
+      if (sz.p !== z.monsterPressure) sz.p = z.monsterPressure;
+      if (sz.w !== z.pathWear) sz.w = z.pathWear;
+      if (sz.c !== z.closed) sz.c = z.closed;
+      const st = structuresSummary(z);
+      if (sz.s !== st) sz.s = st;
+    }
+
+    // Le tableau des quêtes, avec l'avancement fait par les joueurs.
+    syncQuests() {
+      const list = this.sim.village.quests.map((q) => ({ id: q.id, texte: questText(q), zone: q.zone ?? -1, progres: questPercent(this, q) }));
+      const key = (arr) => arr.map((q) => `${q.id}:${q.progres}:${q.texte}`).join('|');
+      if (key(list) === key([...this.state.quetes])) return;
+      this.state.quetes.splice(0, this.state.quetes.length);
+      for (const q of list) {
+        const sq = new Quete();
+        Object.assign(sq, q);
+        this.state.quetes.push(sq);
       }
     }
 
@@ -182,9 +203,14 @@ export function makeContreeRoom(config) {
       p.bouge = false;
       p.attaque = 0;
       p.couleur = colorOf(name);
+      p.pv = PLAYER_PV;
+      p.pvMax = PLAYER_PV;
+      p.aTerre = false;
+      p.touche = 0;
+      p.action = '';
       this.state.joueurs.set(client.sessionId, p);
       this.inputs.set(client.sessionId, { x: 0, y: 0 });
-      this.activity.set(client.sessionId, { zones: new Set([this.zoneOf(p)]), fought: new Set() });
+      this.activity.set(client.sessionId, { zones: new Set([this.zoneOf(p)]), kills: new Map() });
 
       client.send('monde', this.staticWorld());
       const recent = [];
@@ -217,13 +243,14 @@ export function makeContreeRoom(config) {
       this.inputs.delete(client.sessionId);
       this.activity.delete(client.sessionId);
       this.lastAttack.delete(client.sessionId);
+      for (const m of ['downAt', 'regenAt', 'lastInteract']) this.play[m].delete(client.sessionId);
     }
 
     moveAll(dt) {
       const W = this.sim.width * ZONE_TILES;
       const H = this.sim.height * ZONE_TILES;
       for (const [sid, p] of this.state.joueurs) {
-        const input = this.inputs.get(sid) ?? { x: 0, y: 0 };
+        const input = p.aTerre ? { x: 0, y: 0 } : this.inputs.get(sid) ?? { x: 0, y: 0 };
         const moving = input.x !== 0 || input.y !== 0;
         if (p.bouge !== moving) p.bouge = moving;
         if (!moving) continue;
@@ -237,17 +264,21 @@ export function makeContreeRoom(config) {
         p.dir = Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut');
         this.activity.get(sid)?.zones.add(this.zoneOf(p));
       }
+      updateGameplay(this, dt);
+      // L'action de la touche E dépend de l'endroit : recalculée quatre fois par seconde.
+      const t = Date.now();
+      if (t - this.lastActions >= 250) {
+        this.lastActions = t;
+        updateActions(this);
+        this.syncQuests();
+      }
     }
 
     attack(client) {
       const t = Date.now(); // délai réel entre deux coups, indépendant de l'horloge du monde
       if (t - (this.lastAttack.get(client.sessionId) ?? 0) < ATTACK_COOLDOWN_MS) return;
       this.lastAttack.set(client.sessionId, t);
-      const p = this.state.joueurs.get(client.sessionId);
-      if (!p) return;
-      p.attaque = (p.attaque + 1) % 65536;
-      const zone = this.sim.zones[this.zoneOf(p)];
-      if (!zone.isVillage) this.activity.get(client.sessionId)?.fought.add(zone.id);
+      playerAttack(this, client.sessionId, t);
     }
 
     onBeforeShutdown() {

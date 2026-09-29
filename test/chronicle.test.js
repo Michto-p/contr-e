@@ -69,3 +69,8 @@ test('les combats du jour tiennent en une ligne', () => {
   assert.equal(lines.length, 1);
   assert.match(lines[0], /J0, J1 et J2 ont repoussé les monstres des bois du Nord, de l'Est et du Sud/);
 });
+
+test('un joueur à terre est raconté sans le punir', () => {
+  const lines = linesFor([{ day: 1, tick: 3, zone: 5, type: 'player_down', data: { who: ['Dany'], label: 'les collines du Nord' } }]);
+  assert.match(lines[0], /À bout de forces face aux monstres des collines du Nord, Dany a dû rentrer au village/);
+});

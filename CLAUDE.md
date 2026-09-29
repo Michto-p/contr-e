@@ -73,6 +73,7 @@ scripts/
 server/
   index.js            createGameServer() : Colyseus + fichiers du client ; `npm start`
   contree-room.js     la room : horloge du monde, joueurs réels -> simulation, chronique diffusée
+  gameplay.js         temps réel : monstres, points de vie, touche E (bois, réparer, bâtir, aider), quêtes jouables
   persistence.js      ouverture / sauvegarde JSON, rattrapage du temps serveur éteint
   schema.js           état synchronisé (joueurs, zones, métiers, quêtes, horloge)
 client/               index.html, game.js (réseau, entrées, interface), render.js (dessin)

@@ -134,6 +134,11 @@ const QUEST_DONE = {
 };
 
 const RENDERERS = {
+  player_down: {
+    key: (e) => e.data.label,
+    priority: () => 5,
+    text: (evs) => `À bout de forces face aux monstres ${deLabel(evs[0].data.label)}, ${who(evs)} ${plural(evs) ? 'ont dû' : 'a dû'} rentrer au village se soigner. ${FIX.groupe}`,
+  },
   construction_started: {
     key: (e) => e.data.label,
     priority: () => 5,
@@ -387,7 +392,7 @@ function dedupe(events) {
 }
 
 // Actions des joueurs : dans le résumé « pendant votre absence », l'état du monde passe avant.
-const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat']);
+const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat', 'player_down']);
 
 // Transforme les events d'une période en lignes triées par importance.
 // Les traces lointaines laissées par les explorateurs s'effacent sans que cela intéresse le village.
