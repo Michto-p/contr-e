@@ -5,13 +5,16 @@
 import { Room } from '@colyseus/core';
 import { dayLines, summarySince, questText } from '../src/chronicle/chronicle.js';
 import { SEASONS, seasonIndex } from '../src/sim/systems/seasons.js';
-import { ZONE_TILES, MOVE_STEP_MS, zoneIndexAt, stepPosition } from '../shared/monde.js';
+import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndexAt, stepPosition } from '../shared/monde.js';
 import { EtatContree, Joueur, Zone, Metier, Quete } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
 import {
   initGameplay, updateGameplay, playerAttack, playerInteract, updateActions, questPercent,
   PLAYER_PV, KILLS_PER_HOUR_CAP,
 } from './gameplay.js';
+import {
+  initObjets, updateObjets, playerDash, playerEat, playerCraft, isDashing, savePlayer, restorePlayer, RECETTES,
+} from './objets.js';
 
 const ATTACK_COOLDOWN_MS = 400;
 const NAME_MAX = 16;
@@ -52,6 +55,7 @@ export function makeContreeRoom(config) {
       this.lastAttack = new Map();
       this.loadOrCreate();
       initGameplay(this);
+      initObjets(this);
       this.lastActions = 0;
 
       this.setState(new EtatContree());
@@ -65,6 +69,16 @@ export function makeContreeRoom(config) {
       });
       this.onMessage('attaque', (client) => this.attack(client));
       this.onMessage('interagir', (client) => playerInteract(this, client.sessionId));
+      this.onMessage('manger', (client) => playerEat(this, client.sessionId));
+      this.onMessage('fabriquer', (client, m) => playerCraft(this, client.sessionId, String(m?.recette ?? '')));
+      this.onMessage('roulade', (client) => {
+        const p = this.state.joueurs.get(client.sessionId);
+        const input = this.inputs.get(client.sessionId) ?? { x: 0, y: 0 };
+        const FACE = { droite: [1, 0], gauche: [-1, 0], bas: [0, 1], haut: [0, -1] };
+        const [fx, fy] = FACE[p?.dir] ?? [0, 1];
+        // La roulade part dans la direction tenue, ou droit devant.
+        if (playerDash(this, client.sessionId, DASH_MS)) this.objets.dashDir.set(client.sessionId, input.x || input.y ? input : { x: fx, y: fy });
+      });
 
       this.setSimulationInterval((dt) => this.moveAll(dt), MOVE_STEP_MS);
       this.clock.setInterval(() => this.gameHour(), heureMs);
@@ -84,6 +98,7 @@ export function makeContreeRoom(config) {
     get registry() { return this.world.registry; }
 
     save() {
+      this.state.joueurs.forEach((p) => savePlayer(this, p));
       saveWorld(fichier, snapshotWorld(this.world, now()));
     }
 
@@ -106,6 +121,7 @@ export function makeContreeRoom(config) {
         // L'heure suivante commence là où le joueur se trouve.
         const p = this.state.joueurs.get(sid);
         act.zones = new Set([this.zoneOf(p)]);
+        savePlayer(this, p);
         act.kills = new Map();
       }
       const dayBefore = this.sim.day;
@@ -186,6 +202,8 @@ export function makeContreeRoom(config) {
         tuilesParZone: ZONE_TILES,
         village: this.sim.villageId,
         zones: this.sim.zones.map((z) => ({ biome: z.biome, label: z.label, village: z.isVillage, champ: z.isField })),
+        recettes: RECETTES,
+        rares: this.sim.signature.exclusives,
       };
     }
 
@@ -208,6 +226,8 @@ export function makeContreeRoom(config) {
       p.aTerre = false;
       p.touche = 0;
       p.action = '';
+      p.roulade = 0;
+      restorePlayer(this, p);
       this.state.joueurs.set(client.sessionId, p);
       this.inputs.set(client.sessionId, { x: 0, y: 0 });
       this.activity.set(client.sessionId, { zones: new Set([this.zoneOf(p)]), kills: new Map() });
@@ -229,14 +249,15 @@ export function makeContreeRoom(config) {
           lignes: summarySince(this.events, known.lastDay),
         });
       }
-      this.registry[name] = { lastDay: this.sim.day };
+      this.registry[name] = { ...(this.registry[name] ?? {}), lastDay: this.sim.day };
       log(`${name} arrive (${this.clients.length} connecté·e·s).`);
     }
 
     onLeave(client) {
       const p = this.state.joueurs.get(client.sessionId);
       if (p) {
-        this.registry[p.nom] = { lastDay: this.sim.day };
+        savePlayer(this, p);
+        this.registry[p.nom].lastDay = this.sim.day;
         log(`${p.nom} s'en va.`);
       }
       this.state.joueurs.delete(client.sessionId);
@@ -244,17 +265,21 @@ export function makeContreeRoom(config) {
       this.activity.delete(client.sessionId);
       this.lastAttack.delete(client.sessionId);
       for (const m of ['downAt', 'regenAt', 'lastInteract']) this.play[m].delete(client.sessionId);
+      for (const m of ['lastEat', 'lastDash', 'dashUntil', 'dashDir']) this.objets[m].delete(client.sessionId);
     }
 
     moveAll(dt) {
       const W = this.sim.width * ZONE_TILES;
       const H = this.sim.height * ZONE_TILES;
       for (const [sid, p] of this.state.joueurs) {
-        const input = p.aTerre ? { x: 0, y: 0 } : this.inputs.get(sid) ?? { x: 0, y: 0 };
+        const dashing = !p.aTerre && isDashing(this, sid);
+        let input = p.aTerre ? { x: 0, y: 0 } : this.inputs.get(sid) ?? { x: 0, y: 0 };
+        if (dashing) input = this.objets.dashDir.get(sid) ?? input;
         const moving = input.x !== 0 || input.y !== 0;
         if (p.bouge !== moving) p.bouge = moving;
         if (!moving) continue;
-        const next = stepPosition(p.x, p.y, input, dt);
+        const factor = (dashing ? DASH_FACTOR : 1) * (p.bottes ? BOOTS_FACTOR : 1);
+        const next = stepPosition(p.x, p.y, input, dt, factor);
         next.x = Math.max(0.4, Math.min(W - 0.4, next.x));
         next.y = Math.max(0.4, Math.min(H - 0.4, next.y));
         // Une zone fermée par la neige ne se traverse pas : on bloque axe par axe.
@@ -265,6 +290,7 @@ export function makeContreeRoom(config) {
         this.activity.get(sid)?.zones.add(this.zoneOf(p));
       }
       updateGameplay(this, dt);
+      updateObjets(this);
       // L'action de la touche E dépend de l'endroit : recalculée quatre fois par seconde.
       const t = Date.now();
       if (t - this.lastActions >= 250) {

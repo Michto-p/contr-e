@@ -11,10 +11,14 @@ export function zoneIndexAt(x, y, width, height) {
   return zy * width + zx;
 }
 
-// Déplacement d'un pas : direction normalisée, vitesse constante.
-export function stepPosition(x, y, input, dtMs) {
+export const DASH_MS = 220; // durée d'une roulade
+export const DASH_FACTOR = 3.4; // vitesse pendant la roulade
+export const BOOTS_FACTOR = 1.2; // avec des bottes
+
+// Déplacement d'un pas : direction normalisée, vitesse constante (× facteur : bottes, roulade).
+export function stepPosition(x, y, input, dtMs, factor = 1) {
   const len = Math.hypot(input.x, input.y);
   if (!len) return { x, y };
-  const d = (SPEED * dtMs) / 1000;
+  const d = (SPEED * factor * dtMs) / 1000;
   return { x: x + (input.x / len) * d, y: y + (input.y / len) * d };
 }

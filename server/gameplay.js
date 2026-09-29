@@ -5,9 +5,10 @@
 import { createRng } from '../src/sim/rng.js';
 import { clamp, neighbors } from '../src/sim/world.js';
 import { TOWER } from '../src/sim/systems/village.js';
-import { linesFor } from '../src/chronicle/chronicle.js';
+import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition } from '../shared/monde.js';
-import { Monstre } from './schema.js';
+import { Monstre, Projectile } from './schema.js';
+import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD } from './objets.js';
 
 export const PLAYER_PV = 10;
 const ATTACK_RANGE = 1.8; // tuiles
@@ -33,6 +34,13 @@ export const QUEST_KILLS = 4; // monstres à vaincre pour une patrouille ou une 
 export const HELP_ACTS = 5; // coups de main pour aider un métier
 const HELP_OUTPUT = { agriculteur: 'ble', boulanger: 'pain', forgeron: 'outils', bucheron_mineur: 'minerai' };
 
+// Le cracheur garde ses distances et crache des projectiles qu'on esquive d'une roulade.
+const SPITTER = { sorte: 'cracheur', min: 35, pv: 2, degats: 1, vitesse: 2.0, cadence: 1800, portee: 7 };
+const SPITTER_BIOMES = new Set(['marais', 'colline', 'montagne']);
+const PROJECTILE_SPEED = 6; // tuiles par seconde
+const PROJECTILE_LIFE_MS = 1600;
+const PROJECTILE_HIT = 0.55;
+
 const KINDS = [
   { sorte: 'brute', min: 80, pv: 5, degats: 2, vitesse: 2.4, cadence: 1200 },
   { sorte: 'rodeur', min: 50, pv: 3, degats: 1, vitesse: 2.9, cadence: 850 },
@@ -41,6 +49,12 @@ const KINDS = [
 
 export const monsterCountFor = (p) => (p < 12 ? 0 : Math.min(6, Math.round(p / 15)));
 export const kindFor = (p) => KINDS.find((k) => p >= k.min);
+
+// Sorte d'un monstre qui apparaît : les marais, collines et hauteurs abritent aussi des cracheurs.
+function pickKind(room, zone) {
+  if (SPITTER_BIOMES.has(zone.biome) && zone.monsterPressure >= SPITTER.min && room.play.rng.next() < 0.35) return SPITTER;
+  return kindFor(zone.monsterPressure);
+}
 
 // ---------- Outils ----------
 
@@ -56,24 +70,14 @@ export function initGameplay(room) {
     lastInteract: new Map(),
     questProgress: new Map(), // id de quête -> { points, who: Set }
     repairers: new Map(), // "zone|type" -> Set de noms
+    projectiles: new Map(), // id -> { vx, vy, until, degats }
   };
 }
 
+export { pushEvent };
+
 const zoneOfPos = (room, x, y) => zoneIndexAt(x, y, room.sim.width, room.sim.height);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-
-export function pushEvent(room, type, zone, data) {
-  const e = { day: room.sim.day, tick: room.sim.tick, type, data };
-  if (zone != null) e.zone = zone;
-  room.world.events.push(e);
-  return e;
-}
-
-// Annonce à tous, avec la phrase même de la chronique.
-function announce(room, event) {
-  const [line] = linesFor([event]);
-  if (line) room.broadcast('annonce', line);
-}
 
 function wood(room) {
   return room.sim.village.jobs.bucheron_mineur.stock;
@@ -131,7 +135,7 @@ function spawnMonsters(room, t) {
       if (players.every(([, p]) => dist(p, cand) >= 5)) pos = cand;
     }
     if (!pos) continue;
-    const kind = kindFor(z.monsterPressure);
+    const kind = pickKind(room, z);
     const id = `m${play.nextId++}`;
     const m = new Monstre();
     m.sorte = kind.sorte;
@@ -156,14 +160,26 @@ function moveMonsters(room, dt, t) {
     const b = zoneBounds(room, data.zone);
     // Cible : le joueur vivant le plus proche, s'il est à portée de flair.
     let target = null;
-    let best = AGGRO;
+    const spitter = data.kind.sorte === 'cracheur';
+    let best = spitter ? (data.kind.portee ?? SPITTER.portee) : AGGRO;
     for (const [sid, p] of players) {
       const d = dist(m, p);
       if (d < best) { best = d; target = [sid, p]; }
     }
     let goal;
     let speed = data.kind.vitesse;
-    if (target) {
+    if (target && spitter) {
+      // Le cracheur recule s'il est serré de près, s'approche s'il est trop loin, et tire.
+      const p = target[1];
+      const d = best;
+      if (d < 3) goal = { x: m.x + (m.x - p.x), y: m.y + (m.y - p.y) };
+      else goal = null;
+      if (t - data.lastHit >= data.kind.cadence) {
+        data.lastHit = t;
+        m.coup = (m.coup + 1) % 65536;
+        shoot(room, m, p, data.kind.degats, t);
+      }
+    } else if (target) {
       goal = target[1];
       if (best <= REACH) {
         goal = null;
@@ -190,10 +206,44 @@ function moveMonsters(room, dt, t) {
   }
 }
 
+// ---------- Projectiles ----------
+
+function shoot(room, m, p, degats, t) {
+  const dx = p.x - m.x;
+  const dy = p.y - m.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const id = `p${room.play.nextId++}`;
+  const pr = new Projectile();
+  pr.x = m.x;
+  pr.y = m.y;
+  room.state.projectiles.set(id, pr);
+  room.play.projectiles.set(id, { vx: (dx / d) * PROJECTILE_SPEED, vy: (dy / d) * PROJECTILE_SPEED, until: t + PROJECTILE_LIFE_MS, degats });
+}
+
+function moveProjectiles(room, dt, t) {
+  for (const [id, data] of room.play.projectiles) {
+    const pr = room.state.projectiles.get(id);
+    if (!pr || t >= data.until) {
+      room.play.projectiles.delete(id);
+      room.state.projectiles.delete(id);
+      continue;
+    }
+    pr.x += (data.vx * dt) / 1000;
+    pr.y += (data.vy * dt) / 1000;
+    for (const [sid, p] of room.state.joueurs) {
+      if (p.aTerre || Math.hypot(p.x - pr.x, p.y - pr.y) > PROJECTILE_HIT) continue;
+      if (!isDashing(room, sid, t)) hurtPlayer(room, sid, p, data.degats, t);
+      room.play.projectiles.delete(id);
+      room.state.projectiles.delete(id);
+      break;
+    }
+  }
+}
+
 // ---------- Joueurs : vie, chute, relève ----------
 
 function hurtPlayer(room, sid, p, amount, t) {
-  if (p.aTerre) return;
+  if (p.aTerre || isDashing(room, sid, t)) return; // la roulade esquive les coups
   p.pv = Math.max(0, p.pv - amount);
   p.touche = (p.touche + 1) % 65536;
   room.play.regenAt.set(sid, t + REGEN_WILD_MS);
@@ -239,6 +289,7 @@ export function updateGameplay(room, dt, t = Date.now()) {
     spawnMonsters(room, t);
   }
   moveMonsters(room, dt, t);
+  moveProjectiles(room, dt, t);
   updatePlayers(room, t);
 }
 
@@ -259,7 +310,7 @@ export function playerAttack(room, sid, t = Date.now()) {
     const d = Math.hypot(dx, dy);
     if (d > ATTACK_RANGE) continue;
     if (d > 0.4 && (dx * fx + dy * fy) / d < ATTACK_ARC_COS) continue;
-    m.pv = Math.max(0, m.pv - 1);
+    m.pv = Math.max(0, m.pv - (DAMAGE_BY_SWORD[p.epee] ?? 1));
     m.touche = (m.touche + 1) % 65536;
     // Recul : le monstre est repoussé, dans les limites de sa zone.
     if (d > 0.01) {
@@ -273,6 +324,8 @@ export function playerAttack(room, sid, t = Date.now()) {
 }
 
 function killMonster(room, sid, p, id, data, t) {
+  const m = room.state.monstres.get(id);
+  dropLoot(room, data.kind.sorte, data.zone, m.x, m.y, t);
   room.state.monstres.delete(id);
   room.play.monsters.delete(id);
   room.play.spawnAt.set(data.zone, t + RESPAWN_AFTER_KILL_MS);
@@ -359,6 +412,8 @@ export function actionAt(room, p) {
     const help = quests.find((q) => q.kind === 'aide');
     if (help) return { kind: 'aide', zone, quest: help, label: `donner un coup de main (${help.job.replace('_', '-')})` };
   }
+  const rare = zone.isVillage || zone.isField ? null : rareAt(room, zone);
+  if (rare && zone.resources[rare] > 0) return { kind: 'rare', zone, rare, label: `extraire : ${rare}${zone.monsterPressure >= 40 ? ' (zone à dégager)' : ''}` };
   if (zone.biome === 'foret' && !zone.isField) return { kind: 'bois', zone, label: 'couper du bois' };
   return null;
 }
@@ -373,6 +428,8 @@ export function playerInteract(room, sid, t = Date.now()) {
   const a = actionAt(room, p);
   if (!a) return;
   const stock = wood(room);
+
+  if (a.kind === 'rare') return extractRare(room, sid, a.zone, a.rare);
 
   if (a.kind === 'bois') {
     if ((stock.bois ?? 0) >= 100) return tell('La réserve de bois du village est pleine.');

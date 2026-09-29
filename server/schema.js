@@ -15,10 +15,26 @@ export const Joueur = schema({
   aTerre: t.boolean(),
   touche: t.uint16(), // compteur : chaque coup reçu l'incrémente
   action: t.string(), // ce que fait la touche E ici (« réparer la palissade »), vide sinon
+  epee: t.uint8(), // niveau de l'épée (dégâts)
+  armure: t.uint8(), // niveau de l'armure (points de vie max)
+  bottes: t.uint8(), // 0 ou 1 (vitesse)
+  roulade: t.uint16(), // compteur : chaque roulade l'incrémente
+  sac: t.map('uint16'), // objet -> quantité (minerai, cuir, ressources rares)
 }, 'Joueur');
 
+export const Butin = schema({
+  sorte: t.string(), // 'minerai' | 'cuir' | nom d'une ressource rare
+  x: t.float32(),
+  y: t.float32(),
+}, 'Butin');
+
+export const Projectile = schema({
+  x: t.float32(),
+  y: t.float32(),
+}, 'Projectile');
+
 export const Monstre = schema({
-  sorte: t.string(), // 'gluant' | 'rodeur' | 'brute'
+  sorte: t.string(), // 'gluant' | 'rodeur' | 'brute' | 'cracheur'
   x: t.float32(),
   y: t.float32(),
   pv: t.uint8(),
@@ -52,8 +68,12 @@ export const EtatContree = schema({
   saison: t.string(),
   meteo: t.string(),
   bois: t.uint8(), // réserve de bois du village (réparations, tours de guet)
+  pain: t.uint8(), // réserve de pain du boulanger (soins)
+  outils: t.uint8(), // outils du forgeron (la forge en consomme un par objet)
   joueurs: t.map(Joueur),
   monstres: t.map(Monstre),
+  butins: t.map(Butin),
+  projectiles: t.map(Projectile),
   zones: t.array(Zone),
   metiers: t.map(Metier),
   quetes: t.array(Quete),

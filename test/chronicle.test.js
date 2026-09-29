@@ -74,3 +74,8 @@ test('un joueur à terre est raconté sans le punir', () => {
   const lines = linesFor([{ day: 1, tick: 3, zone: 5, type: 'player_down', data: { who: ['Dany'], label: 'les collines du Nord' } }]);
   assert.match(lines[0], /À bout de forces face aux monstres des collines du Nord, Dany a dû rentrer au village/);
 });
+
+test('la forge apparaît dans la chronique', () => {
+  const lines = linesFor([{ day: 1, tick: 3, type: 'forged', data: { who: ['Bea'], item: 'Lame d\'acier' } }]);
+  assert.match(lines[0], /Le forgeron a forgé une pièce « Lame d'acier » pour Bea/);
+});

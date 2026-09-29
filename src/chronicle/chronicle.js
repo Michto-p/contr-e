@@ -134,6 +134,11 @@ const QUEST_DONE = {
 };
 
 const RENDERERS = {
+  forged: {
+    key: (e) => e.data.item,
+    priority: () => 5,
+    text: (evs) => `Le forgeron a forgé ${evs.length > 1 ? 'des pièces' : 'une pièce'} « ${evs[0].data.item} » pour ${who(evs)}.`,
+  },
   player_down: {
     key: (e) => e.data.label,
     priority: () => 5,
@@ -392,7 +397,7 @@ function dedupe(events) {
 }
 
 // Actions des joueurs : dans le résumé « pendant votre absence », l'état du monde passe avant.
-const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat', 'player_down']);
+const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat', 'player_down', 'forged']);
 
 // Transforme les events d'une période en lignes triées par importance.
 // Les traces lointaines laissées par les explorateurs s'effacent sans que cela intéresse le village.
