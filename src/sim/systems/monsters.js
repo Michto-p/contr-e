@@ -3,7 +3,7 @@
 import { clamp, neighbors } from '../world.js';
 
 // Chaque zone tend vers un plafond naturel : les terres lointaines sont plus infestées.
-const BIOME_BONUS = { plaine: -5, foret: 0, colline: 0, marais: 5, montagne: 5 };
+const BIOME_BONUS = { plaine: -2, foret: 2, colline: 0, marais: 5, montagne: 5 };
 export const capacity = (zone) => clamp(30 + zone.dist * 12 + BIOME_BONUS[zone.biome]);
 export const OVERFLOW = 70; // au-delà, les monstres débordent chez les voisins
 const CALM = 45; // en dessous, une zone débordante est considérée comme calmée
@@ -50,7 +50,7 @@ export function monsters(state, rng, ctx) {
       // ou reflue lentement si un débordement l'a poussée au-dessus.
       const cap = capacity(z);
       if (z.monsterPressure < cap) {
-        let growth = (Math.max(1, (cap - z.monsterPressure) * 0.2) + rng.int(0, 1)) * rate;
+        let growth = (Math.max(1, (cap - z.monsterPressure) * 0.3) + rng.int(0, 1)) * rate;
         if (hasIntactWatchtower(z)) growth /= 2;
         z.monsterPressure = clamp(Math.min(cap, z.monsterPressure + growth));
       } else if (z.monsterPressure > cap) {

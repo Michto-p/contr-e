@@ -4,6 +4,7 @@
 //  - absent : se connecte au jour 1 puis revient au jour 7 (puis tous les 7 jours).
 import { clamp, neighbors, zoneAt } from './world.js';
 import { SOLO_LIMIT } from './systems/monsters.js';
+import { questUrgency } from './systems/village.js';
 
 const NAMES = ['Maël', 'Iris', 'Noé', 'Lou', 'Sacha', 'Alix', 'Camille', 'Eden', 'Robin', 'Yaël', 'Charlie', 'Morgan', 'Swann', 'Élie', 'Ange', 'Nour'];
 
@@ -13,7 +14,6 @@ export const SCENARIOS = {
   absents: { absent: 8 },
 };
 
-const QUEST_ORDER = { patrouille: 0, escorte: 1, reparer: 2, aide: 3 };
 const HELP_OUTPUT = { agriculteur: 'ble', boulanger: 'pain', forgeron: 'outils', bucheron_mineur: 'minerai' };
 
 export function addPlayers(state, rng, scenario = 'mixte') {
@@ -56,7 +56,7 @@ function route(state, target) {
 // Répartit le travail du jour entre les joueurs connectés : les quêtes urgentes d'abord,
 // et à deux quand la zone est trop dangereuse pour un joueur seul.
 function planDay(state, rng, online) {
-  const quests = [...state.village.quests].sort((a, b) => QUEST_ORDER[a.kind] - QUEST_ORDER[b.kind]);
+  const quests = [...state.village.quests].sort((a, b) => questUrgency(state, b) - questUrgency(state, a));
   const takers = online.filter((p) => p.profile !== 'occasionnel');
   const explorers = online.filter((p) => p.profile === 'occasionnel');
   const plans = new Map();

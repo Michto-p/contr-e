@@ -8,7 +8,6 @@ const QUEST_THREAT = 40; // au-delà, le village demande une patrouille
 const NEGLECT_DAYS = 3; // jours de négligence avant de perdre un niveau
 const BREAD_KEEPS = 30; // le pain ne se garde pas : au-delà, il rassit
 const MAX_QUESTS = 4;
-const QUEST_LIFETIME = 3;
 const BREAD_PER_DAY = 10; // ce que mangent les villageois
 
 const capacity = (job) => 6 + 3 * job.level;
@@ -40,39 +39,55 @@ function add(stock, good, qty) {
 
 // ---------- Quêtes ----------
 
-function openQuest(state, ctx, quest, events) {
-  const v = state.village;
-  if (v.quests.length >= MAX_QUESTS) return;
-  if (v.quests.some((q) => q.kind === quest.kind && q.zone === quest.zone && q.job === quest.job)) return;
-  const q = { id: v.nextQuestId++, created: ctx.day, ...quest };
-  v.quests.push(q);
-  events.push(ctx.event('quest_open', q.zone ?? null, { kind: q.kind, job: q.job ?? null, label: q.label ?? null, structure: q.structure ?? null }));
+// Urgence d'une quête (plus c'est haut, plus c'est pressant). Sert au tableau des quêtes
+// et aux joueurs pour choisir quoi faire en premier.
+export function questUrgency(state, q) {
+  const zone = q.zone != null ? state.zones[q.zone] : null;
+  switch (q.kind) {
+    case 'patrouille': return fieldThreat(state, zone);
+    case 'escorte': return zone.monsterPressure + 15; // sans minerai, toute la chaîne des outils s'arrête
+    case 'reparer': {
+      const s = zone.structures.find((st) => st.type === q.structure);
+      return s ? 60 - s.condition : 0;
+    }
+    case 'aide': return 90 - state.village.jobs[q.job].satisfaction;
+    default: return 0;
+  }
 }
 
+const questKey = (q) => `${q.kind}|${q.zone ?? ''}|${q.job ?? ''}|${q.structure ?? ''}`;
+
+// Chaque matin, le tableau des quêtes reflète les besoins du moment, les plus urgents d'abord.
 function generateQuests(state, ctx) {
   const events = [];
   const v = state.village;
-  v.quests = v.quests.filter((q) => ctx.day - q.created < QUEST_LIFETIME);
+  const wanted = [];
 
   for (const f of state.zones.filter((z) => z.isField)) {
-    if (fieldThreat(state, f) >= QUEST_THREAT) {
-      openQuest(state, ctx, { kind: 'patrouille', job: 'agriculteur', zone: f.id, label: f.label }, events);
-    }
+    if (fieldThreat(state, f) >= QUEST_THREAT) wanted.push({ kind: 'patrouille', job: 'agriculteur', zone: f.id, label: f.label });
   }
   const mine = mineZone(state);
   if (mine && mine.monsterPressure >= 50 && !mine.closed) {
-    openQuest(state, ctx, { kind: 'escorte', job: 'bucheron_mineur', zone: mine.id, label: mine.label }, events);
+    wanted.push({ kind: 'escorte', job: 'bucheron_mineur', zone: mine.id, label: mine.label });
   }
   for (const z of state.zones) {
     for (const s of z.structures) {
-      if (!s.protected && s.condition < 50) {
-        openQuest(state, ctx, { kind: 'reparer', zone: z.id, label: z.label, structure: s.type }, events);
-      }
+      if (!s.protected && s.condition < 50 && !z.closed) wanted.push({ kind: 'reparer', zone: z.id, label: z.label, structure: s.type });
     }
   }
   // Toujours au moins un coup de main à donner au métier le moins bien loti.
   const jobs = Object.entries(v.jobs).sort((a, b) => a[1].satisfaction - b[1].satisfaction);
-  openQuest(state, ctx, { kind: 'aide', job: jobs[0][0] }, events);
+  wanted.push({ kind: 'aide', job: jobs[0][0] });
+
+  const previous = new Map(v.quests.map((q) => [questKey(q), q]));
+  wanted.sort((a, b) => questUrgency(state, b) - questUrgency(state, a));
+  v.quests = wanted.slice(0, MAX_QUESTS).map((q) => {
+    const old = previous.get(questKey(q));
+    if (old) return old;
+    const quest = { id: v.nextQuestId++, created: ctx.day, ...q };
+    events.push(ctx.event('quest_open', quest.zone ?? null, { kind: quest.kind, job: quest.job ?? null, label: quest.label ?? null, structure: quest.structure ?? null }));
+    return quest;
+  });
   return events;
 }
 

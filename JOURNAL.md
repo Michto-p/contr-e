@@ -60,3 +60,8 @@
 ## Biomes : plus de plaines (retour du développeur)
 - Problème : le marais paraissait partout. Sur 500 graines, les cinq biomes étaient en fait à égalité, mais les graines les plus utilisées (1, 2, 3, 42) tombaient sur le marais, et le biome dominant couvrait parfois 90 % de la carte.
 - Fait : les biomes sont tirés avec des poids (plaine 34, forêt 26, collines 18, marais 12, hauteurs 10) ; le village est toujours dans une plaine ; le marais et les hauteurs sont repoussés à au moins 3 zones du centre ; le biome dominant pèse moins lourd. Résultat sur 500 graines : 37 % de plaine, 11 % de marais. La signature annonce désormais le biome réellement majoritaire.
+
+## Équilibrage : quêtes par urgence
+- Problème : en mixte sur 30 jours, le forgeron et le bûcheron-mineur tombaient au niveau 1. Les joueurs traitaient les quêtes dans un ordre fixe (patrouilles d'abord), et les 4 places du tableau étaient prises par les patrouilles, si bien que l'escorte de la mine n'apparaissait jamais.
+- Fait : chaque matin, le tableau des quêtes est reconstruit d'après les besoins du moment, trié par urgence (menace sur le champ, danger à la mine + 15, état de la structure, satisfaction du métier). Les joueurs choisissent dans le même ordre. En mixte sur 30 jours, aucun métier ne perd plus de niveau (finale 5/2/2/2), au prix d'environ 30 pertes de récolte (les champs sont un peu moins gardés).
+- Fait : avec plus de plaines autour du village, les monstres approchaient trop lentement (quasiment aucune conséquence quand tout le monde est absent 7 jours). Croissance portée à 30 % de l'écart au plafond et bonus plaine ramené à -2 : sur 7 jours, 0 perte avec des assidus, 5 à 12 quand tout le monde est absent.
