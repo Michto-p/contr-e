@@ -115,10 +115,10 @@ function drawVillage(ctx, zx, zy) {
   }
   // Maisons autour d'une place et d'un puits.
   const roofs = ['#b5523b', '#8f5a3a', '#a4473a', '#7d6a4a'];
-  const spots = [[1, 1], [4, 1], [8, 1], [1, 4], [9, 4], [1, 8], [4, 9], [8, 9], [10, 8]];
+  const spots = [[2, 1], [6, 1], [10, 1], [13, 2], [1, 5], [13, 6], [1, 10], [5, 12], [10, 12], [13, 11], [3, 14]];
   spots.forEach(([tx, ty], i) => drawHouse(ctx, tx * TILE, ty * TILE, roofs[(i + zx + zy) % roofs.length]));
-  const cx = 6 * TILE;
-  const cy = 6 * TILE;
+  const cx = (ZONE_TILES / 2) * TILE;
+  const cy = (ZONE_TILES / 2) * TILE;
   ctx.fillStyle = '#8a8478';
   ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#3f6f78';
@@ -222,7 +222,7 @@ export function drawMonster(ctx, m, t, hitAge, lungeAge) {
   }
 }
 
-const STRUCT_SPOT = { 'tour de guet': [8, 3], pont: [5, 8], 'cabane de chasseur': [3, 3], palissade: [3, 8], 'vieux moulin': [8, 8], 'avant-poste': OUTPOST_SPOT };
+const STRUCT_SPOT = { 'tour de guet': [10, 3], pont: [6, 11], 'cabane de chasseur': [3, 3], palissade: [3, 10], 'vieux moulin': [11, 11], 'avant-poste': OUTPOST_SPOT };
 
 function drawOutpost(ctx, x, y, cond, t) {
   // Cercle de sécurité : les monstres n'y entrent pas.

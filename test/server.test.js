@@ -42,7 +42,7 @@ test('deux joueurs se voient bouger', async () => {
   const a = await join('Alix');
   const b = await join('Bea');
   assert.ok(await until(() => a.inbox.monde && b.room.state.joueurs?.size === 2));
-  assert.equal(a.inbox.monde.zones.length, 144);
+  assert.equal(a.inbox.monde.zones.length, 16 * 16); // une contrée de jeu fait 16 zones de côté
   const aId = a.room.sessionId;
   const x0 = b.room.state.joueurs.get(aId).x;
   a.room.send('deplacement', { x: 1, y: 0 });

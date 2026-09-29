@@ -42,7 +42,7 @@ function structuresSummary(zone) {
 export function makeContreeRoom(config) {
   const {
     heureMs = 30_000, bots = 'mixte', graine = 42, fichier = 'data/contree.json',
-    rattrapageMaxJours = 7, rythmeVie = null, now = () => Date.now(), log = () => {}, version = '',
+    rattrapageMaxJours = 7, rythmeVie = null, taille = undefined, now = () => Date.now(), log = () => {}, version = '',
   } = config;
 
   return class ContreeRoom extends Room {
@@ -96,7 +96,7 @@ export function makeContreeRoom(config) {
     // ---------- Monde : chargement, rattrapage, sauvegarde ----------
 
     loadOrCreate() {
-      this.world = openWorld({ fichier, graine, bots, heureMs, rattrapageMaxJours, rythmeVie, now: now() });
+      this.world = openWorld({ fichier, graine, bots, heureMs, rattrapageMaxJours, rythmeVie, taille, now: now() });
       const { sim, created, caughtUp } = this.world;
       if (created) log(`Nouvelle contrée : ${sim.name} (graine ${graine}, bots : ${bots}).`);
       else log(`Contrée ${sim.name} rechargée (jour ${sim.day}) ; ${caughtUp} heure(s) rattrapée(s).`);

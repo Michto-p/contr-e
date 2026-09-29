@@ -19,7 +19,9 @@ vivre quand personne n'est connecté. Au retour, chacun lit la **chronique** de 
 
 **Mettre le jeu à jour** (après de nouveaux changements sur la branche) : dans le terminal du
 Codespace, tapez `npm run relancer`. La commande récupère le dernier code, arrête l'ancien serveur
-(la contrée est sauvegardée) et démarre le nouveau. La version du jeu est affichée dans le panneau
+(la contrée est sauvegardée) et démarre le nouveau. Pour repartir d'une contrée neuve (par exemple
+pour profiter d'une carte plus grande), tapez `npm run relancer -- --nouvelle` : l'ancienne est
+archivée dans `data/`, pas effacée. La version du jeu est affichée dans le panneau
 Chronique (touche C) ; rechargez la page du jeu (Ctrl+Maj+R) après la relance.
 
 Si le port n'a pas pu être rendu public automatiquement : onglet **PORTS** > clic droit sur `2567` >
@@ -53,6 +55,7 @@ Réglages du serveur (variables d'environnement) :
 | `GRAINE` | `42` | graine de la contrée (utilisée seulement à la création) |
 | `FICHIER` | `data/contree.json` | sauvegarde |
 | `RATTRAPAGE_JOURS` | `7` | temps maximal rattrapé au redémarrage |
+| `TAILLE` | `16` | taille d'une nouvelle contrée, en zones de côté (une contrée sauvegardée garde la sienne) |
 | `RYTHME_VIE` | `1` | années de vie des habitants par jour de jeu (`0.25` = une saison par jour, générations plus longues) |
 
 ## Commandes du jeu

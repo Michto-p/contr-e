@@ -6,6 +6,7 @@ import { createWorld } from '../src/sim/world.js';
 import { advanceHour } from '../src/sim/tick.js';
 import { addPlayers, agentsAct } from '../src/sim/agents.js';
 import { createPopulation } from '../src/sim/systems/population.js';
+import { MAP_ZONES } from '../shared/monde.js';
 
 export const EVENT_DAYS_KEPT = 30; // jours d'events gardés (chronique, résumés d'absence)
 
@@ -23,10 +24,11 @@ export function advanceWorld(world) {
 
 // Ouvre la contrée : la recharge si elle existe (en rattrapant le temps passé serveur éteint),
 // sinon la crée à partir de la graine.
-export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_000, rattrapageMaxJours = 7, rythmeVie = null, now = Date.now() }) {
+export function openWorld({ fichier, graine = 42, bots = 'mixte', heureMs = 30_000, rattrapageMaxJours = 7, rythmeVie = null, taille = MAP_ZONES, now = Date.now() }) {
   const saved = loadWorld(fichier);
   if (!saved) {
-    const sim = createWorld(graine, { yearsPerDay: rythmeVie ?? 1 });
+    // Une contrée sauvegardée garde sa taille ; seule une nouvelle contrée prend `taille`.
+    const sim = createWorld(graine, { width: taille, height: taille, yearsPerDay: rythmeVie ?? 1 });
     const rng = createRng(graine);
     addPlayers(sim, rng, bots);
     return { sim, rng, events: [], registry: {}, created: true, caughtUp: 0 };

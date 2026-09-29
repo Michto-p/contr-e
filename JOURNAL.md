@@ -145,3 +145,7 @@
 - Fait : en jeu, 1 à 4 monstres par zone (au lieu de 6), une zone voisine ne se peuple que si l'on approche de son bord, apparitions plus espacées. Une tour de guet en retire un, un avant-poste deux ; autour de sa tente, pas de monstre et l'on se soigne comme au village.
 - Fait : chaque matin, agriculteurs, bûcherons-mineurs et éleveurs partent travailler (champs, bois, mine, pâtures) si la zone est assez sûre selon leur caractère ; leur présence ralentit la montée des monstres et entretient chemins et structures. Là où ils travaillent, ils dressent des avant-postes (bois du village, 4 au plus) ; les joueurs peuvent en dresser aussi (touche E près du piquet jaune, 3 × 4 bois). Choix : pas de nouveau système, tout passe par population, monstres et le gameplay.
 - Problème repéré : deux tests d'objets étaient instables (un point de vie regagné pendant le test du pain, un joueur du test précédent visé par le cracheur) ; corrigés à la source.
+
+## Carte plus grande
+- Fait : le jeu crée des contrées de 16 × 16 zones (réglable avec `TAILLE`), et chaque zone fait 16 tuiles de côté au lieu de 12 : environ trois fois plus de terrain à parcourir. La simulation seule (`npm run sim`) garde 12 × 12 par défaut, la chronique d'exemple ne change donc pas.
+- Décision : une contrée sauvegardée garde sa taille ; `npm run relancer -- --nouvelle` archive l'ancienne dans `data/` et en crée une neuve.

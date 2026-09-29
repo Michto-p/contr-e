@@ -148,7 +148,7 @@ Scénarios à tester : tous assidus / mixte / tout le monde absent 5 jours.
 ## Commandes
 
 ```
-npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER, RYTHME_VIE)
+npm start                                   # serveur du jeu (PORT, HEURE_MS, BOTS, GRAINE, FICHIER, RYTHME_VIE, TAILLE)
 npm run sim -- --days 7 --seed 42
 npm run sim -- --days 30 --seed 42 --agents mixte --debug
 npm test

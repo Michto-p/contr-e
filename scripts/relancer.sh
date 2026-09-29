@@ -2,6 +2,7 @@
 # Met le jeu à jour et relance le serveur : récupère le dernier code, installe les dépendances
 # si besoin, arrête l'ancien serveur (qui sauvegarde la contrée) et démarre le nouveau.
 # Usage : npm run relancer
+#         npm run relancer -- --nouvelle   (repart d'une contrée neuve ; l'ancienne est archivée dans data/)
 set -u
 cd "$(dirname "$0")/.."
 
@@ -18,6 +19,12 @@ for _ in $(seq 1 20); do
   sleep 0.5
 done
 pkill -KILL -f "node server/index.js" 2>/dev/null
+
+if [ "${1:-}" = "--nouvelle" ] && [ -f data/contree.json ]; then
+  archive="data/contree-$(date +%Y%m%d-%H%M%S).json"
+  mv data/contree.json "$archive"
+  echo "  Nouvelle contrée : l'ancienne est archivée dans $archive"
+fi
 
 echo "4/4 Démarrage du nouveau serveur…"
 echo "Version : $(git log -1 --format='%h — %s')"
