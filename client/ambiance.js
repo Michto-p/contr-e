@@ -1,7 +1,8 @@
 // Vie d'ambiance, calculée par chaque navigateur (elle ne pèse pas sur le jeu) :
 // des villageois qui vont et viennent, des lapins qui détalent, des oiseaux au-dessus des bois.
 import { ZONE_TILES } from './shared/monde.js';
-import { TILE, VILLAGE_HOUSES } from './render.js';
+import { TILE } from './render.js';
+import { VILLAGE_HOUSES } from './shared/monde.js';
 
 const FAMILLE_COULEURS = ['#8f5a3a', '#3b6d8f', '#7d4f8a', '#4f7d4a', '#a4473a', '#b8863a', '#3a8f86', '#6a6a8f'];
 

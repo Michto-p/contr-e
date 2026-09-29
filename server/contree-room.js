@@ -9,7 +9,7 @@ import { ZONE_TILES, MOVE_STEP_MS, DASH_MS, DASH_FACTOR, BOOTS_FACTOR, zoneIndex
 import { initPnj, updatePnj } from './pnj.js';
 import { initAccounts, charactersOf, createCharacter, ensureHero, startPlaying, stopPlaying, checkAbandon, applyCharacter } from './personnages.js';
 import { speedFactor, needsSpeed } from '../shared/competences.js';
-import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom } from './maisons.js';
+import { initHouses, spawnPoint, refreshChests, chestMove, clampInRoom, syncRuins, abandonHouses } from './maisons.js';
 import { rankOf } from '../src/sim/systems/population.js';
 import { EtatContree, Joueur, Zone, Metier, Quete, Habitant, Plan } from './schema.js';
 import { openWorld, advanceWorld, snapshotWorld, saveWorld } from './persistence.js';
@@ -153,6 +153,8 @@ export function makeContreeRoom(config) {
       const dayBefore = this.sim.day;
       this.advance();
       checkAbandon(this, now(), abandonMs, this.playing());
+      abandonHouses(this, now(), abandonMs, this.playing());
+      syncRuins(this);
       this.syncState();
       const hour = this.sim.tick % 24;
       if (hour === 21) this.broadcast('annonce', 'La nuit tombe : les monstres s\'enhardissent. Le village et les avant-postes restent sûrs.');

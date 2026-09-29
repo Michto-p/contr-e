@@ -455,7 +455,7 @@ function talkTo(h) {
 
 let lastInteractSent = 0;
 // Certaines actions passent avant la conversation : un habitant qui passe ne doit pas les voler.
-const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir|entrer chez vous|dormir|sortir|adopter|laisser votre compagnon)/;
+const PRIORITY_ACTION = /^(bâtir votre maison|ouvrir le coffre|secourir|entrer chez vous|dormir|sortir|adopter|laisser votre compagnon|remettre en état)/;
 function talkTarget() {
   const me = game.room?.state.joueurs.get(game.room.sessionId);
   return me && PRIORITY_ACTION.test(me.action) ? null : game.nearVillager;

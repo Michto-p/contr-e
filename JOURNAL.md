@@ -219,3 +219,7 @@
 ## Le village s'agrandit
 - Fait : quand les maisons d'habitants dépassent ce que contient le cœur du village (11, puis 6 par faubourg) ou que les joueurs ont pris presque tous les terrains, un pré voisin en diagonale devient un faubourg (event `village_grows`) : pression des monstres plafonnée à 10, ni champ ni lieu de travail, ruelles et maisons dessinées, 6 terrains de plus pour les joueurs (géométrie partagée `lotTile`). 4 faubourgs au plus.
 - Problème repéré et corrigé : le test de la horde était instable (les monstres amenés près d'un joueur resté au village pillaient parfois le village avant d'être frappés).
+
+## Maisons abandonnées
+- Fait : `state.village.ruines`. La simulation laisse à l'abandon une maison d'habitants quand plus de 4 sont vides ; le serveur, la maison d'un joueur dont aucun personnage n'a été joué depuis `ABANDON_JOURS`. Une ruine perd 6 d'état par jour ; sous 40, c'est un repaire (event `ruin_dangerous`) d'où sortent jusqu'à 2 gluants, tenus en laisse autour, même au village. E devant : 3 bois du village par coup de main, +20 d'état ; remise en état, la maison est réhabitée (+1 maison d'habitants) ou le terrain libéré, avec de la renommée.
+- Décisions : le coffre d'un joueur parti est gardé (il pourra rebâtir). Problème repéré, laissé pour plus tard : la nuit, un habitant peut encore rentrer dans une maison en ruine (décor seulement).

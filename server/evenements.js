@@ -3,7 +3,7 @@
 import { linesFor } from '../src/chronicle/chronicle.js';
 
 // Ce que rapportent en renommée les hauts faits des joueurs (leurs personnages sont des habitants).
-const RENOWN = { quest_done: 3, horde_repelled: 6, wanderer_rescued: 5, outpost_built: 3, house_player: 2 };
+const RENOWN = { quest_done: 3, horde_repelled: 6, wanderer_rescued: 5, outpost_built: 3, house_player: 2, ruin_restored: 4 };
 
 export function pushEvent(room, type, zone, data) {
   const e = { day: room.sim.day, tick: room.sim.tick, type, data };

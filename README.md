@@ -145,6 +145,12 @@ sinon, elle pille une partie du pain en atteignant le village, puis se disperse.
 pris par les joueurs), un pré voisin devient un **faubourg** : sûr comme le village, avec ses ruelles,
 ses maisons et 6 nouveaux terrains à bâtir (4 faubourgs au plus).
 
+**Les maisons abandonnées.** Quand trop de maisons restent vides, l'une est laissée à l'abandon ; la
+maison d'un joueur qu'on n'a pas revu depuis longtemps aussi (même délai que pour les personnages).
+Sans entretien, elle tombe en ruine puis devient un **repaire** : des bêtes en sortent, en plein
+village. N'importe qui peut la **remettre en état** (E devant, 3 bois par coup de main) : elle est
+réhabitée, ou le terrain est libéré. Le coffre d'un joueur parti l'attend s'il revient.
+
 **La hiérarchie du village.** Chacun gagne de la **renommée** par ses hauts faits (inventions,
 défrichages, défense, et pour les joueurs : quêtes, hordes repoussées, égarés ramenés…). Chaque jour,
 l'adulte le plus respecté **prend la tête du village** (couronne de feuilles d'or ; un petit bonus pour

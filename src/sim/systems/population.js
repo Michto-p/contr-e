@@ -298,6 +298,42 @@ function build(pop, state, ctx, events) {
   extend(pop, state, ctx, events);
 }
 
+// Maisons abandonnées. Quand trop de maisons restent vides, l'une d'elles est laissée à l'abandon ;
+// sans entretien, une maison abandonnée tombe en ruine et devient un repaire de bêtes, jusque dans le
+// village. N'importe qui peut la remettre en état (voir le jeu) : elle est alors réhabitée.
+export const RUIN_DECAY = 6; // par jour
+export const RUIN_DANGER = 40; // en dessous : un repaire
+function abandon(pop, state, rng, ctx, events) {
+  const ruines = state.village.ruines ??= [];
+  for (const r of ruines) {
+    const before = r.condition;
+    r.condition = clamp(r.condition - RUIN_DECAY);
+    if (before >= RUIN_DANGER && r.condition < RUIN_DANGER) {
+      events.push(ctx.event('ruin_dangerous', null, { owner: r.owner ?? null, fix: 'reparer' }));
+    }
+  }
+  const empty = pop.houses * 2 - living(pop).length;
+  if (empty < 8 || pop.houses <= 4 || !rng.chance(0.2)) return;
+  const taken = new Set(ruines.filter((r) => r.kind === 'maison').map((r) => r.index));
+  let index = Math.min(pop.houses - 1, VILLAGE_ROOM + (state.village.faubourgs?.length ?? 0) * FAUBOURG_ROOM - 1);
+  while (index >= 0 && taken.has(index)) index -= 1;
+  if (index < 0) return;
+  pop.houses -= 1;
+  state.village.nextRuinId = (state.village.nextRuinId ?? 0) + 1;
+  ruines.push({ id: state.village.nextRuinId, kind: 'maison', index, condition: 80 });
+  events.push(ctx.event('house_abandoned', null, { owner: null, fix: 'reparer' }));
+}
+
+// Une ruine remise en état : la maison d'habitants est réhabitée (le terrain d'un joueur, libéré).
+export function restoreRuin(state, id) {
+  const ruines = state.village.ruines ?? [];
+  const r = ruines.find((x) => x.id === id);
+  if (!r) return null;
+  state.village.ruines = ruines.filter((x) => x !== r);
+  if (r.kind === 'maison' && state.village.population) state.village.population.houses += 1;
+  return r;
+}
+
 // Le village s'agrandit : quand son cœur est plein de maisons, un pré voisin (en diagonale, entre
 // deux champs) devient un faubourg, sûr comme le village, avec ses maisons et ses terrains.
 // Il grandit aussi quand les joueurs ont pris presque tous les terrains à bâtir.
@@ -773,6 +809,7 @@ export function population(state, rng, ctx) {
     }
     hierarchy(pop, state, ctx, events);
     build(pop, state, ctx, events);
+    abandon(pop, state, prng, ctx, events);
     immigration(pop, state, prng, ctx, events);
     forestier(pop, state, prng, ctx, events);
     clearing(pop, state, prng, ctx, events);

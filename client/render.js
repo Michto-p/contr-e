@@ -1,6 +1,6 @@
 // Rendu Canvas 2D façon 16 bits, sans image : tout est dessiné avec des formes simples.
 // Le terrain de chaque zone est dessiné une fois dans un petit canvas, puis agrandi sans lissage.
-import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, ROOM_W, ROOM_H, ROOM_FURNITURE, FAUBOURG_HOUSES, lotCount, lotTile } from './shared/monde.js';
+import { ZONE_TILES, OUTPOST_SPOT, OUTPOST_SAFE, INN_SPOT, ROOM_W, ROOM_H, ROOM_FURNITURE, FAUBOURG_HOUSES, VILLAGE_HOUSES, lotCount, lotTile, ruinTile } from './shared/monde.js';
 import { createTerrain } from './terrain.js';
 import { drawSky } from './ciel.js';
 
@@ -114,8 +114,7 @@ function drawHouse(ctx, x, y, roof) {
   px(ctx, '#8fc3e8', x + 11, y + 9, 2, 2);
 }
 
-// Maisons du village (en tuiles depuis le coin de la zone) : leurs fenêtres s'allument la nuit.
-export const VILLAGE_HOUSES = [[2, 1], [6, 1], [10, 1], [13, 2], [1, 5], [13, 6], [1, 10], [5, 12], [10, 12], [13, 11], [3, 14]];
+export { VILLAGE_HOUSES };
 
 function drawVillage(ctx, zx, zy) {
   for (let ty = 0; ty < ZONE_TILES; ty++) {
@@ -175,6 +174,23 @@ function drawFaubourg(ctx, zx, zy) {
     px(ctx, '#b9a57f', x0 + i * TILE, y0 + 8 * TILE + ((i % 2) * 6), TILE, 1);
   }
   FAUBOURG_HOUSES.forEach(([tx, ty], i) => drawHouse(ctx, x0 + tx * TILE, y0 + ty * TILE, ['#b5523b', '#8f5a3a', '#a4473a', '#7d6a4a'][(i + zx) % 4]));
+}
+
+// Une maison abandonnée : toit crevé, planches, herbes folles ; devenue repaire, des yeux luisent.
+function drawRuin(ctx, x, y, condition, t) {
+  px(ctx, '#8f8a7e', x + 1, y + 6, 14, 10); // pan de mur
+  px(ctx, '#6f6a60', x + 1, y + 13, 14, 3);
+  px(ctx, '#3a2f28', x + 5, y + 9, 5, 7); // porte béante
+  ctx.fillStyle = '#5c3a2e';
+  ctx.beginPath(); ctx.moveTo(x, y + 7); ctx.lineTo(x + 6, y + 1); ctx.lineTo(x + 9, y + 5); ctx.lineTo(x + 5, y + 7); ctx.fill(); // reste de toit
+  px(ctx, '#6b4a2b', x + 10, y + 3, 1, 5); px(ctx, '#6b4a2b', x + 12, y + 4, 1, 4); // chevrons à nu
+  for (let k = 0; k < 4; k++) px(ctx, '#5f8f3a', x + 1 + k * 4, y + 14 - (k % 2), 2, 3); // herbes folles
+  if (condition < 60) px(ctx, 'rgba(20, 16, 12, 0.25)', x, y, 16, 16);
+  if (condition < 40) {
+    // Un repaire : des yeux dans le noir de la porte.
+    const blink = Math.sin(t / 700) > -0.9;
+    if (blink) { px(ctx, '#ffe04a', x + 6, y + 11, 1, 1); px(ctx, '#ffe04a', x + 8, y + 11, 1, 1); }
+  }
 }
 
 // Tous les terrains (cœur du village puis faubourgs) qui sont à l'écran.
@@ -821,6 +837,11 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
     if (fx >= zx0 && fx <= zx1 && fy >= zy0 && fy <= zy1) drawFaubourg(ctx, fx, fy);
   }
   drawLots(ctx, geo, state.maisons, { x0: cx - halfW, x1: cx + halfW, y0: cy - halfH, y1: cy + halfH });
+  for (const s of state.ruines ?? []) {
+    const [, kind, index, condition] = s.split('|');
+    const tile = ruinTile({ kind, index: Number(index) }, geo);
+    if (tile) drawRuin(ctx, tile[0] * TILE, tile[1] * TILE, Number(condition), t);
+  }
 
   // Zones de quête : un fanion au centre de la zone.
   for (const zi of questZones) {

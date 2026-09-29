@@ -128,7 +128,8 @@ test/
   travaillent avec un bonus), sans vieillir tant qu'ils appartiennent à un joueur ; quand leur joueur a une
   maison, ils peuvent fonder une famille (enfants au nom du joueur). Hiérarchie : chaque jour, un chef (la
   plus grande renommée) et un maître d'atelier par métier ; les jeunes sont leurs apprentis. Le village
-  s'agrandit en faubourgs (zones sûres, terrains de joueurs en plus) quand il est plein. La production des métiers dépend des
+  s'agrandit en faubourgs (zones sûres, terrains de joueurs en plus) quand il est plein ; une maison vide
+  ou délaissée tombe en ruine, puis devient un repaire, tant qu'on ne la remet pas en état. La production des métiers dépend des
   habitants qui les exercent ; on mange un pain pour deux habitants. Le village ne se vide jamais
   (des familles arrivent). Les plans portent le nom de leur contrée : ils pourront voyager (étape 4).
 

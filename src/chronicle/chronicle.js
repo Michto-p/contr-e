@@ -217,6 +217,20 @@ const RENDERERS = {
     priority: () => 8,
     text: (evs) => `Le village s'agrandit : ${evs[0].data.label} sort de terre, avec ses maisons et des terrains à bâtir.`,
   },
+  house_abandoned: {
+    priority: () => 5,
+    text: (evs) => (evs[0].data.owner
+      ? `On ne voit plus ${evs[0].data.owner} au village : sa maison est à l'abandon. Sans entretien, elle tombera en ruine. ${FIX.reparer}`
+      : `Une maison du village est restée vide, et on l'a laissée à l'abandon. Sans entretien, elle tombera en ruine. ${FIX.reparer}`),
+  },
+  ruin_dangerous: {
+    priority: () => 7,
+    text: (evs) => `${evs[0].data.owner ? `L'ancienne maison de ${evs[0].data.owner}` : 'Une maison abandonnée'} est devenue un repaire de bêtes, en plein village. ${FIX.reparer}`,
+  },
+  ruin_restored: {
+    priority: () => 6,
+    text: (evs) => `${cap(joinFr(evs[0].data.who))} ${evs[0].data.who.length > 1 ? 'ont remis' : 'a remis'} en état une maison abandonnée : ${evs[0].data.kind === 'lot' ? 'le terrain attend un nouveau propriétaire' : 'une famille va pouvoir s\'y installer'}.`,
+  },
   house_player: {
     priority: () => 6,
     text: (evs) => `${cap(joinFr(evs.map((e) => e.data.who)))} ${evs.length > 1 ? 'ont bâti leur maison' : 'a bâti sa maison'} au village : fini les nuits à l'auberge.`,

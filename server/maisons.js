@@ -2,11 +2,11 @@
 // bâtit sa maison sur un terrain libre du village (avec ce qu'il a rapporté et le bois du village).
 // La maison a un coffre, commun à tous les personnages du joueur, et c'est là qu'il reprend ses
 // esprits quand il tombe. Une maison au village est protégée : elle ne s'abîme jamais.
-import { ZONE_TILES, INN_DOOR, ROOM_W, ROOM_H, ROOM_FURNITURE, lotCount, lotDoor } from '../shared/monde.js';
+import { ZONE_TILES, INN_DOOR, ROOM_W, ROOM_H, ROOM_FURNITURE, lotCount, lotDoor, ruinTile } from '../shared/monde.js';
 import { clamp } from '../src/sim/world.js';
 import { bagCount, addItem } from './objets.js';
 import { pushEvent, announce } from './evenements.js';
-import { setFoyer } from '../src/sim/systems/population.js';
+import { setFoyer, restoreRuin } from '../src/sim/systems/population.js';
 
 export const HOUSE_COST = { cuir: 4, minerai: 4 };
 export const HOUSE_WOOD = 10;
@@ -14,7 +14,11 @@ const REACH = 1.6;
 
 // Géométrie des terrains : le cœur du village, puis les faubourgs dans l'ordre où ils sont nés.
 export const geoOf = (room) => ({ villageId: room.sim.villageId, width: room.sim.width, faubourgs: room.sim.village.faubourgs ?? [] });
-const usedLots = (room) => new Set(Object.values(room.players).map((a) => a.maison).filter((m) => m != null));
+// Un terrain est pris par une maison, ou par les ruines de celle d'un joueur parti.
+const usedLots = (room) => new Set([
+  ...Object.values(room.players).map((a) => a.maison).filter((m) => m != null),
+  ...(room.sim.village.ruines ?? []).filter((r) => r.kind === 'lot').map((r) => r.index),
+]);
 
 function villageCorner(room) {
   const v = room.sim.zones[room.sim.villageId];
@@ -35,6 +39,7 @@ export function initHouses(room) {
   }
   v.structures = v.structures.filter((s) => !s.type.startsWith('maison de ') || !room.players[s.type.slice('maison de '.length)]);
   syncHouses(room);
+  syncRuins(room);
 }
 
 export function syncHouses(room) {
@@ -65,9 +70,16 @@ export function houseActionAt(room, p) {
   const c = villageCorner(room);
   // L'auberge : on peut toujours y dormir.
   if (Math.hypot(c.x + INN_DOOR[0] - p.x, c.y + INN_DOOR[1] - 0.6 - p.y) <= REACH && p.fatigue >= 10) return { kind: 'dormir', label: 'dormir à l\'auberge' };
+  const geo = geoOf(room);
+  // Une maison abandonnée : tout le monde peut la remettre en état.
+  for (const r of room.sim.village.ruines ?? []) {
+    const tile = ruinTile(r, geo);
+    if (tile && Math.hypot(tile[0] + 0.5 - p.x, tile[1] + 1.3 - p.y) <= REACH) {
+      return { kind: 'restaurer', ruin: r.id, label: `remettre en état la maison abandonnée (${RESTORE_WOOD} bois)` };
+    }
+  }
   const account = room.players[p.joueur];
   if (!account) return null;
-  const geo = geoOf(room);
   if (account.maison != null) {
     const door = lotDoor(account.maison, geo);
     if (door && Math.hypot(door[0] - p.x, door[1] - p.y) <= REACH) return { kind: 'entrer', label: 'entrer chez vous' };
@@ -82,6 +94,54 @@ export function houseActionAt(room, p) {
     }
   }
   return null;
+}
+
+// Remettre en état une maison abandonnée : quelques coups de main, avec le bois du village.
+export const RESTORE_WOOD = 3;
+const RESTORE_STEP = 20;
+export function restoreStep(room, p, id, tell) {
+  const r = (room.sim.village.ruines ?? []).find((x) => x.id === id);
+  if (!r) return undefined;
+  const wood = room.sim.village.jobs.bucheron_mineur.stock;
+  if ((wood.bois ?? 0) < RESTORE_WOOD) return tell(`Il faut ${RESTORE_WOOD} bois dans la réserve du village.`);
+  wood.bois -= RESTORE_WOOD;
+  room.state.bois = wood.bois;
+  r.condition = clamp(r.condition + RESTORE_STEP);
+  (r.who ??= []).includes(p.nom) || r.who.push(p.nom);
+  if (r.condition < 100) { syncRuins(room); return tell(`Maison abandonnée : remise en état à ${r.condition} %`); }
+  restoreRuin(room.sim, id);
+  syncRuins(room);
+  syncHouses(room);
+  announce(room, pushEvent(room, 'ruin_restored', null, { who: r.who, kind: r.kind }));
+  return tell('La maison est remise en état !');
+}
+
+export function syncRuins(room) {
+  const list = (room.sim.village.ruines ?? []).map((r) => `${r.id}|${r.kind}|${r.index}|${r.condition}`);
+  if (list.join(';') === [...room.state.ruines].join(';')) return;
+  room.state.ruines.splice(0, room.state.ruines.length);
+  for (const x of list) room.state.ruines.push(x);
+}
+
+// Un joueur qu'on ne voit plus depuis longtemps : sa maison est laissée à l'abandon (son coffre, lui,
+// l'attend s'il revient un jour : il pourra rebâtir).
+export function abandonHouses(room, now, abandonMs, playing) {
+  for (const [joueur, account] of Object.entries(room.players)) {
+    if (account.maison == null) continue;
+    const mine = Object.entries(room.registry).filter(([, e]) => e.owner === joueur);
+    if (mine.some(([name]) => playing.has(name))) continue;
+    const lastSeen = Math.max(0, ...mine.map(([, e]) => e.lastPlayedAt ?? now));
+    if (now - lastSeen < abandonMs) continue;
+    const lot = account.maison;
+    account.maison = null;
+    room.state.maisons.delete(String(lot));
+    room.sim.village.ruines ??= [];
+    room.sim.village.nextRuinId = (room.sim.village.nextRuinId ?? 0) + 1;
+    room.sim.village.ruines.push({ id: room.sim.village.nextRuinId, kind: 'lot', index: lot, condition: 70, owner: joueur });
+    announce(room, pushEvent(room, 'house_abandoned', null, { owner: joueur, fix: 'reparer' }));
+    syncHouses(room);
+    syncRuins(room);
+  }
 }
 
 export function buildHouse(room, p, lot, tell) {

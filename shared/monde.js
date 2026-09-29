@@ -16,6 +16,9 @@ export const INN_DOOR = [11.5, 6.4];
 export const HOUSE_LOTS = [[4, 3], [7, 4], [14, 4], [3, 7], [11, 8], [5, 9], [14, 9], [8, 12], [6, 14], [12, 14]];
 export const houseDoor = (lot) => [HOUSE_LOTS[lot][0] + 0.5, HOUSE_LOTS[lot][1] + 1.3];
 
+// Maisons des habitants au cœur du village (leurs fenêtres s'allument la nuit).
+export const VILLAGE_HOUSES = [[2, 1], [6, 1], [10, 1], [13, 2], [1, 5], [13, 6], [1, 10], [5, 12], [10, 12], [13, 11], [3, 14]];
+
 // Quand le village s'agrandit, chaque faubourg a ses maisons d'habitants et 6 terrains de plus.
 export const FAUBOURG_HOUSES = [[2, 2], [7, 1], [12, 2], [2, 12], [12, 12], [7, 13]];
 export const FAUBOURG_LOTS = [[4, 6], [8, 5], [12, 6], [4, 9], [8, 9], [11, 10]];
@@ -36,6 +39,24 @@ export function lotTile(lot, geo) {
   }
   return [(zone % geo.width) * ZONE_TILES + rel[0], Math.floor(zone / geo.width) * ZONE_TILES + rel[1]];
 }
+// Tuile d'une maison d'habitants : d'abord le cœur du village, puis les faubourgs.
+export function villagerHouseTile(index, geo) {
+  let zone;
+  let rel;
+  if (index < VILLAGE_HOUSES.length) {
+    zone = geo.villageId;
+    rel = VILLAGE_HOUSES[index];
+  } else {
+    const k = Math.floor((index - VILLAGE_HOUSES.length) / FAUBOURG_HOUSES.length);
+    zone = geo.faubourgs?.[k];
+    rel = FAUBOURG_HOUSES[(index - VILLAGE_HOUSES.length) % FAUBOURG_HOUSES.length];
+    if (zone == null) return null;
+  }
+  return [(zone % geo.width) * ZONE_TILES + rel[0], Math.floor(zone / geo.width) * ZONE_TILES + rel[1]];
+}
+// Une ruine : la maison d'un habitant (`maison`) ou celle d'un joueur (`lot`).
+export const ruinTile = (r, geo) => (r.kind === 'lot' ? lotTile(r.index, geo) : villagerHouseTile(r.index, geo));
+
 export function lotDoor(lot, geo) {
   const t = lotTile(lot, geo);
   return t ? [t[0] + 0.5, t[1] + 1.3] : null;

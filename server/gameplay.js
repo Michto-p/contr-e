@@ -8,7 +8,9 @@ import { TOWER } from '../src/sim/systems/village.js';
 import { pushEvent, announce } from './evenements.js';
 import { ZONE_TILES, zoneIndexAt, stepPosition, OUTPOST_SPOT, OUTPOST_SAFE } from '../shared/monde.js';
 import { Monstre, Projectile } from './schema.js';
-import { houseActionAt, buildHouse, spawnPoint, interiorActionAt, enterHouse, leaveHouse } from './maisons.js';
+import { houseActionAt, buildHouse, spawnPoint, interiorActionAt, enterHouse, leaveHouse, geoOf, restoreStep } from './maisons.js';
+import { ruinTile } from '../shared/monde.js';
+import { RUIN_DANGER } from '../src/sim/systems/population.js';
 import { lostNear, followPlayer } from './pnj.js';
 import { dropLoot, isDashing, rareAt, extractRare, DAMAGE_BY_SWORD, addItem } from './objets.js';
 
@@ -299,6 +301,32 @@ function spawnMonsters(room, t) {
     play.monsters.set(id, { zone: zoneId, kind, goal: pos, nextGoal: 0, lastHit: 0 });
     play.spawnAt.set(zoneId, t + SPAWN_GAP_MS);
   }
+  spawnFromRuins(room, players, t);
+}
+
+// Une maison abandonnée devenue repaire : des bêtes en sortent, jusque dans le village, et restent
+// autour (en laisse) tant qu'on ne l'a pas remise en état.
+const RUIN_MONSTERS = 2;
+const RUIN_SPAWN_MS = 8000;
+function spawnFromRuins(room, players, t) {
+  const { play, sim } = room;
+  for (const r of sim.village.ruines ?? []) {
+    if (r.condition >= RUIN_DANGER) continue;
+    const tile = ruinTile(r, geoOf(room));
+    if (!tile) continue;
+    const c = { x: tile[0] + 0.5, y: tile[1] + 1.5 };
+    if (!players.some(([, p]) => dist(p, c) < 14)) continue;
+    const have = [...play.monsters.values()].filter((d) => d.ruin === r.id).length;
+    if (have >= RUIN_MONSTERS || (play.spawnAt.get(`r${r.id}`) ?? 0) > t) continue;
+    const kind = KINDS.find((k) => k.sorte === 'gluant');
+    const pos = { x: c.x + (play.rng.next() * 2 - 1) * 1.5, y: c.y + play.rng.next() * 1.5 };
+    const id = `m${play.nextId++}`;
+    const m = new Monstre();
+    Object.assign(m, { sorte: kind.sorte, x: pos.x, y: pos.y, pv: kind.pv, pvMax: kind.pv, coup: 0, touche: 0 });
+    room.state.monstres.set(id, m);
+    play.monsters.set(id, { zone: zoneOfPos(room, pos.x, pos.y), kind, goal: pos, nextGoal: 0, lastHit: 0, ruin: r.id, leash: c });
+    play.spawnAt.set(`r${r.id}`, t + RUIN_SPAWN_MS);
+  }
 }
 
 function moveMonsters(room, dt, t) {
@@ -351,7 +379,9 @@ function moveMonsters(room, dt, t) {
       }
     } else {
       if (t >= data.nextGoal || dist(m, data.goal) < 0.3) {
-        data.goal = randomPointIn(room, data.zone);
+        data.goal = data.leash
+          ? { x: data.leash.x + (play.rng.next() * 2 - 1) * 2.5, y: data.leash.y + (play.rng.next() * 2 - 1) * 2 }
+          : randomPointIn(room, data.zone);
         data.nextGoal = t + 2000 + play.rng.next() * 3000;
       }
       goal = data.goal;
@@ -363,6 +393,12 @@ function moveMonsters(room, dt, t) {
       const nx = Math.max(b.x0, Math.min(b.x1, next.x));
       const ny = Math.max(b.y0, Math.min(b.y1, next.y));
       if (!nearOutpost(room, nx, ny) || nearOutpost(room, m.x, m.y)) { m.x = nx; m.y = ny; }
+      // Les bêtes d'un repaire ne s'en éloignent guère.
+      if (data.leash && dist(m, data.leash) > 4) {
+        const d = dist(m, data.leash);
+        m.x = data.leash.x + ((m.x - data.leash.x) / d) * 4;
+        m.y = data.leash.y + ((m.y - data.leash.y) / d) * 4;
+      }
     }
   }
 }
@@ -746,6 +782,7 @@ export function playerInteract(room, sid, t = Date.now()) {
   if (a.kind === 'rare') return extractRare(room, sid, a.zone, a.rare);
 
   if (a.kind === 'maison') return buildHouse(room, p, a.lot, tell);
+  if (a.kind === 'restaurer') return restoreStep(room, p, a.ruin, tell);
   if (a.kind === 'coffre') { client?.send('coffre', true); return undefined; }
 
   if (a.kind === 'egare') {

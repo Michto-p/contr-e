@@ -261,3 +261,37 @@ test('chez soi : un lit pour dormir, un panier pour adopter un compagnon, une po
   await r.leave();
   assert.equal(room().registry.Iris.compagnon, 'chien', 'le compagnon est gardé');
 });
+
+test('une maison abandonnée devient un repaire ; on la remet en état', async () => {
+  const { villagerHouseTile } = await import('../shared/monde.js');
+  const sim = room().sim;
+  const geo = { villageId: sim.villageId, width: sim.width, faubourgs: sim.village.faubourgs ?? [] };
+  sim.village.ruines = [{ id: 99, kind: 'maison', index: 2, condition: 30 }];
+  const houses = sim.village.population.houses;
+  const r = await join({ joueur: 'Fey', nouveau: { prenom: 'Orin', metier: 'garde', classe: 'guerrier' } });
+  assert.ok(await until(() => room().state.joueurs.get(r.sessionId)?.nom === 'Orin'));
+  const p = room().state.joueurs.get(r.sessionId);
+  const [tx, ty] = villagerHouseTile(2, geo);
+  p.x = tx + 0.5;
+  p.y = ty + 1.3;
+  // Un repaire : des bêtes en sortent, en plein village.
+  assert.ok(await until(() => [...room().play.monsters.values()].some((d) => d.ruin === 99), 3000), 'une bête sort du repaire');
+  assert.ok(await until(() => p.action.startsWith('remettre en état')), p.action);
+  sim.village.jobs.bucheron_mineur.stock.bois = 50;
+  for (let i = 0; i < 4; i++) { r.send('interagir'); await sleep(700); }
+  assert.ok(await until(() => !(room().sim.village.ruines ?? []).some((x) => x.id === 99)), 'remise en état');
+  assert.equal(room().sim.village.population.houses, houses + 1, 'une famille peut s\'y installer');
+  assert.ok(room().world.events.some((e) => e.type === 'ruin_restored' && e.data.who.includes('Orin')));
+  await r.leave();
+});
+
+test('la maison d\'un joueur qu\'on ne voit plus est laissée à l\'abandon', async () => {
+  const lot = room().players.Cleo.maison;
+  assert.ok(lot != null, 'Cléo a une maison');
+  for (const e of Object.values(room().registry)) if (e.owner === 'Cleo') e.lastPlayedAt = Date.now() - 31 * 24 * 3600 * 1000;
+  room().gameHour();
+  assert.equal(room().players.Cleo.maison, null);
+  assert.ok(room().sim.village.ruines.some((r) => r.kind === 'lot' && r.index === lot && r.owner === 'Cleo'));
+  assert.ok(!room().state.maisons.has(String(lot)));
+  assert.ok(room().world.events.some((e) => e.type === 'house_abandoned' && e.data.owner === 'Cleo'));
+});
