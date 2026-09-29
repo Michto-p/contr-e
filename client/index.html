@@ -20,6 +20,15 @@
   .hud .jauge { flex: 1; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; min-width: 80px; }
   .hud .jauge i { display: block; height: 100%; background: var(--danger); border-radius: 3px; }
   .hud .structs { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+  .hud .vie { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 14px; }
+  .hud .coeurs { color: #e5635c; letter-spacing: 1px; }
+  .hud .coeurs .vide { color: rgba(255,255,255,0.25); }
+  .hud .action { margin-top: 6px; font-size: 13px; color: #ffe28a; }
+  .hud .action kbd { background: rgba(255,255,255,0.14); border-radius: 4px; padding: 0 5px; font: inherit; color: var(--ink); }
+  .hud .quetes { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; }
+  .hud .quetes li { margin: 3px 0; }
+  .hud .quetes .barre { display: block; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 2px; }
+  .hud .quetes .barre i { display: block; height: 100%; background: #ffd84a; border-radius: 2px; }
   #minimap { position: fixed; top: 10px; right: 10px; width: 132px; height: 132px; padding: 6px; image-rendering: pixelated; }
   .aide { position: fixed; left: 10px; bottom: 10px; padding: 6px 10px; font-size: 13px; color: var(--ink-2); pointer-events: none; }
   .aide kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 0 5px; font: inherit; color: var(--ink); }
@@ -27,8 +36,19 @@
   button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   button.primaire { background: var(--accent); color: #1c1814; border: none; font-weight: 700; padding: 10px 16px; }
-  #attaque { position: fixed; right: 18px; bottom: 18px; width: 76px; height: 76px; border-radius: 50%; font-size: 26px; display: none; }
-  @media (pointer: coarse) { #attaque { display: block; } .aide { display: none; } }
+  #attaque, #agir { position: fixed; right: 18px; bottom: 18px; width: 76px; height: 76px; border-radius: 50%; font-size: 26px; display: none; }
+  #agir { right: 104px; bottom: 30px; width: 60px; height: 60px; font-size: 22px; }
+  @media (pointer: coarse) { #attaque, #agir { display: block; } .aide { display: none; } }
+  @media (max-width: 600px) {
+    .hud { font-size: 13px; padding: 6px 9px; }
+    .hud .quetes li:nth-child(n+2) { display: none; }
+    #minimap { width: 96px; height: 96px; padding: 4px; }
+    .boutons { top: 112px; }
+  }
+  #info { position: fixed; left: 50%; top: 30%; transform: translateX(-50%); padding: 4px 10px; font-size: 14px; color: #ffe28a; pointer-events: none; }
+  #info[hidden] { display: none; }
+  #aterre { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(60, 10, 10, 0.35); pointer-events: none; font-family: Georgia, "Times New Roman", serif; font-size: 1.3em; text-align: center; padding: 16px; }
+  #aterre[hidden] { display: none; }
 
   /* Panneau chronique */
   #cote { position: fixed; top: 10px; right: 154px; bottom: 10px; width: min(380px, calc(100vw - 20px)); padding: 12px 14px; overflow-y: auto; display: none; }
@@ -66,15 +86,21 @@
   <div class="ou" id="ou">—</div>
   <div class="danger"><span id="danger-mot">Monstres</span><span class="jauge"><i id="jauge" style="width:0%"></i></span></div>
   <div class="structs" id="structs"></div>
+  <div class="vie"><span class="coeurs" id="coeurs" aria-label="Points de vie"></span><span id="bois" title="Réserve de bois du village"></span></div>
+  <div class="action" id="action" hidden></div>
+  <ul class="quetes" id="hud-quetes" aria-label="Quêtes du village"></ul>
 </div>
 <canvas id="minimap" class="panel" width="120" height="120" hidden aria-label="Carte de la contrée"></canvas>
 <div class="boutons" id="boutons" hidden>
   <button type="button" id="btn-chronique" title="Chronique (C)">📜 Chronique</button>
 </div>
 <div class="aide panel" id="aide" hidden>
-  <kbd>←↑↓→</kbd> ou <kbd>Z Q S D</kbd> se déplacer · <kbd>Espace</kbd> combattre · <kbd>C</kbd> chronique
+  <kbd>←↑↓→</kbd> ou <kbd>Z Q S D</kbd> se déplacer · <kbd>Espace</kbd> combattre · <kbd>E</kbd> agir · <kbd>C</kbd> chronique
 </div>
 <button type="button" id="attaque" aria-label="Combattre">⚔</button>
+<button type="button" id="agir" aria-label="Agir">✋</button>
+<div id="info" class="panel" hidden></div>
+<div id="aterre" hidden><div class="carte panel">À bout de forces…<br><small>On vous ramène au village pour vous soigner.</small></div></div>
 
 <aside id="cote" class="panel" aria-label="Chronique et village">
   <button type="button" class="fermer" id="fermer-cote" aria-label="Fermer">✕</button>

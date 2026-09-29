@@ -168,23 +168,46 @@ function drawPath(ctx, zx, zy, wear, village) {
   ctx.stroke();
 }
 
-function drawMonsters(ctx, zx, zy, pressure, t) {
-  const n = Math.round(pressure / 12);
-  for (let i = 0; i < n; i++) {
-    const bx = (zx * ZONE_TILES + 1 + hash(zx, zy, i * 3) * (ZONE_TILES - 2)) * TILE;
-    const by = (zy * ZONE_TILES + 1 + hash(zy, zx, i * 3 + 1) * (ZONE_TILES - 2)) * TILE;
-    const bob = Math.sin(t / 300 + i * 1.7) * 1.5;
-    const wander = Math.sin(t / 1300 + i) * 4;
-    const x = bx + wander;
-    const y = by + bob;
-    px(ctx, 'rgba(0,0,0,0.25)', x - 5, y + 4, 10, 2);
-    ctx.fillStyle = pressure >= 70 ? '#6d2a7a' : '#5a3d8a';
+// Monstres réels (entités du serveur). `hitAge` : depuis le dernier coup reçu ; `lungeAge` : depuis sa dernière attaque.
+export function drawMonster(ctx, m, t, hitAge, lungeAge) {
+  const x = m.dx * TILE;
+  const bob = Math.sin(t / 260 + m.seed) * 1.2;
+  const lunge = lungeAge < 180 ? Math.sin((lungeAge / 180) * Math.PI) * 3 : 0;
+  const y = m.dy * TILE + bob - lunge;
+  const flash = hitAge < 140;
+  if (m.sorte === 'brute') {
+    px(ctx, 'rgba(0,0,0,0.3)', x - 9, m.dy * TILE + 7, 18, 3);
+    ctx.fillStyle = flash ? '#ffffff' : '#7a2a2a';
+    ctx.beginPath(); ctx.ellipse(x, y, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+    px(ctx, flash ? '#ffffff' : '#e8d8b0', x - 7, y - 10, 3, 4); // cornes
+    px(ctx, flash ? '#ffffff' : '#e8d8b0', x + 4, y - 10, 3, 4);
+    px(ctx, '#ffd84a', x - 4, y - 3, 2, 2);
+    px(ctx, '#ffd84a', x + 2, y - 3, 2, 2);
+    px(ctx, '#2b1a1a', x - 3, y + 3, 6, 2);
+  } else if (m.sorte === 'rodeur') {
+    px(ctx, 'rgba(0,0,0,0.3)', x - 8, m.dy * TILE + 5, 16, 3);
+    const body = flash ? '#ffffff' : '#4a4a58';
+    px(ctx, body, x - 7, y - 3, 12, 6); // corps
+    px(ctx, body, x + 3, y - 6, 5, 5); // tête
+    px(ctx, body, x + 4, y - 8, 2, 2); // oreille
+    px(ctx, body, x - 6, y + 3, 2, 3); // pattes
+    px(ctx, body, x + 2, y + 3, 2, 3);
+    px(ctx, body, x - 9, y - 4, 3, 2); // queue
+    px(ctx, '#ff5a4a', x + 6, y - 5, 1, 1);
+  } else {
+    px(ctx, 'rgba(0,0,0,0.25)', x - 6, m.dy * TILE + 4, 12, 2);
+    ctx.fillStyle = flash ? '#ffffff' : '#5a3d8a';
     ctx.beginPath(); ctx.ellipse(x, y, 6, 5, 0, Math.PI, 0); ctx.fill();
     px(ctx, ctx.fillStyle, x - 6, y, 12, 4);
     px(ctx, '#fff', x - 3, y - 2, 2, 2);
     px(ctx, '#fff', x + 1, y - 2, 2, 2);
     px(ctx, '#1c1814', x - 2, y - 1, 1, 1);
     px(ctx, '#1c1814', x + 2, y - 1, 1, 1);
+  }
+  if (m.pv < m.pvMax) {
+    const w = m.sorte === 'brute' ? 18 : 12;
+    px(ctx, 'rgba(0,0,0,0.6)', x - w / 2, y - 14, w, 2);
+    px(ctx, '#e5635c', x - w / 2, y - 14, Math.max(1, Math.round((w * m.pv) / m.pvMax)), 2);
   }
 }
 
@@ -242,11 +265,21 @@ function drawStructure(ctx, zx, zy, type, cond, building) {
   }
 }
 
-export function drawPlayer(ctx, p, t, attackAge) {
+export function drawPlayer(ctx, p, t, attackAge, hurtAge = Infinity) {
   const bob = p.bouge ? Math.abs(Math.sin(t / 90)) * 1.5 : 0;
   const x = p.dx * TILE;
   const y = p.dy * TILE - bob;
-  const tunic = TUNIQUES[p.couleur % TUNIQUES.length];
+  const tunic = hurtAge < 160 ? '#ffffff' : TUNIQUES[p.couleur % TUNIQUES.length];
+  if (p.aTerre) {
+    // À terre : allongé, en attendant d'être ramené au village.
+    ctx.globalAlpha = 0.7;
+    px(ctx, 'rgba(0,0,0,0.3)', x - 8, y + 2, 16, 3);
+    px(ctx, tunic, x - 5, y - 3, 9, 6);
+    px(ctx, '#f1c8a0', x + 4, y - 3, 6, 6);
+    px(ctx, '#6b4a2b', x + 8, y - 3, 2, 6);
+    ctx.globalAlpha = 1;
+    return;
+  }
   px(ctx, 'rgba(0,0,0,0.3)', x - 5, p.dy * TILE + 5, 10, 3);
   px(ctx, '#3a2f28', x - 4, y + 3, 3, 3); // jambes
   px(ctx, '#3a2f28', x + 1, y + 3, 3, 3);
@@ -274,7 +307,7 @@ export function drawPlayer(ctx, p, t, attackAge) {
 }
 
 // Dessine le monde vu par la caméra. `view` : { cx, cy, scale } en tuiles / pixels écran.
-export function drawWorld(ctx, { monde, zoneCanvases, state, players, view, t, width, height }) {
+export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters = [], questZones = new Set(), view, t, width, height }) {
   const { cx, cy, scale } = view;
   const W = monde.largeur;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -313,7 +346,6 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, view, t, w
         const [type, cond, b] = part.split('|');
         drawStructure(ctx, zx, zy, type, Number(cond), b === '1');
       }
-      if (!info.village) drawMonsters(ctx, zx, zy, z.p, t);
       if (z.c) {
         // Zone fermée : hachures de neige.
         ctx.save();
@@ -328,9 +360,25 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, view, t, w
     }
   }
 
-  // Joueurs, du haut vers le bas pour que les plus proches passent devant.
+  // Zones de quête : un fanion au centre de la zone.
+  for (const zi of questZones) {
+    const zx = zi % W;
+    const zy = Math.floor(zi / W);
+    if (zx < zx0 || zx > zx1 || zy < zy0 || zy > zy1) continue;
+    const fx = (zx + 0.5) * ZONE_PX;
+    const fy = (zy + 0.5) * ZONE_PX - 6 + Math.sin(t / 400) * 2;
+    px(ctx, '#6b4a2b', fx, fy - 14, 2, 18);
+    px(ctx, '#ffd84a', fx + 2, fy - 14, 9, 6);
+    px(ctx, '#e0a458', fx + 2, fy - 9, 9, 1);
+  }
+
+  // Monstres et joueurs, du haut vers le bas pour que les plus proches passent devant.
+  const actors = [
+    ...monsters.map((m) => ({ y: m.dy, draw: () => drawMonster(ctx, m, t, t - m.hitAt, t - m.lungeAt) })),
+    ...players.map((p) => ({ y: p.dy, draw: () => drawPlayer(ctx, p, t, t - p.attackAt, t - p.hurtAt) })),
+  ].sort((a, b) => a.y - b.y);
+  for (const a of actors) a.draw();
   const sorted = [...players].sort((a, b) => a.dy - b.dy);
-  for (const p of sorted) drawPlayer(ctx, p, t, t - p.attackAt);
 
   // Noms en coordonnées écran (texte net).
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -348,7 +396,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, view, t, w
 }
 
 // Mini-carte : une case par zone, teinte selon la pression des monstres.
-export function drawMinimap(ctx, { monde, state, players }) {
+export function drawMinimap(ctx, { monde, state, players, questZones = new Set() }) {
   const W = monde.largeur;
   const cell = ctx.canvas.width / W;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -366,6 +414,9 @@ export function drawMinimap(ctx, { monde, state, players }) {
     ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
     if (z?.c) { ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1); }
   });
+  ctx.strokeStyle = '#ffd84a';
+  ctx.lineWidth = 1.5;
+  for (const zi of questZones) ctx.strokeRect((zi % W) * cell + 1, Math.floor(zi / W) * cell + 1, cell - 2, cell - 2);
   for (const p of players) {
     ctx.fillStyle = p.moi ? '#ffe28a' : '#ffffff';
     ctx.beginPath();

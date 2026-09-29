@@ -51,9 +51,18 @@ Réglages du serveur (variables d'environnement) :
 ## Commandes du jeu
 
 - Flèches, ou **Z Q S D** (AZERTY) / **W A S D** (QWERTY) : se déplacer.
-- **Espace** : combattre. Les monstres de la zone reculent, et bien plus vite à plusieurs.
+- **Espace** : combattre, dans la direction du regard. Chaque monstre vaincu fait reculer la
+  pression de sa zone. Plus une zone est infestée, plus ses monstres sont nombreux et coriaces
+  (gluants, rôdeurs, brutes) : à plusieurs, c'est bien plus facile.
+- **E** : agir selon l'endroit (le bandeau indique quoi) : couper du bois en forêt, réparer une
+  structure abîmée (2 bois), bâtir une tour de guet demandée par le village (3 bois), donner un
+  coup de main au village.
 - **C** : chronique, quêtes du village, métiers, joueurs en ligne.
-- Sur téléphone : maintenir le doigt dans une direction pour marcher, bouton ⚔ pour combattre.
+- Sur téléphone : maintenir le doigt dans une direction pour marcher, ⚔ pour combattre, ✋ pour agir.
+
+Les quêtes du village (fanions jaunes sur la carte) se valident en jouant : une patrouille ou une
+escorte en vainquant 4 monstres autour du champ ou de la mine, une réparation ou une tour en y
+travaillant avec **E**. À bout de forces, on se relève au village sans rien perdre.
 
 ## Organisation du code
 

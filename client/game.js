@@ -19,6 +19,7 @@ const game = {
   zoneCanvases: null,
   me: { x: 0, y: 0 }, // position prédite du joueur local
   others: new Map(), // sessionId -> position affichée (interpolée)
+  monsters: new Map(), // id -> position affichée et instants des coups
   input: { x: 0, y: 0 },
   sentInput: { x: 0, y: 0 },
   chroniques: [],
@@ -67,6 +68,8 @@ async function connect(nom) {
   room.onMessage('absence', (m) => {
     showMessage(`Pendant votre absence (jours ${m.depuis} à ${m.jusqua})`, m.lignes, '');
   });
+  room.onMessage('annonce', (text) => toast(text));
+  room.onMessage('info', (text) => info(text));
   room.onLeave(() => {
     toast('Connexion perdue avec la contrée. Rechargez la page pour revenir.');
   });
@@ -102,6 +105,15 @@ function showMessage(title, lines, text) {
 }
 $('message-ok').addEventListener('click', () => { $('message').hidden = true; });
 
+let infoTimer = null;
+function info(text) {
+  const el = $('info');
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(infoTimer);
+  infoTimer = setTimeout(() => { el.hidden = true; }, 1400);
+}
+
 let toastTimer = null;
 function toast(text) {
   const el = $('toast');
@@ -124,6 +136,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || !game.room) return;
   if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
   if (e.code === 'Space' || e.code === 'KeyJ') { attack(); e.preventDefault(); }
+  if (e.code === 'KeyE' || e.code === 'KeyK') { interact(); e.preventDefault(); }
   if (e.code === 'KeyC') toggleSide();
   if (e.code === 'Escape') { $('message').hidden = true; $('cote').classList.remove('ouvert'); }
 });
@@ -138,6 +151,7 @@ const stopPointer = () => { pointer = null; };
 canvas.addEventListener('pointerup', stopPointer);
 canvas.addEventListener('pointercancel', stopPointer);
 $('attaque').addEventListener('pointerdown', (e) => { e.preventDefault(); attack(); });
+$('agir').addEventListener('pointerdown', (e) => { e.preventDefault(); interact(); });
 
 function readInput() {
   let x = 0;
@@ -166,6 +180,15 @@ function attack() {
   if (now - lastAttackSent < 400) return;
   lastAttackSent = now;
   game.room.send('attaque');
+}
+
+let lastInteractSent = 0;
+function interact() {
+  if (!game.room) return;
+  const now = performance.now();
+  if (now - lastInteractSent < 300) return;
+  lastInteractSent = now;
+  game.room.send('interagir');
 }
 
 // ---------- Interface ----------
@@ -199,6 +222,47 @@ function renderHud() {
     return `${type} (${statusWord(Number(cond), b === '1')})`;
   });
   $('structs').textContent = structs.join(' · ');
+
+  const me = s.joueurs.get(game.room.sessionId);
+  if (me) {
+    const coeurs = $('coeurs');
+    coeurs.replaceChildren();
+    const plein = document.createElement('span');
+    plein.textContent = '♥'.repeat(me.pv);
+    const vide = document.createElement('span');
+    vide.className = 'vide';
+    vide.textContent = '♥'.repeat(Math.max(0, me.pvMax - me.pv));
+    coeurs.append(plein, vide);
+    coeurs.setAttribute('aria-label', `${me.pv} points de vie sur ${me.pvMax}`);
+    const action = $('action');
+    action.hidden = !me.action;
+    if (me.action) {
+      action.replaceChildren();
+      const k = document.createElement('kbd');
+      k.textContent = 'E';
+      action.append(k, document.createTextNode(` ${me.action}`));
+    }
+    $('aterre').hidden = !me.aTerre;
+  }
+  $('bois').textContent = `🪵 ${s.bois} bois`;
+  const hq = $('hud-quetes');
+  const quests = [...(s.quetes ?? [])].slice(0, 3);
+  const qKey = quests.map((q) => `${q.id}:${q.progres}`).join('|');
+  if (hq.dataset.key !== qKey) {
+    hq.dataset.key = qKey;
+    hq.replaceChildren();
+    for (const q of quests) {
+      const item = document.createElement('li');
+      item.textContent = `⚑ ${q.texte.charAt(0).toUpperCase()}${q.texte.slice(1)}`;
+      const bar = document.createElement('span');
+      bar.className = 'barre';
+      const fill = document.createElement('i');
+      fill.style.width = `${q.progres}%`;
+      bar.appendChild(fill);
+      item.appendChild(bar);
+      hq.appendChild(item);
+    }
+  }
   if (zi !== game.lastZone) {
     game.lastZone = zi;
     if (z.c) toast('La neige ferme cette zone jusqu\'au printemps.');
@@ -220,7 +284,7 @@ function renderSide() {
   q.replaceChildren();
   const quetes = [...(s.quetes ?? [])];
   if (!quetes.length) li(q, 'Rien de pressant pour l\'instant.');
-  for (const t of quetes) li(q, t.charAt(0).toUpperCase() + t.slice(1));
+  for (const x of quetes) li(q, `${x.texte.charAt(0).toUpperCase()}${x.texte.slice(1)} (${x.progres} %)`);
 
   const m = $('metiers');
   m.replaceChildren();
@@ -299,28 +363,42 @@ function frame(t) {
   if (mine) {
     if (!game.meInit) { game.me = { x: mine.x, y: mine.y }; game.meInit = true; }
     // Prédiction locale, bloquée par les zones fermées comme sur le serveur.
-    const next = stepPosition(game.me.x, game.me.y, input, dt);
+    const next = mine.aTerre ? game.me : stepPosition(game.me.x, game.me.y, input, dt);
     const blocked = (x, y) => room.state.zones[zoneIndexAt(x, y, game.monde.largeur, game.monde.hauteur)]?.c;
     if (!blocked(next.x, game.me.y)) game.me.x = next.x;
     if (!blocked(game.me.x, next.y)) game.me.y = next.y;
-    // Recalage en douceur (ou immédiat si l'écart est grand).
+    // Recalage en douceur (ou immédiat si l'écart est grand, ou si le joueur est à terre).
     const ex = mine.x - game.me.x;
     const ey = mine.y - game.me.y;
-    if (Math.hypot(ex, ey) > 2) game.me = { x: mine.x, y: mine.y };
+    if (mine.aTerre || Math.hypot(ex, ey) > 2) game.me = { x: mine.x, y: mine.y };
     else { game.me.x += ex * 0.1; game.me.y += ey * 0.1; }
   }
 
   room.state.joueurs.forEach((p, id) => {
     const moi = id === room.sessionId;
     let d = game.others.get(id);
-    if (!d) { d = { x: p.x, y: p.y, attaque: p.attaque, attackAt: -1e9 }; game.others.set(id, d); }
+    if (!d) { d = { x: p.x, y: p.y, attaque: p.attaque, attackAt: -1e9, touche: p.touche, hurtAt: -1e9 }; game.others.set(id, d); }
     if (moi) { d.x = game.me.x; d.y = game.me.y; }
     else { d.x += (p.x - d.x) * 0.25; d.y += (p.y - d.y) * 0.25; }
     if (p.attaque !== d.attaque) { d.attaque = p.attaque; d.attackAt = t; }
+    if (p.touche !== d.touche) { d.touche = p.touche; d.hurtAt = t; }
     const dir = moi && (input.x || input.y) ? (Math.abs(input.x) > Math.abs(input.y) ? (input.x > 0 ? 'droite' : 'gauche') : (input.y > 0 ? 'bas' : 'haut')) : p.dir;
-    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) : p.bouge, couleur: p.couleur, attackAt: d.attackAt, moi });
+    players.push({ nom: p.nom, dx: d.x, dy: d.y, dir, bouge: moi ? Boolean(input.x || input.y) && !p.aTerre : p.bouge, couleur: p.couleur, attackAt: d.attackAt, hurtAt: d.hurtAt, aTerre: p.aTerre, moi });
   });
   for (const id of game.others.keys()) if (!room.state.joueurs.has(id)) game.others.delete(id);
+
+  const monsters = [];
+  room.state.monstres?.forEach((m, id) => {
+    let d = game.monsters.get(id);
+    if (!d) { d = { x: m.x, y: m.y, coup: m.coup, touche: m.touche, hitAt: -1e9, lungeAt: -1e9, seed: Math.random() * 10 }; game.monsters.set(id, d); }
+    d.x += (m.x - d.x) * 0.3;
+    d.y += (m.y - d.y) * 0.3;
+    if (m.coup !== d.coup) { d.coup = m.coup; d.lungeAt = t; }
+    if (m.touche !== d.touche) { d.touche = m.touche; d.hitAt = t; }
+    monsters.push({ sorte: m.sorte, dx: d.x, dy: d.y, pv: m.pv, pvMax: m.pvMax, hitAt: d.hitAt, lungeAt: d.lungeAt, seed: d.seed });
+  });
+  for (const id of game.monsters.keys()) if (!room.state.monstres.has(id)) game.monsters.delete(id);
+  const questZones = new Set([...(room.state.quetes ?? [])].map((q) => q.zone).filter((z) => z >= 0));
 
   // Zoom entier : environ 20 tuiles visibles en largeur, 2× au minimum.
   const cssW = window.innerWidth;
@@ -334,10 +412,10 @@ function frame(t) {
   const cy = Math.max(halfH, Math.min(worldH - halfH, game.me.y));
 
   drawWorld(ctx, {
-    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players,
+    monde: game.monde, zoneCanvases: game.zoneCanvases, state: room.state, players, monsters, questZones,
     view: { cx, cy, scale }, t, width: sized.w, height: sized.h,
   });
-  drawMinimap(mini, { monde: game.monde, state: room.state, players });
+  drawMinimap(mini, { monde: game.monde, state: room.state, players, questZones });
   renderHud();
 }
 
