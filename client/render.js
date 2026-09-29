@@ -230,20 +230,52 @@ export function buildZoneCanvases(monde) {
 
 // ---------- Éléments dynamiques ----------
 
-function drawPath(ctx, zx, zy, wear, village) {
+// Sentier : il relie le centre de la zone à la voisine en direction du village, en serpentant.
+// Peu emprunté, c'est une trace d'herbe foulée ; très emprunté, un chemin de terre qui s'élargit.
+// Il traverse les ruisseaux sur des pierres de gué.
+function drawPath(ctx, zx, zy, wear, village, terrain) {
   if (wear <= 0) return;
-  // Le chemin relie le centre de la zone à la zone voisine en direction du village.
-  const cx = (zx + 0.5) * ZONE_PX;
-  const cy = (zy + 0.5) * ZONE_PX;
   const dx = Math.sign(village.x - zx);
   const dy = Math.sign(village.y - zy);
-  ctx.strokeStyle = `rgba(201, 163, 106, ${0.35 + (wear / 100) * 0.6})`;
-  ctx.lineWidth = 3 + Math.round((wear / 100) * 5);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + dx * ZONE_PX, cy + dy * ZONE_PX);
-  ctx.stroke();
+  if (!terrain) return;
+  const tiles = terrain.trail(zx, zy, dx, dy);
+  const on = new Set(tiles.map(([gx, gy]) => `${gx},${gy}`));
+  const has = (gx, gy) => on.has(`${gx},${gy}`);
+  const road = wear >= 40;
+  const m = wear >= 70 ? 3 : 0; // un chemin très fréquenté déborde sur l'herbe
+  for (const [gx, gy] of tiles) {
+    const x = gx * TILE;
+    const y = gy * TILE;
+    if (terrain.isWater(gx, gy)) {
+      if (!road) continue;
+      px(ctx, '#9a9480', x + 2, y + 3, 5, 4); px(ctx, '#c2bca8', x + 2, y + 3, 4, 1);
+      px(ctx, '#9a9480', x + 9, y + 9, 5, 4); px(ctx, '#c2bca8', x + 9, y + 9, 4, 1);
+      continue;
+    }
+    if (!road) {
+      // Trace : de l'herbe foulée, de plus en plus nette.
+      const a = 0.2 + (wear / 40) * 0.35;
+      ctx.fillStyle = `rgba(222, 204, 130, ${a})`;
+      for (let k = 0; k < 4; k++) {
+        const r = hash(gx, gy, 80 + k);
+        ctx.fillRect(x + 2 + Math.floor(r * 10), y + 2 + Math.floor(hash(gy, gx, 84 + k) * 11), 3, 2);
+      }
+      continue;
+    }
+    // Chemin de terre d'un seul tenant : bords seulement là où il ne continue pas.
+    const l = has(gx - 1, gy) ? 0 : 3 - m;
+    const r = has(gx + 1, gy) ? 0 : 3 - m;
+    const t = has(gx, gy - 1) ? 0 : 3 - m;
+    const b = has(gx, gy + 1) ? 0 : 3 - m;
+    px(ctx, '#c9a36a', x + l, y + t, TILE - l - r, TILE - t - b);
+    ctx.fillStyle = '#a88452';
+    if (l) ctx.fillRect(x + l, y + t, 1, TILE - t - b);
+    if (r) ctx.fillRect(x + TILE - r - 1, y + t, 1, TILE - t - b);
+    if (t) ctx.fillRect(x + l, y + t, TILE - l - r, 1);
+    if (b) ctx.fillRect(x + l, y + TILE - b - 1, TILE - l - r, 1);
+    if (hash(gx, gy, 71) < 0.45) px(ctx, '#8f7a5a', x + 4 + Math.floor(hash(gx, gy, 72) * 8), y + 5 + Math.floor(hash(gy, gx, 73) * 6), 2, 1);
+    if (hash(gx, gy, 74) < 0.3) px(ctx, '#dcc08c', x + 3 + Math.floor(hash(gy, gx, 75) * 9), y + 4 + Math.floor(hash(gx, gy, 76) * 8), 3, 1);
+  }
 }
 
 // Monstres réels (entités du serveur). `hitAge` : depuis le dernier coup reçu ; `lungeAge` : depuis sa dernière attaque.
@@ -575,7 +607,7 @@ export function drawWorld(ctx, { monde, zoneCanvases, state, players, monsters =
       const z = state.zones[i];
       if (!z) continue;
       const info = monde.zones[i];
-      if (!info.village && !info.champ) drawPath(ctx, zx, zy, z.w, villageXY);
+      if (!info.village && !info.champ) drawPath(ctx, zx, zy, z.w, villageXY, zoneCanvases.terrain);
       if (winter) px(ctx, 'rgba(240, 246, 255, 0.32)', zx * ZONE_PX, zy * ZONE_PX, ZONE_PX, ZONE_PX);
       if (!info.village && z.p > 0) px(ctx, `rgba(70, 20, 80, ${(z.p / 100) * 0.28})`, zx * ZONE_PX, zy * ZONE_PX, ZONE_PX, ZONE_PX);
       for (const part of (z.s || '').split(';').filter(Boolean)) {

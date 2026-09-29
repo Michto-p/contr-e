@@ -121,5 +121,41 @@ export function createTerrain(monde) {
   // Nuance de couleur à grande échelle, pour que l'herbe ne soit jamais uniforme.
   const tint = (gx, gy) => fbm(gx * 0.04, gy * 0.04, seed + 89, 2) - 0.5;
 
-  return { seed, biomeAt, isWater, nearWater, level, density, tint, zoneIndex };
+  // Tracé d'un sentier : du centre d'une zone au centre de sa voisine en direction du village,
+  // en serpentant un peu. Liste de tuiles contiguës, calculée une fois par zone.
+  const trails = new Map();
+  function trail(zx, zy, dx, dy) {
+    const key = `${zx},${zy},${dx},${dy}`;
+    if (trails.has(key)) return trails.get(key);
+    const ax = (zx + 0.5) * ZONE_TILES;
+    const ay = (zy + 0.5) * ZONE_TILES;
+    const bx = ax + dx * ZONE_TILES;
+    const by = ay + dy * ZONE_TILES;
+    const len = Math.hypot(bx - ax, by - ay);
+    const px = -(by - ay) / len;
+    const py = (bx - ax) / len;
+    const tiles = [];
+    const seen = new Set();
+    let last = null;
+    const add = (tx, ty) => {
+      const k = ty * worldW + tx;
+      if (seen.has(k)) return;
+      seen.add(k);
+      tiles.push([tx, ty]);
+    };
+    for (let s = 0; s <= len * 2; s++) {
+      const u = s / (len * 2);
+      const off = (fbm(u * 3 + zx * 1.7, zy * 2.3 + dx + dy * 5, seed + 97, 2) - 0.5) * 7 * Math.sin(Math.PI * u);
+      const tx = Math.floor(ax + (bx - ax) * u + px * off);
+      const ty = Math.floor(ay + (by - ay) * u + py * off);
+      // Pas de saut en diagonale : le sentier reste d'un seul tenant.
+      if (last && last[0] !== tx && last[1] !== ty) add(tx, last[1]);
+      add(tx, ty);
+      last = [tx, ty];
+    }
+    trails.set(key, tiles);
+    return tiles;
+  }
+
+  return { seed, biomeAt, isWater, nearWater, level, density, tint, zoneIndex, trail };
 }

@@ -169,3 +169,7 @@
 ## Nuit dangereuse, eau animée
 - Fait : de 21 h à 5 h, un monstre de plus par zone infestée (une zone calme reste calme) et un flair porté de 5 à 7 tuiles ; une annonce prévient à la tombée de la nuit et au lever du jour. Les reflets de l'eau glissent au fil du courant.
 - Décision : la nuit ne change que le jeu en temps réel, pas la simulation (qui raisonne par jour) ; les avant-postes et le village gardent leur zone sûre, ce qui leur donne encore plus d'intérêt.
+
+## Sentiers visibles
+- Fait : l'usure des chemins de la simulation se voit maintenant comme un vrai sentier qui serpente d'une zone à la voisine en direction du village : herbe foulée tant qu'il est peu emprunté, chemin de terre continu au-delà (seuil de la simulation : 40), qui s'élargit quand il est très fréquenté, avec des pierres de gué sur les ruisseaux.
+- Décision : le tracé est tiré de la graine (même dessin pour tous) et calculé une fois par zone ; seul l'état (usure) change d'une image à l'autre.
