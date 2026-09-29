@@ -46,11 +46,11 @@ export function nature(state, rng, ctx) {
     const after = pathState(z.pathWear);
     z.pathState = after;
     if (before !== after) {
-      if (after === 'chemin') events.push(ctx.event('path_formed', z, { label: z.label }));
+      if (after === 'chemin') events.push(ctx.event('path_formed', z, { label: z.label, dist: z.dist }));
       else if (after === 'trace' && before === 'chemin') {
-        events.push(ctx.event('path_fading', z, { label: z.label, wear: z.pathWear, fix: 'emprunter' }));
+        events.push(ctx.event('path_fading', z, { label: z.label, dist: z.dist, wear: z.pathWear, fix: 'emprunter' }));
       } else if (after === 'aucun') {
-        events.push(ctx.event('path_lost', z, { label: z.label, fix: 'emprunter' }));
+        events.push(ctx.event('path_lost', z, { label: z.label, dist: z.dist, fix: 'emprunter' }));
       }
     }
 

@@ -26,6 +26,18 @@ export function joinPlaces(labels) {
   return joinFr([...groups].map(([noun, rests]) => (rests.length ? `${noun} ${joinFr(rests)}` : noun)));
 }
 
+// « de » devant chaque groupe de lieux : « des marais du Nord et des prés de l'Est ».
+export function dePlaces(labels) {
+  const groups = new Map();
+  for (const label of new Set(labels)) {
+    const m = label.match(/^(.*?) ((?:du |de l'|de la |des ).*)$/);
+    const noun = m ? m[1] : label;
+    if (!groups.has(noun)) groups.set(noun, []);
+    if (m) groups.get(noun).push(m[2]);
+  }
+  return joinFr([...groups].map(([noun, rests]) => deLabel(rests.length ? `${noun} ${joinFr(rests)}` : noun)));
+}
+
 // « les marais » -> « des marais » (complément du nom).
 export function deLabel(label) {
   if (label.startsWith('les ')) return `des ${label.slice(4)}`;
@@ -170,9 +182,16 @@ const RENDERERS = {
     priority: () => 9,
     text: (evs, debug) => {
       const worst = Math.max(...evs.map((e) => e.data.lossPct));
-      const where = deLabel(joinPlaces(labels(evs)));
+      const where = dePlaces(labels(evs));
       const how = evs.length === 1 ? lossWord(worst) : `jusqu'à ${lossWord(worst)}`;
       return `Les nuisibles ont ravagé ${how} de la récolte ${where}. ${FIX.patrouiller}${debug ? dbg(evs, ['lossPct', 'threat']) : ''}`;
+    },
+    repeat: {
+      priority: () => 9,
+      text: (evs, debug) => {
+        const worst = Math.max(...evs.map((e) => e.data.lossPct));
+        return `Les nuisibles s'acharnent sur les récoltes ${dePlaces(labels(evs))} : ${evs.length === 1 ? '' : "jusqu'à "}${lossWord(worst)} de perdu cette fois encore. Sans patrouille, cela continuera.${debug ? dbg(evs, ['lossPct', 'threat']) : ''}`;
+      },
     },
   },
   bread_shortage: {
@@ -222,8 +241,16 @@ const RENDERERS = {
     text: (evs) => `Les mineurs ont repris le chemin ${deLabel(evs[0].data.label)}.`,
   },
   quest_open: {
+    repeat: { priority: () => 1 },
     priority: () => 2,
-    text: (evs) => `Au village, on cherche ${joinFr(evs.map((e) => QUEST_TEXT[e.data.kind](e)))}.`,
+    text: (evs) => {
+      // Les patrouilles sont regroupées : « des patrouilles dans les champs du Nord et de l'Est ».
+      const patrols = evs.filter((e) => e.data.kind === 'patrouille');
+      const parts = evs.filter((e) => e.data.kind !== 'patrouille').map((e) => QUEST_TEXT[e.data.kind](e));
+      if (patrols.length === 1) parts.unshift(QUEST_TEXT.patrouille(patrols[0]));
+      if (patrols.length > 1) parts.unshift(`des patrouilles dans ${joinPlaces(labels(patrols))}`);
+      return `Au village, on cherche ${joinFr(parts)}.`;
+    },
   },
   village_status: {
     priority: () => 1,
@@ -238,6 +265,10 @@ const RENDERERS = {
     // Plus c'est proche du village, plus c'est grave.
     priority: (e) => (e.data.dist <= 2 ? 8 : 6),
     text: (evs, debug) => `Les monstres pullulent ${somePlaces(labels(evs)).replace(/^(notamment )?/, '$1dans ')} et débordent sur les terres voisines. ${FIX.groupe}${debug ? dbg(evs, ['pressure']) : ''}`,
+    repeat: {
+      priority: (e) => (e.data.dist <= 2 ? 7 : 4),
+      text: (evs, debug) => `Les monstres gagnent encore du terrain, ${somePlaces(labels(evs)).replace(/^(notamment )?/, (m, n) => (n ? 'notamment dans ' : 'cette fois dans '))}.${debug ? dbg(evs, ['pressure']) : ''}`,
+    },
   },
   horde: {
     priority: (e) => (e.data.dist <= 3 ? 8 : 6),
@@ -247,7 +278,7 @@ const RENDERERS = {
   },
   fields_threatened: {
     priority: () => 9,
-    text: (evs, debug) => `Des bêtes rôdent autour ${deLabel(joinPlaces(labels(evs)))}. ${FIX.patrouiller}${debug ? dbg(evs, ['pressure']) : ''}`,
+    text: (evs, debug) => `Des bêtes rôdent autour ${dePlaces(labels(evs))}. ${FIX.patrouiller}${debug ? dbg(evs, ['pressure']) : ''}`,
   },
   retreat: {
     key: (e) => e.data.label,
@@ -255,14 +286,12 @@ const RENDERERS = {
     text: (evs) => `${cap(who(evs))} ${plural(evs) ? 'ont dû' : 'a dû'} battre en retraite face aux monstres ${deLabel(evs[0].data.label)} : trop nombreux pour un combattant seul. ${FIX.groupe}`,
   },
   zone_cleared: {
-    key: (e) => e.data.label,
     priority: () => 7,
-    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont nettoyé' : 'a nettoyé'} ${evs[0].data.label} : les monstres n'y sont plus qu'une poignée.${debug ? dbg(evs, ['from', 'to']) : ''}`,
+    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont nettoyé' : 'a nettoyé'} ${joinPlaces(labels(evs))} : les monstres n'y sont plus qu'une poignée.${debug ? dbg(evs, ['from', 'to']) : ''}`,
   },
   monsters_pushed: {
-    key: (e) => e.data.label,
     priority: () => 4,
-    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont repoussé' : 'a repoussé'} les monstres ${deLabel(evs[0].data.label)}.${debug ? dbg(evs, ['from', 'to']) : ''}`,
+    text: (evs, debug) => `${cap(who(evs))} ${plural(evs) ? 'ont repoussé' : 'a repoussé'} les monstres ${dePlaces(labels(evs))}.${debug ? dbg(evs, ['from', 'to']) : ''}`,
   },
   path_formed: {
     priority: () => 3,
@@ -270,11 +299,16 @@ const RENDERERS = {
   },
   path_fading: {
     priority: () => 3,
-    text: (evs, debug) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${deLabel(joinPlaces(labels(evs)))} ${evs.length > 1 ? 'se couvrent' : 'se couvre'} d'herbes, faute de passage. ${FIX.emprunter(evs.length)}${debug ? dbg(evs, ['wear']) : ''}`,
+    text: (evs, debug) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${dePlaces(labels(evs))} ${evs.length > 1 ? 'se couvrent' : 'se couvre'} d'herbes, faute de passage. ${FIX.emprunter(evs.length)}${debug ? dbg(evs, ['wear']) : ''}`,
+    repeat: { priority: () => 1 },
   },
   path_lost: {
-    priority: () => 5,
-    text: (evs) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${deLabel(joinPlaces(labels(evs)))} ${evs.length > 1 ? 'ont disparu' : 'a disparu'} sous la végétation. Il faudra ${evs.length > 1 ? 'les' : 'le'} rouvrir à pied.`,
+    priority: () => 4,
+    text: (evs) => `${cap(evs.length > 1 ? 'les chemins' : 'le chemin')} ${dePlaces(labels(evs))} ${evs.length > 1 ? 'ont disparu' : 'a disparu'} sous la végétation. Il faudra ${evs.length > 1 ? 'les' : 'le'} rouvrir à pied.`,
+    repeat: {
+      priority: () => 2,
+      text: (evs) => `La végétation continue d'effacer les chemins : ${evs.length > 1 ? 'ceux' : 'celui'} ${dePlaces(labels(evs))} ${evs.length > 1 ? 'ont disparu à leur tour' : 'a disparu à son tour'}.`,
+    },
   },
   structure_decay: {
     key: (e) => `${e.data.level}`,
@@ -294,10 +328,13 @@ const RENDERERS = {
 
 // ---------- Assemblage ----------
 
-function renderGroup(type, evs, debug) {
+// `repeat` : le même genre de nouvelle a déjà été racontée la veille. On varie la tournure
+// et on baisse l'importance, pour qu'un refrain ne mange pas la place des nouveautés.
+function renderGroup(type, evs, debug, repeat = false) {
   const r = RENDERERS[type];
   if (!r) return { priority: 0, text: `(${type})${debug ? ` ${JSON.stringify(evs.map((e) => e.data))}` : ''}` };
-  return { priority: Math.max(...evs.map((e) => r.priority(e))), text: r.text(evs, debug) };
+  const rr = repeat && r.repeat ? { ...r, ...r.repeat } : r;
+  return { priority: Math.max(...evs.map((e) => rr.priority(e))), text: rr.text(evs, debug) };
 }
 
 function groupEvents(events) {
@@ -331,16 +368,25 @@ function dedupe(events) {
 const PLAYER_ACTIONS = new Set(['zone_cleared', 'monsters_pushed', 'quest_done', 'hunt', 'exploration', 'player_return', 'retreat']);
 
 // Transforme les events d'une période en lignes triées par importance.
-export function linesFor(events, { debug = false, max = MAX_LINES, worldFirst = false } = {}) {
-  const lines = groupEvents(dedupe(events).filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug)))
+// Les traces lointaines laissées par les explorateurs s'effacent sans que cela intéresse le village.
+const minor = (e) => (e.type === 'path_fading' || e.type === 'path_formed') && e.data.dist >= 4;
+
+export function linesFor(events, { debug = false, max = MAX_LINES, worldFirst = false, previous = new Set() } = {}) {
+  const lines = groupEvents(dedupe(events).filter((e) => e.type !== 'contree' && (RENDERERS[e.type] || debug) && (debug || !minor(e))))
     .map((g) => {
-      const r = renderGroup(g.type, g.events, debug);
+      const r = renderGroup(g.type, g.events, debug, previous.has(g.type));
       if (worldFirst && PLAYER_ACTIONS.has(g.type)) r.priority -= 4;
       return { ...r, first: g.first };
     })
     .filter((l) => l.text)
     .sort((a, b) => b.priority - a.priority || a.first - b.first);
   return lines.slice(0, max).map((l) => l.text);
+}
+
+// Lignes d'un jour donné, en tenant compte de ce qui a déjà été raconté la veille.
+export function dayLines(events, day, { debug = false } = {}) {
+  const previous = new Set(events.filter((e) => e.day === day - 1).map((e) => e.type));
+  return linesFor(events.filter((e) => e.day === day), { debug, previous });
 }
 
 function header(events) {
@@ -373,7 +419,7 @@ export function formatChronicle(events, { debug = false, since = null, days: nbD
 
   for (const day of days) {
     const dayEvents = events.filter((e) => e.day === day);
-    const lines = linesFor(dayEvents, { debug });
+    const lines = dayLines(events, day, { debug });
     if (lines.length === 0) lines.push('Journée calme dans la contrée.');
     const start = dayEvents.find((e) => e.type === 'day_start');
     out.push(start ? `## Jour ${day} — ${start.data.season}, ${start.data.weather}` : `## Jour ${day}`, '');

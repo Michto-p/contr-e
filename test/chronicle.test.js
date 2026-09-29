@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatChronicle, joinFr, joinPlaces, linesFor } from '../src/chronicle/chronicle.js';
+import { formatChronicle, joinFr, joinPlaces, dePlaces, linesFor, dayLines } from '../src/chronicle/chronicle.js';
 import { createWorld } from '../src/sim/world.js';
 import { createRng } from '../src/sim/rng.js';
 import { simulate } from '../src/sim/tick.js';
@@ -49,4 +49,23 @@ test('--since résume la période manquée', () => {
   assert.match(text, /Pendant votre absence \(jours 3 à 7\)/);
   const lines = text.split('\n').filter((l) => l.startsWith('- '));
   assert.ok(lines.length >= 1 && lines.length <= 8);
+});
+
+test('dePlaces met « de » devant chaque groupe de lieux', () => {
+  assert.equal(dePlaces(['les marais du Nord', 'les prés du Sud', "les marais de l'Est"]), "des marais du Nord et de l'Est et des prés du Sud");
+});
+
+test('une nouvelle déjà racontée la veille est reformulée', () => {
+  const ev = (day) => ({ day, tick: day * 24, type: 'path_lost', zone: day, data: { label: `les bois ${day}`, dist: 2 } });
+  const first = dayLines([ev(1), ev(2)], 1)[0];
+  const second = dayLines([ev(1), ev(2)], 2)[0];
+  assert.match(first, /a disparu sous la végétation/);
+  assert.match(second, /à son tour/);
+});
+
+test('les combats du jour tiennent en une ligne', () => {
+  const evs = ['du Nord', "de l'Est", 'du Sud'].map((r, i) => ({ day: 1, tick: i, zone: i, type: 'monsters_pushed', data: { who: [`J${i}`], label: `les bois ${r}` } }));
+  const lines = linesFor(evs);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /J0, J1 et J2 ont repoussé les monstres des bois du Nord, de l'Est et du Sud/);
 });

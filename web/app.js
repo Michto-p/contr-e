@@ -4,7 +4,7 @@ import { createRng } from '../src/sim/rng.js';
 import { createWorld } from '../src/sim/world.js';
 import { simulate } from '../src/sim/tick.js';
 import { addPlayers, agentsAct } from '../src/sim/agents.js';
-import { formatChronicle, linesFor } from '../src/chronicle/chronicle.js';
+import { formatChronicle, dayLines } from '../src/chronicle/chronicle.js';
 import { el, cssVar } from './ui.js';
 import { drawMap, drawMapLegend } from './map.js';
 import { drawLineChart, drawLegend } from './charts.js';
@@ -147,7 +147,7 @@ function renderDay() {
 
   const list = $('day-lines');
   list.replaceChildren();
-  const lines = linesFor(events.filter((e) => e.day === d), { debug: form.elements.debug.checked });
+  const lines = dayLines(events, d, { debug: form.elements.debug.checked });
   for (const l of lines.length ? lines : ['Journée calme dans la contrée.']) el('li', {}, list, l);
 
   for (const h of document.querySelectorAll('#out h2[data-day]')) h.classList.toggle('current', Number(h.dataset.day) === d);
